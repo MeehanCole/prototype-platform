@@ -1,0 +1,43 @@
+{
+  "_comment": "Figma/AI 导出硬编码颜色 → prototype-platform Tailwind 设计 token 的映射。扩展 converter 脚本时以此为准，不要在代码里写死。",
+  "colors": {
+    "bg": {
+      "#1890ff": "bg-primary",
+      "#f6ffed": "bg-green-50",
+      "#fff7e6": "bg-orange-50",
+      "#e6f7ff": "bg-blue-50",
+      "#fafafa": "bg-muted/50",
+      "#ffffff": "bg-background",
+      "#002140": "bg-primary-foreground/90"
+    },
+    "text": {
+      "rgba(0,0,0,0.85)": "text-foreground",
+      "rgba(0,0,0,0.65)": "text-foreground/80",
+      "rgba(0,0,0,0.45)": "text-muted-foreground",
+      "rgba(0,0,0,0.25)": "text-muted-foreground/60",
+      "#1890ff": "text-primary",
+      "#52c41a": "text-green-600",
+      "#fa8c16": "text-orange-500",
+      "#ff4d4f": "text-destructive"
+    },
+    "border": {
+      "#d9d9d9": "border-border",
+      "#f0f0f0": "border-border/60",
+      "#1890ff": "border-primary",
+      "#b7eb8f": "border-green-200",
+      "#ffd591": "border-orange-200",
+      "#91d5ff": "border-blue-200"
+    }
+  },
+  "components": {
+    "_comment": "Figma raw 组件名 → platform 组件映射。Converter 脚本按这个做批量替换。",
+    "Btn": "host/components/ui/button (Shadcn Button)",
+    "Badge": "host/components/ui/badge (Shadcn Badge)",
+    "Table": "host/components/ui/table (Shadcn Table)",
+    "Pagination": "host/components/ui/pagination (Shadcn Pagination)",
+    "Modal": "host/components/ui/dialog (Shadcn Dialog)",
+    "SelectBox": "host/components/ui/select (Shadcn Select)",
+    "TextInput": "host/components/ui/input (Shadcn Input)",
+    "FormField": "host/components/ui/label + host/components/ui/form"
+  }
+}

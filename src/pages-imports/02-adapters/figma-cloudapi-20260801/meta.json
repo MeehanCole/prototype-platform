@@ -1,0 +1,9 @@
+{
+  "title": "figma-cloudapi-20260801",
+  "module": "pages-imports",
+  "source": "01-raw/figma-cloudapi-20260801",
+  "convertedBy": "figma-to-platform.mjs (skeleton, static copy)",
+  "convertedAt": "2026-07-31T19:49:58.115Z",
+  "status": "adapter-preview-only",
+  "note": "当前是 raw 的静态副本，尚未对齐 Tailwind token / Shadcn 组件，仅用于预览。"
+}
