@@ -1,33 +1,18 @@
 /**
  * PageView - right content area with Tab dual view (prototype + PRD)
- * supports multi-version switching (Select) and PRD inline editing
+ * supports multi-version switching (Select) and read-only PRD view
+ *
+ * 纯前端架构：PRD 内容通过 Vite `?raw` 在 pageRegistry 中加载（见 router/pageRegistry.ts），
+ * 不再依赖 Express 后端读写。原型功能点标注系统（蓝色圆点 + DocPanel）由各版本组件内部实现。
  */
 import { useState, useEffect, lazy, Suspense, type ComponentType } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
-import { Monitor, FileText, History, Maximize2, Minimize2, ZoomIn, ZoomOut } from 'lucide-react'
+import { Monitor, FileText, Maximize2, Minimize2, ZoomIn, ZoomOut } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { findPageByPath } from '@/host/router/pageRegistry'
-import { MilkdownEditor } from '@/host/components/MilkdownEditor'
-import { AnnotationPanel } from '@/host/components/AnnotationPanel'
-import { Timeline } from '@/host/components/Timeline'
 import { DesignSystemSwitcher } from '@/host/components/DesignSystemSwitcher'
-import { readMarkdown, writeMarkdown, readAnnotations } from '@/host/api'
-import { exportPdf } from '@/host/utils/exportPdf'
 import { cn } from '@/lib/utils'
-
-/** derive PRD file path from page dir and version */
-function getPrdPath(dir: string, versionKey: string): string {
-  const relDir = dir.replace('/src/pages/', '')
-  if (versionKey === 'default') return `${relDir}/prd.md`
-  return `${relDir}/prd_${versionKey}.md`
-}
-
-/** derive annotation file path from page dir and version */
-function getAnnoPath(dir: string, versionKey: string): string {
-  const relDir = dir.replace('/src/pages/', '')
-  return `${relDir}/.annotations_${versionKey}.json`
-}
 
 export function PageView() {
   const params = useParams()
@@ -42,19 +27,16 @@ export function PageView() {
   const { meta, component, versionComponents, prdContents } = pageEntry || {
     meta: null,
     component: null,
-    versionComponents: {},
-    prdContents: {},
+    versionComponents: {} as Record<string, () => Promise<{ default: ComponentType }>>,
+    prdContents: {} as Record<string, string>,
   }
 
-  // PRD state
+  // 视图状态
   const [view, setView] = useState<'prototype' | 'prd'>('prototype')
   const [maximized, setMaximized] = useState(false)
   const [zoom, setZoom] = useState(100)
-  const [prdMode, setPrdMode] = useState<'read' | 'edit'>('read')
+  // PRD 内容来自 pageRegistry（Vite ?raw 加载，只读）
   const [prdContent, setPrdContent] = useState('')
-  const [prdDirty, setPrdDirty] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [timelineOpen, setTimelineOpen] = useState(false)
 
   // Esc to exit maximized mode
   useEffect(() => {
@@ -103,52 +85,13 @@ export function PageView() {
     try { localStorage.setItem(FEAT_KEY, v ? 'on' : 'off') } catch { /* ignore */ }
   }
 
-  // load PRD content when page/version changes
+  // load PRD content when page/version changes (from Vite ?raw import in registry)
   useEffect(() => {
     if (!pageEntry) return
     const initial = prdContents[prdKey] || prdContents['default'] || ''
     setPrdContent(initial)
-    setPrdDirty(false)
-    setPrdMode('read')
     setView('prototype')
   }, [routePath, prdKey])
-
-  // when entering edit mode, fetch latest from server
-  const enterEditMode = async () => {
-    if (!pageEntry) return
-    const prdPath = getPrdPath(pageEntry.dir, prdKey)
-    const latest = await readMarkdown(prdPath)
-    setPrdContent(latest)
-    setPrdMode('edit')
-  }
-
-  const handlePrdChange = (md: string) => {
-    setPrdContent(md)
-    setPrdDirty(true)
-  }
-
-  const handleSave = async () => {
-    if (!pageEntry || saving) return
-    setSaving(true)
-    const prdPath = getPrdPath(pageEntry.dir, prdKey)
-    const ok = await writeMarkdown(prdPath, prdContent)
-    setSaving(false)
-    if (ok) {
-      setPrdDirty(false)
-    }
-  }
-
-  const handleExportPdf = async () => {
-    if (!pageEntry) return
-    const annoPath = getAnnoPath(pageEntry.dir, prdKey)
-    const annotations = await readAnnotations(annoPath)
-    exportPdf({
-      page: pageEntry,
-      prdContent,
-      annotations,
-      versionKey: prdKey,
-    })
-  }
 
   if (!pageEntry || !meta || !component) {
     return (
@@ -159,7 +102,10 @@ export function PageView() {
   }
 
   // determine component to render
-  let ActiveComponent: ComponentType
+  // 使用 any 是因为不同版本组件 props 签名不同（v1 不接收 __showFeat，v2+ 接收），
+  // 动态加载场景下无法用单一精确类型覆盖，React 中处理 lazy 动态组件的常见做法
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let ActiveComponent: ComponentType<any>
   if (hasVersions && versionComponents[currentVersion]) {
     const LazyComp = lazy(versionComponents[currentVersion])
     ActiveComponent = LazyComp
@@ -177,7 +123,7 @@ export function PageView() {
           : 'flex-1',
       )}
     >
-      {/* top bar: view switch (segmented control) + version + timeline + maximize */}
+      {/* top bar: view switch (segmented control) + version + maximize */}
       {!maximized && (
         <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-background">
           <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-muted/60">
@@ -220,11 +166,6 @@ export function PageView() {
                   className="rounded border-border"
                 />
                 显示新增功能点
-                {showFeat && (
-                  <span className="inline-flex items-center rounded bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums">
-                    新增·B.08
-                  </span>
-                )}
               </label>
             )}
             {view === 'prototype' && (
@@ -254,13 +195,6 @@ export function PageView() {
                 </button>
               </div>
             )}
-            <button
-              onClick={() => setTimelineOpen(true)}
-              title="更新日志"
-              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-            >
-              <History size={16} />
-            </button>
             <button
               onClick={() => setMaximized(true)}
               title="内容区最大化"
@@ -315,75 +249,18 @@ export function PageView() {
           </div>
         </div>
       ) : (
-        <div key={`prd-${prdMode}`} className="flex-1 overflow-auto p-3 animate-fade-in">
-          {/* PRD toolbar */}
-          <div className="max-w-3xl mx-auto mb-4 flex items-center justify-end gap-2">
-            {prdMode === 'read' ? (
-              <>
-                <button
-                  onClick={handleExportPdf}
-                  className="px-3 py-1.5 text-sm border border-border rounded-md hover:bg-accent"
-                >
-                  导出 PDF
-                </button>
-                <button
-                  onClick={enterEditMode}
-                  className="px-3 py-1.5 text-sm border border-border rounded-md hover:bg-accent"
-                >
-                  编辑
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={() => setPrdMode('read')}
-                  className="px-3 py-1.5 text-sm border border-border rounded-md hover:bg-accent"
-                >
-                  取消
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={saving || !prdDirty}
-                  className="px-3 py-1.5 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-                >
-                  {saving ? '保存中...' : '保存'}
-                </button>
-              </>
-            )}
-          </div>
-
-          {prdMode === 'read' ? (
-            prdContent ? (
-              <AnnotationPanel annoPath={getAnnoPath(pageEntry.dir, prdKey)}>
-                <div className="prose prose-sm max-w-3xl mx-auto">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {prdContent}
-                  </ReactMarkdown>
-                </div>
-              </AnnotationPanel>
-            ) : (
-              <div className="text-muted-foreground text-sm text-center">
-                暂无 PRD 文档,请点击"编辑"创建
-              </div>
-            )
+        <div key={`prd-${prdKey}`} className="flex-1 overflow-auto p-3 animate-fade-in">
+          {prdContent ? (
+            <div className="prose prose-sm max-w-3xl mx-auto">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{prdContent}</ReactMarkdown>
+            </div>
           ) : (
-            <div className="max-w-3xl mx-auto border border-border rounded-lg p-4 bg-background min-h-[400px]">
-              <MilkdownEditor
-                key={`${routePath}-${prdKey}`}
-                value={prdContent}
-                onChange={handlePrdChange}
-              />
+            <div className="text-muted-foreground text-sm text-center py-12">
+              暂无 PRD 文档
             </div>
           )}
         </div>
       )}
-
-      {/* git log timeline drawer */}
-      <Timeline
-        open={timelineOpen}
-        onClose={() => setTimelineOpen(false)}
-        relPath={pageEntry.dir.replace('/src/pages/', '')}
-      />
     </div>
   )
 }

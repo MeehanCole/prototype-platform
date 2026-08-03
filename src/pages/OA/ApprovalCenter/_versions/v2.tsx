@@ -1,5 +1,9 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect, createContext, useContext, useCallback } from 'react'
 import { createPortal } from 'react-dom'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+// Vite 打包时内嵌 PRD 原文，零后端依赖（纯静态部署友好）
+import prdV2Raw from '../prd_v2.md?raw'
 
 // OA Approval Center V2 - 个人视角 + 团队视角双轨制
 // Mode C Hybrid Workflow: 在 V1 纯个人视角基础上,增量叠加团队视角管理功能
@@ -26,24 +30,60 @@ const FEATURE_LABELS: Record<string, { title: string; type: 'A' | 'B' | 'M' | 'R
   'B.08': { type: 'B', title: '显示新增功能点开关', desc: '右上角切换所有 NEW 角标显隐,演示关/测试开' },
 }
 
-// 统一蓝色圆点：hover 显示完整 tooltip（类型区分在 tooltip 文字里）
-const TYPE_STYLE: Record<'A' | 'B' | 'M' | 'R', string> = {
-  A: 'bg-blue-500',
-  B: 'bg-blue-500',
-  M: 'bg-blue-500',
-  R: 'bg-blue-500',
+/**
+ * 从 PRD 原文中提取指定 FR 段落（按 **FR-X 标记切分）
+ * - 只传 startFr：提取该 FR 到下一个 FR 之间的内容
+ * - 传 startFr + endFr：提取 [startFr, endFr) 之间的内容（含 startFr，不含 endFr）
+ */
+function extractSection(raw: string, startFr: string, endFr?: string): string {
+  const lines = raw.split('\n')
+  let start = -1, end = lines.length
+  for (let i = 0; i < lines.length; i++) {
+    if (start < 0 && lines[i].includes(`**${startFr} `)) start = i
+    if (endFr && lines[i].includes(`**${endFr} `)) { end = i; break }
+  }
+  if (!endFr && start >= 0) {
+    // 未指定 endFr：遇到下一个 **FR- 自动截断
+    for (let i = start + 1; i < lines.length; i++) {
+      if (/^\*\*FR-/.test(lines[i])) { end = i; break }
+    }
+  }
+  if (start === -1) return `（未找到 ${startFr} 的 PRD 段落，请检查 prd_v2.md）`
+  return lines.slice(start, end).join('\n').trim()
 }
 
-// 功能点角标 + Portal tooltip（hover 时用 createPortal 渲染到 body，
-// position:fixed 定位，彻底脱离祖先 overflow:auto/hidden 的裁剪）
-// NewTag 必须放在 relative 容器内，圆点绝对定位到容器右上角
+// 功能点编号 → PRD 完整段落映射（点击文档图标弹出右侧面板展示）
+const FEATURE_DOCS: Record<string, string> = {
+  'A.01': extractSection(prdV2Raw, 'FR-1'),
+  'M.01': extractSection(prdV2Raw, 'FR-2'),
+  'B.01': extractSection(prdV2Raw, 'FR-3'),
+  'B.02': extractSection(prdV2Raw, 'FR-4', 'FR-7'),
+  'B.03': extractSection(prdV2Raw, 'FR-4'),
+  'B.04': extractSection(prdV2Raw, 'FR-4'),
+  'B.05': extractSection(prdV2Raw, 'FR-5'),
+  'M.03': extractSection(prdV2Raw, 'FR-5'),
+  'B.06': extractSection(prdV2Raw, 'FR-6'),
+  'B.07': extractSection(prdV2Raw, 'FR-7'),
+  'M.04': extractSection(prdV2Raw, 'FR-8'),
+  'M.05': extractSection(prdV2Raw, 'FR-8'),
+}
+
+// DocContext：NewTag 点击文档图标 → 触发顶层单例 DocPanel 打开
+const DocContext = createContext<(code: string) => void>(() => {})
+
+// 功能点标注：胶囊形"说明"按钮，hover 显示简短 tooltip，点击弹出 PRD 详情面板
+// - 有 PRD 详情（FEATURE_DOCS 有映射）：蓝色可点击，点击调 openDoc(code)
+// - 无 PRD 详情：灰色仅 hover 显示简短描述，不可点击
+// Portal tooltip 用 createPortal 渲染到 body，position:fixed 定位，脱离祖先 overflow 裁剪
 function NewTag({ code }: { code: string }) {
-  const hostRef = useRef<HTMLSpanElement | null>(null)
+  const hostRef = useRef<HTMLButtonElement | null>(null)
+  const openDoc = useContext(DocContext)
   const [tip, setTip] = useState<{ top: number; left: number; above: boolean; show: boolean }>({ top: 0, left: 0, above: true, show: false })
 
   const f = FEATURE_LABELS[code]
   if (!f) return null
   const typeShort = { A: '重构', B: '新增', M: '修改', R: '删除' }[f.type]
+  const hasDoc = !!FEATURE_DOCS[code]
 
   const showTip = () => {
     const el = hostRef.current
@@ -61,17 +101,31 @@ function NewTag({ code }: { code: string }) {
 
   return (
     <>
-      {/* 圆点：绝对定位到父容器右上角，translate 半个尺寸让中心对齐边缘 */}
-      <span
+      <button
         ref={hostRef}
+        type="button"
         onMouseEnter={showTip}
         onMouseLeave={hideTip}
         onFocus={showTip}
         onBlur={hideTip}
+        onClick={hasDoc ? (e) => { e.stopPropagation(); openDoc(code) } : undefined}
+        title={hasDoc ? '查看 PRD 详细说明' : `${typeShort}：${f.title}`}
         aria-label={`${code} ${typeShort}`}
         tabIndex={0}
-        className={`absolute -top-0.5 right-0 -translate-y-1/2 translate-x-1/2 w-1.5 h-1.5 rounded-full ${TYPE_STYLE[f.type]} shadow-sm cursor-help ring-1 ring-white/80 z-10`}
-      />
+        className={`absolute -top-1.5 right-0 inline-flex items-center gap-0.5 h-4 px-1 rounded-full bg-background/95 ring-1 text-[9px] transition-colors z-10 whitespace-nowrap font-medium shadow-sm ${
+          hasDoc
+            ? 'ring-primary/40 text-primary hover:bg-primary/10 hover:ring-primary/60 cursor-pointer'
+            : 'ring-border text-muted-foreground hover:bg-accent cursor-help'
+        }`}
+      >
+        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="9" y1="13" x2="15" y2="13" />
+          <line x1="9" y1="17" x2="13" y2="17" />
+        </svg>
+        说明
+      </button>
       {tip.show && createPortal(
         <div
           style={{
@@ -85,6 +139,7 @@ function NewTag({ code }: { code: string }) {
         >
           <span className="font-semibold block mb-0.5">{code} {f.title}</span>
           <span className="text-background/85">{f.desc}</span>
+          {hasDoc && <span className="block mt-1 text-background/60 text-[10px]">点击查看完整 PRD</span>}
         </div>,
         document.body,
       )}
@@ -102,6 +157,65 @@ function NewBox({ code, children }: { code: string; children: React.ReactNode })
       {children}
       <NewTag code={code} />
     </div>
+  )
+}
+
+/**
+ * DocPanel - 功能点 PRD 详情右侧滑出面板
+ * 通过 FEATURE_DOCS 映射取出该功能点对应的 PRD 完整段落（业务规则/权限/交互/验收/边界），
+ * 用 ReactMarkdown 渲染。Esc 关闭、点遮罩关闭、× 关闭。
+ */
+function DocPanel({ code, onClose }: { code: string | null; onClose: () => void }) {
+  // Esc 关闭
+  useEffect(() => {
+    if (!code) return
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [code, onClose])
+
+  if (!code) return null
+  const f = FEATURE_LABELS[code]
+  const doc = FEATURE_DOCS[code] || '暂无该功能点的 PRD 详细描述'
+  const typeShort = f ? { A: '重构', B: '新增', M: '修改', R: '删除' }[f.type] : ''
+
+  // 用 createPortal 渲染到 document.body，绕过父容器的 transform: scale()
+  // （zoom 缩放会创建新包含块，导致 fixed inset-0 定位相对缩放容器而非视口，底部出现白块）
+  return createPortal(
+    <div className="fixed inset-0 z-[70]" onClick={onClose}>
+      {/* 遮罩 */}
+      <div className="absolute inset-0 bg-black/20 backdrop-blur-[1px]" />
+      {/* 面板：右侧滑出，点击不冒泡到遮罩 */}
+      <div
+        className="absolute right-0 top-0 h-full w-[400px] max-w-[90vw] bg-background border-l border-border shadow-2xl flex flex-col animate-fade-in"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* 头部 */}
+        <div className="flex items-start justify-between gap-2 px-5 py-4 border-b border-border">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="rounded bg-primary/10 text-primary px-1.5 py-0.5 text-[11px] font-semibold tabular-nums">{code}</span>
+              {f && <span className="text-[11px] text-muted-foreground">{typeShort}</span>}
+            </div>
+            <h3 className="mt-1 text-sm font-semibold text-foreground">{f?.title || '功能点详情'}</h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="shrink-0 w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            title="关闭 (Esc)"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+          </button>
+        </div>
+        {/* 内容：PRD 段落 markdown 渲染 */}
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          <div className="prose prose-sm max-w-none prose-headings:text-foreground prose-headings:font-semibold prose-p:text-foreground/90 prose-li:text-foreground/90 prose-th:text-foreground prose-td:text-foreground/80 prose-strong:text-foreground prose-code:text-foreground prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{doc}</ReactMarkdown>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -522,6 +636,9 @@ export default function ApprovalCenterV2({ __showFeat = true }: { __showFeat?: b
   const [statusFilter, setStatusFilter] = useState<ApprovalStatus | 'all'>('all')
   const [timeoutOnly, setTimeoutOnly] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  // DocPanel：当前打开的功能点编号（null = 面板关闭）。NewTag 点击 📄 → openDoc(code)
+  const [docCode, setDocCode] = useState<string | null>(null)
+  const openDoc = useCallback((code: string) => setDocCode(code), [])
 
   // showFeat 开关已上移到 Host header（缩放控件左侧），通过 __showFeat prop 传入；
   // 不建议在页面内自己再存，保持按路由+版本隔离（Host 的 localStorage key）。
@@ -616,6 +733,7 @@ export default function ApprovalCenterV2({ __showFeat = true }: { __showFeat?: b
   }
 
   return (
+    <DocContext.Provider value={openDoc}>
     <div className="min-h-[640px] bg-muted/20 p-4">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -771,7 +889,11 @@ export default function ApprovalCenterV2({ __showFeat = true }: { __showFeat?: b
           {toast}
         </div>
       )}
+
+      {/* 功能点 PRD 详情面板：右侧滑出，NewTag 点击 📄 触发，Esc/点遮罩/× 关闭 */}
+      <DocPanel code={docCode} onClose={() => setDocCode(null)} />
     </div>
+    </DocContext.Provider>
   )
 
   function renderPersonal() {

@@ -67,7 +67,7 @@ export function useSearch() {
         const page = pageRegistry.find((p) => p.path === r.item.path)!
         const matches = (r.matches || []).map((m) => ({
           field: m.key || '',
-          snippet: extractSnippet(m.value as string, m.indices || []),
+          snippet: extractSnippet(m.value as string, (m.indices || []) as [number, number][]),
         }))
         return { item: page, matches }
       })

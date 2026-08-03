@@ -307,16 +307,30 @@ Mode C 混合模式的起点是「已有产品 + 新需求」，**「已有产�
 - 版本对比：保留改造前版本，支持 A/B 对比
 - 向后兼容：不破坏现有交互流程
 
-#### C5 完整 PRD
+#### C5 完整 PRD + 功能点内嵌
+
 **输入物**：改造后的原型 + 改造方案
-**AI 任务**：输出包含"现有功能 + 新增功能"的完整 PRD
-**产物**：`prd.md` 完整 PRD
+**AI 任务**：输出包含"现有功能 + 新增功能"的完整 PRD，并将 PRD 业务描述内嵌到原型代码
+**产物**：`prd.md`（或 `prd_v2.md`）+ 功能点标注代码
 
 PRD 结构：
 - 现有功能描述（简要）
 - 新增/修改功能（详细）
 - 改动影响分析（对现有功能的影响）
 - 迁移/兼容说明（如有）
+
+**PRD 内嵌代码规范**（Mode C 强制）：
+1. PRD 中每个功能需求加 `**FR-X` 标记段落起始
+2. 版本文件 `import prdRaw from '../prd_v2.md?raw'`
+3. 包含 `extractSection` 工具函数按 FR 段落提取
+4. `FEATURE_DOCS` 映射表（key 与 `FEATURE_LABELS` 1:1）
+5. 功能点标注为胶囊形「说明」按钮：蓝色可点击 → 弹出 DocPanel 展示完整 PRD
+6. DocPanel 用 `createPortal` 渲染到 `document.body`，支持 Esc + 遮罩关闭
+
+**测试验收 Changelog**（Mode C 强制）：
+- 生成 `c5_v1_vs_v2_changelog.md`，6 节结构
+- 编号对齐：Changelog 编号 = FEATURE_LABELS key = 原型按钮编号
+- 测试流程：开「显示新增功能点」→ 逐个点击「说明」按钮 → 对照 Changelog 验收
 
 ---
 
@@ -335,12 +349,12 @@ PRD 结构：
 | B2 视觉还原 | AI 代码生成 | ✅ 已有 |
 | B3 规范适配 | `prototype-page-generator` 适配规则 | ✅ 已有 |
 | B4 平台接入 | 自动路由注册 | ✅ 已有 |
-| B5 反向 PRD | 引导式追问模板 | 待实现 |
+| B5 反向 PRD | 引导式追问模板 | ✅ 已有 |
 | C1 现有还原 | = B1-B4 | ✅ 已有 |
 | C2 新需求分析 | = A1-A2 | 待实现 |
 | C3 改造方案 | 改造方案模板 | 待实现 |
 | C4 原型改造 | 基于 diff 的改造生成 | 待实现 |
-| C5 完整 PRD | 改造 PRD 模板 | 待实现 |
+| C5 PRD + 内嵌 | PRD 模板 + `?raw` 内嵌 + DocPanel | ✅ 已有 |
 
 ---
 
@@ -353,28 +367,38 @@ src/pages/<Module>/<Page>/
   ├── index.tsx              # 原型代码
   ├── meta.json              # 页面元数据
   ├── prd.md                 # 最终 PRD（单版本）
-  ├── prd_v1.md              # 多版本 PRD
+  ├── prd_v1.md              # 多版本 PRD（含 **FR-X 标记）
   ├── prd_v2.md
   ├── _versions/             # 多版本原型
   │   ├── v1.tsx
-  │   └── v2.tsx
+  │   └── v2.tsx             # 含 ?raw 导入 + FEATURE_DOCS + DocPanel
   └── _workflow/             # 工作流产物（可选）
       ├── requirement.md     # A1 需求清单
       ├── analysis.md        # A2 分析报告
       ├── solutions.md       # A3 方案对比
-      └── decision.md        # 方案决策记录
+      ├── decision.md        # 方案决策记录
+      └── c5_v1_vs_v2_changelog.md  # C5 测试验收 Changelog
 ```
 
 `_workflow/` 目录不参与路由注册，仅存放过程产物，便于追溯设计决策。
 
 ---
 
-## 与 Skill 的关系
+## 与 Skill / 项目规则的关系
 
-本工作流文档作为 `design-workflow-guide` Skill 的指导文档。Skill 职责：
+本工作流的完整规范和代码模板以 **项目级 `.skills/` 目录**为准:
 
+| 文件 | 内容 |
+|---|---|
+| `.skills/design-workflow.md` | 本工作流的完整规则(模式 A/B/C 详细步骤、版本管理、产物目录) |
+| `.skills/page-generator.md` | 代码生成契约(目录约定、默认导出、样式系统、PRD 内嵌、DocPanel) |
+| `.skills/templates.md` | 可复制的代码模板(meta.json、PRD、Changelog、extractSection、DocPanel、NewTag) |
+
+Skill 职责:
 1. **识别用户起点**：判断属于模式 A/B/C
 2. **引导执行流程**：按对应模式的步骤推进
 3. **调用其他 Skill**：在需要时调用 `prototype-page-generator`、`figma-implement-design`
 4. **生成过程产物**：填充各阶段模板
 5. **校验产物完整性**：检查每阶段产物是否齐全
+
+**跨 IDE 兼容**：`.trae/skills/` 是 Trae IDE 的 Skill 适配器,`.skills/` 是项目级通用规则。换 IDE 时直接引用 `.skills/` 下的文件即可。

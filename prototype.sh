@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# prototype.sh - 一键启动脚本
+# prototype.sh - 一键启动脚本（纯前端架构）
 # 用法: ./prototype.sh [start|stop|status|restart]
-#   start    (默认) 安装依赖(首次) + 启动前端 Vite + 后端 Express + 自动打开浏览器
-#   stop     停止所有服务
+#   start    (默认) 安装依赖(首次) + 启动前端 Vite + 自动打开浏览器
+#   stop     停止服务
 #   status   查看运行状态
 #   restart  先 stop 再 start
 #
@@ -22,7 +22,6 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PID_FILE="$ROOT_DIR/.prototype.pid"
 LOG_DIR="$ROOT_DIR/.prototype-logs"
 FRONTEND_PORT=5192
-BACKEND_PORT=3019
 AUTO_OPEN_BROWSER="${AUTO_OPEN_BROWSER:-1}"  # 1=自动打开, 0=不自动打开
 
 # 工具函数
@@ -111,23 +110,14 @@ start() {
 
   # 清理可能残留的端口占用进程
   lsof -ti :$FRONTEND_PORT | xargs kill -9 2>/dev/null || true
-  lsof -ti :$BACKEND_PORT | xargs kill -9 2>/dev/null || true
 
   info "正在启动服务..."
 
-  # 启动后端 Express 服务
-  cd "$ROOT_DIR"
-  node server/index.js > "$LOG_DIR/backend.log" 2>&1 &
-  BACKEND_PID=$!
-  echo "$BACKEND_PID" > "$PID_FILE"
-
-  # 等待后端就绪(比 sleep 1 更稳)
-  wait_for_port "$BACKEND_PORT" "后端 Express" || true
-
   # 启动前端 Vite 开发服务器
+  cd "$ROOT_DIR"
   npm run dev > "$LOG_DIR/frontend.log" 2>&1 &
   FRONTEND_PID=$!
-  echo "$FRONTEND_PID" >> "$PID_FILE"
+  echo "$FRONTEND_PID" > "$PID_FILE"
 
   # 等待前端就绪
   wait_for_port "$FRONTEND_PORT" "前端 Vite" || true
@@ -140,13 +130,12 @@ start() {
   echo -e "${GREEN}  原型协作平台已启动${NC}"
   echo -e "${GREEN}========================================${NC}"
   echo ""
-  echo -e "  前端地址:  ${CYAN}http://localhost:${FRONTEND_PORT}${NC}"
-  echo -e "  后端地址:  ${CYAN}http://localhost:${BACKEND_PORT}${NC}"
+  echo -e "  访问地址:  ${CYAN}http://localhost:${FRONTEND_PORT}${NC}"
   echo ""
   echo -e "  日志目录:  $LOG_DIR"
   echo -e "  停止服务:  ${YELLOW}./prototype.sh stop${NC}"
   echo ""
-  echo -e "  按 ${YELLOW}Ctrl+C${NC} 也可停止所有服务"
+  echo -e "  按 ${YELLOW}Ctrl+C${NC} 也可停止服务"
   echo ""
 
   # 捕获退出信号,清理子进程
@@ -172,7 +161,6 @@ stop() {
 
   # 同时清理可能的残留 Vite 进程(按端口)
   lsof -ti :$FRONTEND_PORT | xargs kill 2>/dev/null || true
-  lsof -ti :$BACKEND_PORT | xargs kill 2>/dev/null || true
 
   rm -f "$PID_FILE"
   info "服务已停止"
@@ -205,7 +193,7 @@ case "${1:-start}" in
     echo "用法: $0 [start|stop|status|restart]"
     echo ""
     echo "  start    (默认) 安装依赖 + 启动服务 + 自动开浏览器"
-    echo "  stop     停止所有服务"
+    echo "  stop     停止服务"
     echo "  status   查看服务运行状态"
     echo "  restart  先停止再启动(方便 hot reload 失败时快速重启)"
     echo ""

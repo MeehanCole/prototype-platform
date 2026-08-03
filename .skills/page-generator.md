@@ -1,0 +1,388 @@
+# 代码生成规范 (Page Generator Rules)
+
+本规则定义原型平台的代码生成契约。任何 AI 工具（Trae / Cursor / v0 / Copilot 等）生成的代码必须遵守以下规范。
+
+---
+
+## 1. 目录约定（强约束）
+
+```
+src/pages/<业务域>/<页面>/
+  ├── index.tsx          # 默认入口（必须 default export）
+  ├── prd.md             # PRD 文档（单版本）
+  ├── meta.json          # 页面元数据
+  └── _versions/         # 多版本目录（可选）
+      ├── v1.tsx
+      └── v2.tsx
+```
+
+多版本页面必须拆分 PRD：
+```
+src/pages/<Module>/<Page>/
+  ├── index.tsx          # 重导出默认版本
+  ├── meta.json          # versions: ["v1","v2"], defaultVersion: "v2"
+  ├── prd_v1.md          # V1 PRD
+  ├── prd_v2.md          # V2 PRD
+  └── _versions/
+      ├── v1.tsx
+      └── v2.tsx
+```
+
+## 2. 默认导出（强约束）
+
+入口文件必须 `export default function XxxPage()`，基座通过 `React.lazy(() => import(...))` 加载。
+
+```tsx
+// 正确
+export default function LoginPage() {
+  return <div>...</div>
+}
+
+// 错误
+export function LoginPage() { ... }
+const LoginPage = () => <div>...</div>
+export default LoginPage
+```
+
+多版本页面 index.tsx 应重导出：
+```tsx
+export { default } from './_versions/v2'
+```
+
+## 3. meta.json 元数据（强约束）
+
+```json
+{
+  "title": "登录页",
+  "module": "CRM",
+  "defaultVersion": "v2",
+  "versions": ["v1", "v2"],
+  "tags": ["登录", "鉴权"]
+}
+```
+
+必填字段：`title`、`module`
+可选字段：`defaultVersion`、`versions`、`tags`
+
+## 4. 样式系统（强约束）
+
+- 必须使用 Tailwind CSS + Shadcn UI 风格组件
+- 禁止 antd、inline-style、CSS Modules
+- 必须使用平台设计 token：`bg-background`、`text-foreground`、`bg-primary`、`text-primary-foreground`、`bg-muted`、`text-muted-foreground`、`border-border`
+
+## 5. 设计系统感知（强约束）
+
+平台内置 5 套设计系统预设，生成代码时必须匹配目标产品的设计系统：
+
+| 预设 | 主色 | 圆角 | 适用产品 |
+|------|------|------|---------|
+| default | indigo | 6px | Prototype Default |
+| element-plus | #409eff | 4px | Vue3 + Element Plus |
+| ant-design | #1677ff | 6px | React + Ant Design |
+| arco-design | #165dff | 4px | Arco Design |
+| naive-ui | #18a058 | 4px | Naive UI |
+
+生成规则：
+1. 询问用户目标产品的设计系统（或从上下文推断）
+2. 按钮圆角、字重、表格样式匹配对应 preset
+3. 使用 `bg-primary` / `text-primary` token，不硬编码颜色
+4. 如目标产品使用自定义设计系统，提取关键 token 并记录在 PRD
+
+## 6. PRD 段落标记（Mode C 多版本必做）
+
+PRD 中每个功能需求必须用 `**FR-X` 标记段落起始：
+
+```markdown
+## 2. 功能需求详单
+
+**FR-1 视角切换（Restructure, 顶层 Tab 必做）**
+| 项目 | 说明 |
+|---|---|
+| 描述 | 页面最顶部显示「个人视角」/「团队视角」切换 Tab |
+| 业务规则 | 1) 普通员工=只显示个人视角 |
+
+**FR-2 团队视角：部门/成员筛选（Modify）**
+...
+```
+
+标记规则：
+- `**FR-X` 必须唯一，每个功能段落一个
+- 编号必须连续（FR-1, FR-2, FR-3...），不能跳号
+- `**FR-X` 必须在行首
+- 下一个 `**FR-Y` 出现时，前一个 FR 段落结束
+
+## 7. PRD 内嵌代码（Mode C 多版本必做）
+
+版本文件必须包含以下代码结构：
+
+### 7.1 头部导入
+```tsx
+import { useState, useRef, useEffect, createContext, useContext, useCallback } from 'react'
+import { createPortal } from 'react-dom'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import prdV2Raw from '../prd_v2.md?raw'
+```
+
+### 7.2 extractSection 工具函数
+```tsx
+/** Extract a PRD section between **startFr and **endFr (exclusive) */
+function extractSection(raw: string, startFr: string, endFr?: string): string {
+  const lines = raw.split('\n')
+  let start = -1, end = lines.length
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].includes(`**${startFr}`)) start = i
+    if (endFr && lines[i].includes(`**${endFr}`)) { end = i; break }
+  }
+  return lines.slice(start, end).join('\n').replace(/^#{1,6} /gm, (m) => m + ' ')
+}
+```
+
+### 7.3 FEATURE_DOCS 映射表
+```tsx
+const FEATURE_DOCS: Record<string, string> = {
+  'A.01': extractSection(prdV2Raw, 'FR-1'),
+  'M.01': extractSection(prdV2Raw, 'FR-2'),
+  'B.01': extractSection(prdV2Raw, 'FR-3'),
+  // ... key 必须与 FEATURE_LABELS 1:1 对应
+}
+```
+
+### 7.4 DocContext 定义
+```tsx
+const DocContext = createContext<(code: string) => void>(() => {})
+```
+
+### 7.5 DocPanel 组件
+```tsx
+function DocPanel({ code, onClose }: { code: string | null; onClose: () => void }) {
+  useEffect(() => {
+    if (!code) return
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [code, onClose])
+
+  if (!code) return null
+  const f = FEATURE_LABELS[code]
+  const doc = FEATURE_DOCS[code] || '暂无该功能点的 PRD 详细描述'
+  const typeShort = f ? { A: '重构', B: '新增', M: '修改', R: '删除' }[f.type] : ''
+
+  // 必须用 createPortal 渲染到 document.body
+  // 原型容器有 transform: scale()（zoom 控件），会破坏 fixed inset-0 定位
+  return createPortal(
+    <div className="fixed inset-0 z-[70]" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/20 backdrop-blur-[1px]" />
+      <div
+        className="absolute right-0 top-0 h-full w-[400px] max-w-[90vw] bg-background border-l border-border shadow-2xl flex flex-col animate-fade-in"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-2 px-5 py-4 border-b border-border">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="rounded bg-primary/10 text-primary px-1.5 py-0.5 text-[11px] font-semibold tabular-nums">{code}</span>
+              {f && <span className="text-[11px] text-muted-foreground">{typeShort}</span>}
+            </div>
+            <h3 className="mt-1 text-sm font-semibold text-foreground">{f?.title || '功能点详情'}</h3>
+          </div>
+          <button onClick={onClose} className="shrink-0 w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          <div className="prose prose-sm max-w-none prose-headings:text-foreground prose-headings:font-semibold prose-p:text-foreground/90 prose-li:text-foreground/90 prose-th:text-foreground prose-td:text-foreground/80 prose-strong:text-foreground prose-code:text-foreground prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{doc}</ReactMarkdown>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+```
+
+### 7.6 NewTag 组件（胶囊形「说明」按钮）
+```tsx
+function NewTag({ code }: { code: string }) {
+  const hostRef = useRef<HTMLButtonElement | null>(null)
+  const openDoc = useContext(DocContext)
+  const [tip, setTip] = useState<{ top: number; left: number; above: boolean; show: boolean }>({ top: 0, left: 0, above: true, show: false })
+
+  const f = FEATURE_LABELS[code]
+  if (!f) return null
+  const typeShort = { A: '重构', B: '新增', M: '修改', R: '删除' }[f.type]
+  const hasDoc = !!FEATURE_DOCS[code]
+
+  const showTip = () => {
+    const el = hostRef.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    const TIP_W = 208
+    const above = r.top > 120
+    let left = r.left + r.width / 2 - TIP_W / 2
+    if (left < 8) left = 8
+    const vw = window.innerWidth
+    if (left + TIP_W > vw - 8) left = vw - 8 - TIP_W
+    setTip({ top: above ? r.top - 6 : r.bottom + 6, left, above, show: true })
+  }
+  const hideTip = () => setTip(p => ({ ...p, show: false }))
+
+  return (
+    <>
+      <button
+        ref={hostRef}
+        type="button"
+        onMouseEnter={showTip}
+        onMouseLeave={hideTip}
+        onFocus={showTip}
+        onBlur={hideTip}
+        onClick={hasDoc ? (e) => { e.stopPropagation(); openDoc(code) } : undefined}
+        title={hasDoc ? '查看 PRD 详细说明' : `${typeShort}：${f.title}`}
+        aria-label={`${code} ${typeShort}`}
+        tabIndex={0}
+        className={`absolute -top-1.5 right-0 inline-flex items-center gap-0.5 h-4 px-1 rounded-full bg-background/95 ring-1 text-[9px] transition-colors z-10 whitespace-nowrap font-medium shadow-sm ${
+          hasDoc
+            ? 'ring-primary/40 text-primary hover:bg-primary/10 hover:ring-primary/60 cursor-pointer'
+            : 'ring-border text-muted-foreground hover:bg-accent cursor-help'
+        }`}
+      >
+        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="9" y1="13" x2="15" y2="13" />
+          <line x1="9" y1="17" x2="13" y2="17" />
+        </svg>
+        说明
+      </button>
+      {tip.show && createPortal(
+        <div
+          style={{ position: 'fixed', top: tip.top, left: tip.left, zIndex: 99999, transform: tip.above ? 'translateY(-100%)' : 'translateY(0)' }}
+          className="w-52 rounded-md bg-foreground px-3 py-2 text-[11px] text-background shadow-xl ring-1 ring-black/10 pointer-events-none leading-snug"
+        >
+          <span className="font-semibold block mb-0.5">{code} {f.title}</span>
+          <span className="text-background/85">{f.desc}</span>
+          {hasDoc && <span className="block mt-1 text-background/60 text-[10px]">点击查看完整 PRD</span>}
+        </div>,
+        document.body,
+      )}
+    </>
+  )
+}
+```
+
+### 7.7 顶层 Provider + DocPanel 渲染
+```tsx
+export default function V2Page() {
+  const [docCode, setDocCode] = useState<string | null>(null)
+  const openDoc = useCallback((code: string) => setDocCode(code), [])
+  const closeDoc = useCallback(() => setDocCode(null), [])
+
+  return (
+    <DocContext.Provider value={openDoc}>
+      {/* 页面内容，含 <NewTag code="A.01" /> 等 */}
+      <DocPanel code={docCode} onClose={closeDoc} />
+    </DocContext.Provider>
+  )
+}
+```
+
+## 8. 功能点标注规范
+
+### 8.1 FEATURE_LABELS 定义
+```tsx
+const FEATURE_LABELS: Record<string, { type: 'A'|'B'|'M'|'R'; title: string; desc: string }> = {
+  'A.01': { type: 'A', title: '顶层双视角 Tab', desc: '页面最顶部显示个人视角/团队视角切换 Tab' },
+  'B.01': { type: 'B', title: '团队统计卡', desc: '团队视角聚合统计：待办/超时/平均时长/本周通过' },
+  'M.01': { type: 'M', title: '部门/成员筛选', desc: '团队视角新增部门下拉+成员下拉筛选' },
+  // ...
+}
+```
+
+### 8.2 标注类型
+| 类型 | 代码 | 说明 |
+|------|------|------|
+| A 重构 | A.01, A.02... | 信息架构调整 |
+| B 新增 | B.01, B.02... | 新增功能 |
+| M 修改 | M.01, M.02... | 现有功能修改 |
+| R 删除 | R.01, R.02... | 移除功能 |
+
+### 8.3 交互规则
+- Header 右侧「显示新增功能点」checkbox 开关，按「路由+版本」存 localStorage
+- 打开开关 → 功能点旁出现胶囊形「说明」按钮
+- 蓝色按钮 = 有 PRD 详情 → 可点击 → DocPanel 展示完整 PRD
+- 灰色按钮 = 无 PRD 详情 → 仅 hover 显示简短 tooltip
+- 关闭开关 → 所有按钮瞬间消失，零占位零位移
+
+## 9. 禁止事项
+
+| 反模式 | 原因 | 正确做法 |
+|--------|------|---------|
+| 硬编码 PRD 文本在 JSX | 重复内容，维护困难 | `?raw` 导入 + `extractSection` |
+| DocPanel 内联渲染（不用 portal） | `transform: scale()` 破坏 fixed 定位 | `createPortal` 到 `document.body` |
+| FEATURE_DOCS 与 FEATURE_LABELS key 不匹配 | 点击显示错误文档 | key 必须 1:1 对应 |
+| PRD 跳过 `**FR-X` 标记 | `extractSection` 找不到边界 | 每个需求段落加标记 |
+| 用 `innerHTML` / `dangerouslySetInnerHTML` | 安全风险 | `ReactMarkdown` + `remarkGfm` |
+| 渲染多个 DocPanel 实例 | z-index 冲突、堆叠 | 单例模式（单个 `code` state） |
+| 中文标点（、（））在代码注释 | oxc 解析器可能 PARSE_ERROR | 用 ASCII 标点 |
+| 注释中含 `**/` glob 模式 | Vite 8 oxc 误判为注释结束 | 用文字描述代替 |
+
+## 10. 输出 Checklist
+
+生成代码后必须检查：
+
+- [ ] `meta.json` 存在，含 `title` 和 `module`
+- [ ] `index.tsx` 有 `export default`
+- [ ] 代码注释用 ASCII 标点，无 `**/` glob 模式
+- [ ] 使用 Tailwind 工具类，无 inline-style、无 antd
+- [ ] 无禁止依赖（MUI、Ant Design、Emotion、styled-components）
+- [ ] 硬编码颜色映射到设计 token
+- [ ] 多版本页面拆分 `prd_v1.md` / `prd_v2.md`
+- [ ] 多版本 `index.tsx` 重导出默认版本
+- [ ] PRD 文件存在，含 Business Context
+- [ ] 设计系统预设已选择并应用
+- [ ] Mode C：PRD 有 `**FR-X` 标记
+- [ ] Mode C：版本文件含 `?raw` 导入 + `extractSection` + `FEATURE_DOCS`
+- [ ] Mode C：DocPanel 用 `createPortal` 到 `document.body`
+- [ ] Mode C：DocPanel 支持 Esc + 遮罩关闭
+- [ ] Mode C：功能点按钮蓝色可点击 / 灰色仅 tooltip
+- [ ] Mode C：`FEATURE_DOCS` 与 `FEATURE_LABELS` key 1:1
+
+## 11. PRD 标准结构
+
+```markdown
+# <页面标题> PRD
+
+## Business Context
+- **Target product**: <产品名>
+- **Target tech stack**: <技术栈>
+- **Design system**: <设计系统>
+- **Entry point**: <在产品中的位置>
+
+## Feature Overview
+<2-3 句话说明功能>
+
+## Functional Requirements
+
+**FR-1 <功能名>**
+| 项目 | 说明 |
+|---|---|
+| 描述 | ... |
+| 业务规则 | ... |
+| 权限控制 | ... |
+
+**FR-2 <功能名>**
+...
+
+## Interaction Flow
+1. <操作步骤>
+
+## Edge Cases
+- 空状态：...
+- 加载状态：...
+- 错误状态：...
+
+## Component Mapping (optional)
+| 组件 | 目标库组件 | 备注 |
+|------|-----------|------|
+| Btn | ElButton | type="primary" |
+```
