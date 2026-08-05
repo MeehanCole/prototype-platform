@@ -2,6 +2,9 @@
 
 ## 概述
 
+> **核心定位：平台是唯一输出基线，Figma / Axure / 截图 / PRD 只是输入源。**
+> 所有输入源经三种模式统一转换为平台原生 React 代码 + PRD + Git 版本后交付。iframe 嵌入仅用于快速预览，不作为交付基线。
+
 原型平台支持三种设计工作流，覆盖从 0 到 1 的新产品设计与从 1 到 N 的已有产品迭代。每种模式有明确的起点、AI 介入点、人工决策点和产物规范。
 
 ## 模式选择决策树
@@ -112,8 +115,16 @@ PRD 必须包含：
 **AI 任务**：识别页面结构、组件、布局
 **产物**：页面结构描述
 
-输入类型：
-- Figma 链接：调用 `figma-implement-design` 读取设计稿
+输入类型（Figma 有两条路径）：
+- **Figma 链接 → MCP API 读取**（推荐，无需手动导出）：
+  - 调用 Figma MCP 工具 `get_figma_data`（读节点数据：图层/布局/颜色/组件/文本）+ `download_figma_images`（下载页面截图 PNG）
+  - 从链接解析 `fileKey` 和 `nodeId`：URL 格式 `https://www.figma.com/design/{fileKey}/...?node-id={nodeId}`
+  - 读取后可走两条产出：① 直接生成 PRD（不生成代码）② 生成原型代码（走 B2-B4）
+  - 前提：需配置 Figma MCP 连接器（`mcp_Figma_AI_Bridge`）+ Figma Access Token
+- **Figma 插件导出代码工程**（zip/目录）：
+  - Locofy / Builder.io 等插件导出的 Vite 项目（含 `package.json` + `src/`）
+  - 解压后放入 `01-raw/` → 走 `import-new.sh` + `convert.sh` 适配管线
+  - 适用于：设计师已用插件导出代码、或 MCP 不可用时
 - 截图图片：AI 视觉识别 + 代码生成
 - 已有代码（Locofy 等导出）：调用适配器改造
 
@@ -135,7 +146,7 @@ Mode C 混合模式的起点是「已有产品 + 新需求」，**「已有产�
 |---|---|---|
 | 已有原型代码 | 直接放入目录 → `_versions/v1.tsx` 快照 → 进入 C2 | 本项目内历史生成页面用此方式 |
 | 截图几张 | 先执行 Mode B B1.1 决策 → 走 B 路径还原成代码 → 作为 v1 基线 → 进入 C2 | 外部产品截图 / 甩图改造场景 |
-| Figma 链接 | `figma-implement-design` + B3 适配 → 作为 v1 基线 → 进入 C2 | 设计师有现成设计稿场景 |
+| Figma 链接 | MCP 读取（`get_figma_data` + `download_figma_images`）→ B2-B4 还原成代码 → 作为 v1 基线 → 进入 C2 | 设计师有现成设计稿场景 |
 
 ⚠️ **C1 基线校验产物**：不管哪条路径，C1 结束时必须产出以下三项才能进 C2：
 1. `index.tsx`（基线代码）
@@ -398,7 +409,7 @@ PRD 结构（同 A5，完整 10 节标准结构）：
 | A3 方案设计 | 2-3 方案对比文档模板（体验/成本/风险/扩展性） | 待实现 |
 | A4 原型生成 | `prototype-page-generator`（含设计系统 preset、空/加载/错误状态、Figma 布局适配） | ✅ 已有 |
 | A5 PRD 文档 | 10 节标准 PRD 模板（中文标题 + 用户故事 + 验收标准 + Mermaid 流程图） | ✅ 已有 |
-| B1 输入采集 | `figma-implement-design` + B1.1 路径决策（90%直接出代码 / 10%转 Figma） | ✅ 已有 |
+| B1 输入采集 | Figma MCP（`get_figma_data` + `download_figma_images`）读取链接 / 插件导出代码工程 / 截图视觉识别 + B1.1 路径决策 + **支持仅生成 PRD 不生成代码** | ✅ 已有 |
 | B2 视觉还原 | AI 代码生成（识别设计系统 preset → 用 preset token 出代码） | ✅ 已有 |
 | B3 规范适配 | `prototype-page-generator` 适配规则（默认导出/meta.json/去UI库/颜色映射/`min-h-screen`/宽表格滚动） | ✅ 已有 |
 | B4 平台接入 | 自动路由注册（扫描 meta.json） | ✅ 已有 |
