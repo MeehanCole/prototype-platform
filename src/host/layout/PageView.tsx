@@ -62,7 +62,10 @@ export function PageView() {
   const [showFeat, setShowFeat] = useState<boolean>(() => {
     // V1/基线版本默认关（一般没功能点标注，避免出现开关但没标签的尴尬空状态）
     // V2+ 默认开，方便测试立刻看到标注
-    const isV1 = /(^|[^a-zA-Z])v1([^a-zA-Z]|$)/i.test(prdKey) || prdKey === 'default'
+    // 单版本页面（无 versions）本身即最终版本，默认开
+    const isV1 = hasVersions
+      ? /(^|[^a-zA-Z])v1([^a-zA-Z]|$)/i.test(prdKey) || prdKey === 'default'
+      : false
     try {
       const stored = localStorage.getItem(FEAT_KEY)
       if (stored === 'on') return true
@@ -72,14 +75,16 @@ export function PageView() {
   })
   // 版本/路由切换时：刷新 showFeat 的状态（因为默认值策略变了；如果用户有存就用存的）
   useEffect(() => {
-    const isV1 = /(^|[^a-zA-Z])v1([^a-zA-Z]|$)/i.test(prdKey) || prdKey === 'default'
+    const isV1 = hasVersions
+      ? /(^|[^a-zA-Z])v1([^a-zA-Z]|$)/i.test(prdKey) || prdKey === 'default'
+      : false
     try {
       const stored = localStorage.getItem(FEAT_KEY)
       if (stored === 'on') setShowFeat(true)
       else if (stored === 'off') setShowFeat(false)
       else setShowFeat(!isV1)
     } catch { setShowFeat(!isV1) }
-  }, [FEAT_KEY, prdKey])
+  }, [FEAT_KEY, prdKey, hasVersions])
   const persistShowFeat = (v: boolean) => {
     setShowFeat(v)
     try { localStorage.setItem(FEAT_KEY, v ? 'on' : 'off') } catch { /* ignore */ }

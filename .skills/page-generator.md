@@ -70,6 +70,109 @@ export { default } from './_versions/v2'
 - 禁止 antd、inline-style、CSS Modules
 - 必须使用平台设计 token：`bg-background`、`text-foreground`、`bg-primary`、`text-primary-foreground`、`bg-muted`、`text-muted-foreground`、`border-border`
 
+## 4.1 Figma 代码转换布局适配（强约束）
+
+Figma 导出的代码通常自带全屏布局（`h-screen` + Header + Sidebar），直接放入平台会导致高度冲突、侧边栏底部与内容区不对齐等问题。
+
+### 转换规则
+
+| Figma 原始写法 | 平台正确写法 | 原因 |
+|---------------|-------------|------|
+| `h-screen` | `h-full` 或 `min-h-screen` | 平台内容区已有固定高度，`h-screen` 会溢出 |
+| `overflow-hidden`（外层） | 移除 | 平台内容区管理滚动，页面不应锁高度 |
+| `h-full overflow-hidden`（Sidebar） | 移除 `h-full` 和 `overflow-hidden` | 侧边栏需跟随内容高度自适应 |
+| `overflow-y-auto`（main） | 移除 | 由平台内容区统一管理滚动 |
+
+### 布局结构要求
+
+Figma 代码通常有两种布局，转换时必须采用「Sidebar 通顶」结构：
+
+```
+正确（Sidebar 通顶）：
+┌──────┬──────────────────────┐
+│      │       TopNav          │
+│ Side ├──────────────────────┤
+│ bar  │       main            │
+│      │                       │
+└──────┴──────────────────────┘
+
+错误（TopNav 全宽压顶）：
+┌─────────────────────────────┐
+│         TopNav (全宽)         │
+├──────┬──────────────────────┤
+│ Side │       main            │  ← Sidebar 底部与 main 不对齐
+│ bar  │                       │
+└──────┴──────────────────────┘
+```
+
+正确代码模板：
+```tsx
+return (
+  <div className="flex min-h-screen bg-[#f0f2f5] overflow-hidden">
+    <Sidebar />
+    <div className="flex flex-1 flex-col min-w-0">
+      <TopNav />
+      <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden">{renderPage()}</main>
+    </div>
+  </div>
+)
+```
+
+### 宽表格横向滚动（强约束）
+
+云API管理、运营平台等后台页面常有 10+ 列宽表格（`min-w-[2400px]`），如果 flex 容器不加 `min-w-0`，表格会把整个页面撑开导致布局崩溃，而不是在表格内部出现横向滚动条。
+
+**根因**：flex item 默认 `min-width: auto`，不会被压缩到小于内容宽度，导致 `overflow-x-auto` 失效，压力传导到外层撑开整页。
+
+**正确写法**（三层 `min-w-0` 逐层传递约束）：
+```tsx
+<div className="flex min-h-screen overflow-hidden">          {/* 外层锁死 */}
+  <Sidebar />
+  <div className="flex flex-1 flex-col min-w-0">             {/* 第1层 min-w-0 */}
+    <TopNav />
+    <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden">  {/* 第2层 min-w-0 */}
+      <div className="bg-white rounded-lg overflow-hidden">
+        <div className="overflow-x-auto">                    {/* 表格滚动容器 */}
+          <table className="min-w-[2400px] w-full">...</table>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+```
+
+**关键规则**：
+- 外层 `overflow-hidden` 防止表格撑开平台容器
+- content div 和 main 都加 `min-w-0`，破除 flex item 默认 `min-width: auto`
+- main 用 `overflow-x-hidden` 让表格内部的 `overflow-x-auto` 接管横向滚动
+- 表格用 `min-w-[Npx]` 设定最小宽度，不要用固定 `w-[Npx]`
+
+**错误示例**（表格会撑开整页）：
+```tsx
+// 缺少 min-w-0 和 overflow-hidden
+<div className="flex min-h-screen">
+  <Sidebar />
+  <div className="flex flex-1 flex-col">
+    <TopNav />
+    <main className="flex-1">
+      <div className="overflow-x-auto">
+        <table className="min-w-[2400px]">...</table>
+      </div>
+    </main>
+  </div>
+</div>
+```
+
+### Checklist
+- [ ] 外层容器用 `min-h-screen`，不用 `h-screen`
+- [ ] 外层容器加 `overflow-hidden` 防止表格撑开整页
+- [ ] Sidebar 不含 `h-full` / `overflow-hidden`
+- [ ] content div 和 main 都加 `min-w-0`（破除 flex item 默认 min-width: auto）
+- [ ] main 用 `overflow-x-hidden`，不用 `overflow-y-auto`（垂直滚动由平台管理）
+- [ ] 宽表格用 `overflow-x-auto` 容器包裹 + `min-w-[Npx]`，不用固定 `w-[Npx]`
+- [ ] Sidebar 通顶，TopNav 在右侧内容区上方
+- [ ] 页面内容多时 Sidebar 底部与 main 底部对齐
+
 ## 5. 设计系统感知（强约束）
 
 平台内置 5 套设计系统预设，生成代码时必须匹配目标产品的设计系统：
@@ -325,6 +428,10 @@ const FEATURE_LABELS: Record<string, { type: 'A'|'B'|'M'|'R'; title: string; des
 | 渲染多个 DocPanel 实例 | z-index 冲突、堆叠 | 单例模式（单个 `code` state） |
 | 中文标点（、（））在代码注释 | oxc 解析器可能 PARSE_ERROR | 用 ASCII 标点 |
 | 注释中含 `**/` glob 模式 | Vite 8 oxc 误判为注释结束 | 用文字描述代替 |
+| Figma 转换后保留 `h-screen` | 平台内容区已有固定高度，溢出/底部不对齐 | 用 `min-h-screen`，详见 §4.1 |
+| TopNav 全宽压顶（Sidebar 在下方） | Sidebar 底部与 main 不对齐 | Sidebar 通顶，详见 §4.1 |
+| flex 容器下宽表格不加 `min-w-0` | flex item 默认 `min-width: auto`，表格撑开整页，`overflow-x-auto` 失效 | 每层 flex 容器加 `min-w-0` + 外层 `overflow-hidden`，详见 §4.1 |
+| 表格用固定 `w-[2400px]` | 宽度被锁死无法自适应窄容器 | 用 `min-w-[2400px] w-full`，让 `overflow-x-auto` 接管滚动 |
 
 ## 10. 输出 Checklist
 
@@ -336,6 +443,7 @@ const FEATURE_LABELS: Record<string, { type: 'A'|'B'|'M'|'R'; title: string; des
 - [ ] 使用 Tailwind 工具类，无 inline-style、无 antd
 - [ ] 无禁止依赖（MUI、Ant Design、Emotion、styled-components）
 - [ ] 硬编码颜色映射到设计 token
+- [ ] flex 容器链路加 `min-w-0` + 外层 `overflow-hidden`，宽表格在内部 `overflow-x-auto` 滚动（详见 §4.1）
 - [ ] 多版本页面拆分 `prd_v1.md` / `prd_v2.md`
 - [ ] 多版本 `index.tsx` 重导出默认版本
 - [ ] PRD 文件存在，含 Business Context

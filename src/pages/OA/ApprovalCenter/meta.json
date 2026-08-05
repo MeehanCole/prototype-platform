@@ -1,7 +1,0 @@
-{
-  "title": "审批中心",
-  "module": "OA",
-  "defaultVersion": "v2",
-  "versions": ["v1", "v2"],
-  "tags": ["审批", "待办", "工作流", "OA", "团队视角", "管理者"]
-}

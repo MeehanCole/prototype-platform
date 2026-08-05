@@ -1,7 +1,0 @@
-{
-  "title": "登录页",
-  "module": "CRM",
-  "defaultVersion": "v2",
-  "versions": ["v1", "v2"],
-  "tags": ["登录", "鉴权"]
-}

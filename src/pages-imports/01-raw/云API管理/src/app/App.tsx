@@ -1,8 +1,4 @@
-import { useState, useRef, useEffect, createContext, useContext, useCallback, ReactNode } from "react";
-import { createPortal } from "react-dom";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import prdRaw from "./prd.md?raw";
+import { useState, ReactNode } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -19,133 +15,6 @@ import {
   Folder,
   FolderOpen,
 } from "lucide-react";
-
-// ─── PRD extractSection ────────────────────────────────────────────────────────
-function extractSection(raw: string, startFr: string, endFr?: string): string {
-  const lines = raw.split("\n");
-  let start = -1, end = lines.length;
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].includes(`**${startFr}`)) start = i;
-    if (endFr && lines[i].includes(`**${endFr}`)) { end = i; break; }
-  }
-  return lines.slice(start, end).join("\n").replace(/^#{1,6} /gm, (m) => m + " ");
-}
-
-const FEATURE_LABELS: Record<string, { type: "A" | "B" | "M" | "R"; title: string; desc: string }> = {
-  "B.01": { type: "B", title: "接口管理（运营端）", desc: "运营端接口列表，支持18列展示、筛选、新增/发布/删除/导入/导出" },
-  "B.02": { type: "B", title: "接口分类管理", desc: "左侧服务树5层级结构，右侧服务信息表单" },
-  "B.03": { type: "B", title: "复杂类型参数管理", desc: "复杂类型列表，支持筛选、新增、编辑、删除" },
-  "B.04": { type: "B", title: "接口管理（租户端）", desc: "租户视角接口列表" },
-  "B.05": { type: "B", title: "同步记录管理", desc: "同步记录列表，支持筛选、更多搜索、查看详情" },
-  "B.06": { type: "B", title: "新增复杂类型", desc: "复杂类型表单 + 参数内容表格" },
-  "B.07": { type: "B", title: "编辑接口", desc: "多 Section 表单：基本信息、入参、出参、错误码、后端地址、签名鉴权" },
-};
-
-const FEATURE_DOCS: Record<string, string> = {
-  "B.01": extractSection(prdRaw, "FR-1"),
-  "B.02": extractSection(prdRaw, "FR-2"),
-  "B.03": extractSection(prdRaw, "FR-3"),
-  "B.04": extractSection(prdRaw, "FR-4"),
-  "B.05": extractSection(prdRaw, "FR-5"),
-  "B.06": extractSection(prdRaw, "FR-6"),
-  "B.07": extractSection(prdRaw, "FR-7"),
-};
-
-const DocContext = createContext<{ openDoc: (code: string) => void; showFeat: boolean }>({ openDoc: () => {}, showFeat: false });
-
-function NewTag({ code }: { code: string }) {
-  const hostRef = useRef<HTMLButtonElement | null>(null);
-  const { openDoc, showFeat } = useContext(DocContext);
-  const [tip, setTip] = useState<{ top: number; left: number; above: boolean; show: boolean }>({ top: 0, left: 0, above: true, show: false });
-  const f = FEATURE_LABELS[code];
-  if (!showFeat) return null;
-  if (!f) return null;
-  const hasDoc = !!FEATURE_DOCS[code];
-  const showTip = () => {
-    const el = hostRef.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    const TIP_W = 208;
-    const above = r.top > 120;
-    let left = r.left + r.width / 2 - TIP_W / 2;
-    if (left < 8) left = 8;
-    const vw = window.innerWidth;
-    if (left + TIP_W > vw - 8) left = vw - 8 - TIP_W;
-    setTip({ top: above ? r.top - 6 : r.bottom + 6, left, above, show: true });
-  };
-  const hideTip = () => setTip((p) => ({ ...p, show: false }));
-  return (
-    <>
-      <button
-        ref={hostRef}
-        type="button"
-        onMouseEnter={showTip}
-        onMouseLeave={hideTip}
-        onFocus={showTip}
-        onBlur={hideTip}
-        onClick={hasDoc ? (e) => { e.stopPropagation(); openDoc(code); } : undefined}
-        title={hasDoc ? "查看 PRD 详细说明" : `${f.title}`}
-        className={`absolute -top-1.5 right-0 inline-flex items-center gap-0.5 h-4 px-1 rounded-full bg-background/95 ring-1 text-[9px] transition-colors z-10 whitespace-nowrap font-medium shadow-sm ${hasDoc ? "ring-primary/40 text-primary hover:bg-primary/10 hover:ring-primary/60 cursor-pointer" : "ring-border text-muted-foreground hover:bg-accent cursor-help"}`}
-      >
-        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-          <polyline points="14 2 14 8 20 8" />
-          <line x1="9" y1="13" x2="15" y2="13" />
-          <line x1="9" y1="17" x2="13" y2="17" />
-        </svg>
-        说明
-      </button>
-      {tip.show && createPortal(
-        <div
-          style={{ position: "fixed", top: tip.top, left: tip.left, zIndex: 99999, transform: tip.above ? "translateY(-100%)" : "translateY(0)" }}
-          className="w-52 rounded-md bg-foreground px-3 py-2 text-[11px] text-background shadow-xl ring-1 ring-black/10 pointer-events-none leading-snug"
-        >
-          <span className="font-semibold block mb-0.5">{code} {f.title}</span>
-          <span className="text-background/85">{f.desc}</span>
-          {hasDoc && <span className="block mt-1 text-background/60 text-[10px]">点击查看完整 PRD</span>}
-        </div>,
-        document.body,
-      )}
-    </>
-  );
-}
-
-function DocPanel({ code, onClose }: { code: string | null; onClose: () => void }) {
-  useEffect(() => {
-    if (!code) return;
-    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, [code, onClose]);
-  if (!code) return null;
-  const f = FEATURE_LABELS[code];
-  const doc = FEATURE_DOCS[code] || "暂无该功能点的 PRD 详细描述";
-  return createPortal(
-    <div className="fixed inset-0 z-[70]" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/20 backdrop-blur-[1px]" />
-      <div className="absolute right-0 top-0 h-full w-[400px] max-w-[90vw] bg-background border-l border-border shadow-2xl flex flex-col animate-fade-in" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-start justify-between gap-2 px-5 py-4 border-b border-border">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="rounded bg-primary/10 text-primary px-1.5 py-0.5 text-[11px] font-semibold tabular-nums">{code}</span>
-              <span className="text-[11px] text-muted-foreground">新增</span>
-            </div>
-            <h3 className="mt-1 text-sm font-semibold text-foreground">{f?.title || "功能点详情"}</h3>
-          </div>
-          <button onClick={onClose} className="shrink-0 w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
-            <X size={16} />
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4">
-          <div className="prose prose-sm max-w-none prose-headings:text-foreground prose-headings:font-semibold prose-p:text-foreground/90 prose-li:text-foreground/90 prose-th:text-foreground prose-td:text-foreground/80 prose-strong:text-foreground prose-code:text-foreground prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{doc}</ReactMarkdown>
-          </div>
-        </div>
-      </div>
-    </div>,
-    document.body,
-  );
-}
 
 type Page =
   | "sync-records"
@@ -390,10 +259,7 @@ function SyncRecordsPage() {
 
   return (
     <div className="p-6 space-y-4">
-      <div className="relative inline-block">
-        <h2 className="inline text-base font-medium text-[rgba(0,0,0,0.85)]">同步记录管理</h2>
-        <NewTag code="B.05" />
-      </div>
+      <h2 className="text-base font-medium text-[rgba(0,0,0,0.85)]">同步记录管理</h2>
       <div className="bg-white rounded-lg shadow-[0_2px_4px_rgba(0,0,0,0.06)] p-4">
         <div className="grid grid-cols-3 gap-x-6 gap-y-4">
           <div className="flex items-center gap-2">
@@ -502,7 +368,7 @@ const interfaceData = [
   { code: "s_cfe", service: "安全防水墙", name: "queryMessageList06122", cnName: "路由消息列表06122", devType: "其他自研", status: "pending", version: "v1.0", isCloud: true, timeout: "5000", auth: "只签名不鉴权", callSystem: "-", owner: "59385296.zh", creator: "59385296.zh", updater: "-", createTime: "2025-08-12 13:08:37", publishTime: "-", updateTime: "-" },
 ];
 
-function InterfaceListPage({ title, onEdit, featCode }: { title: string; onEdit: () => void; featCode?: string }) {
+function InterfaceListPage({ title, onEdit }: { title: string; onEdit: () => void }) {
   const [service, setService] = useState("");
   const [name, setName] = useState("");
   const [status, setStatus] = useState("");
@@ -529,10 +395,7 @@ function InterfaceListPage({ title, onEdit, featCode }: { title: string; onEdit:
 
   return (
     <div className="p-6 space-y-4">
-      <div className="relative inline-block">
-        <h2 className="inline text-base font-medium text-[rgba(0,0,0,0.85)]">{title}</h2>
-        {featCode && <NewTag code={featCode} />}
-      </div>
+      <h2 className="text-base font-medium text-[rgba(0,0,0,0.85)]">{title}</h2>
 
       {/* Filter panel */}
       <div className="bg-white rounded-lg shadow-[0_2px_4px_rgba(0,0,0,0.06)] p-4">
@@ -686,10 +549,7 @@ function ComplexTypesPage({ onAdd }: { onAdd: () => void }) {
 
   return (
     <div className="p-6 space-y-4">
-      <div className="relative inline-block">
-        <h2 className="inline text-base font-medium text-[rgba(0,0,0,0.85)]">复杂类型参数管理</h2>
-        <NewTag code="B.03" />
-      </div>
+      <h2 className="text-base font-medium text-[rgba(0,0,0,0.85)]">复杂类型参数管理</h2>
 
       <div className="bg-white rounded-lg shadow-[0_2px_4px_rgba(0,0,0,0.06)] p-4">
         <div className="grid grid-cols-3 gap-x-6 gap-y-4">
@@ -838,10 +698,7 @@ function AddComplexTypePage({ onBack }: { onBack: () => void }) {
         <span className="text-sm text-[rgba(0,0,0,0.85)]">新增复杂类型</span>
       </div>
       <div className="bg-white rounded-lg shadow-[0_2px_4px_rgba(0,0,0,0.06)] p-6 space-y-6">
-        <div className="relative inline-block">
-          <h3 className="inline text-base font-medium text-[rgba(0,0,0,0.85)]">新增复杂类型</h3>
-          <NewTag code="B.06" />
-        </div>
+        <h3 className="text-base font-medium text-[rgba(0,0,0,0.85)]">新增复杂类型</h3>
         <div className="grid grid-cols-3 gap-x-6 gap-y-4">
           <FormField label="产品/服务" required>
             <SelectBox value={service} onChange={setService} placeholder="请选择产品/服务" options={[{ label: "消息中心", value: "消息中心" }, { label: "云平台管理", value: "云平台管理" }]} width="w-full" />
@@ -1090,10 +947,7 @@ function InterfaceCategoryPage() {
 
   return (
     <div className="p-6">
-      <div className="relative inline-block mb-4">
-        <h2 className="inline text-base font-medium text-[rgba(0,0,0,0.85)]">接口分类管理</h2>
-        <NewTag code="B.02" />
-      </div>
+      <h2 className="text-base font-medium text-[rgba(0,0,0,0.85)] mb-4">接口分类管理</h2>
       <div className="flex gap-4" style={{ height: "calc(100vh - 160px)" }}>
         {/* Tree Panel */}
         <div className="w-64 bg-white rounded-lg shadow-[0_2px_4px_rgba(0,0,0,0.06)] flex-shrink-0 flex flex-col overflow-hidden">
@@ -1272,10 +1126,7 @@ function EditInterfacePage({ onBack }: { onBack: () => void }) {
           <ChevronLeft size={14} /> 返回
         </button>
         <span className="text-[rgba(0,0,0,0.45)]">/</span>
-        <div className="relative inline-block">
-          <span className="inline text-sm text-[rgba(0,0,0,0.85)]">编辑接口</span>
-          <NewTag code="B.07" />
-        </div>
+        <span className="text-sm text-[rgba(0,0,0,0.85)]">编辑接口</span>
       </div>
 
       {/* 基本信息 */}
@@ -1524,7 +1375,7 @@ function Sidebar({ activePage, setActivePage }: { activePage: Page; setActivePag
   );
 
   return (
-    <aside className="w-[200px] bg-[#001529] flex-shrink-0 flex flex-col">
+    <aside className="w-[200px] bg-[#001529] flex-shrink-0 flex flex-col h-full overflow-hidden">
       <div className="h-12 flex items-center px-5 border-b border-[rgba(255,255,255,0.05)]">
         <div className="flex items-center gap-2">
           <div className="w-5 h-5 bg-[#1890ff] rounded flex items-center justify-center text-white text-xs font-bold">云</div>
@@ -1610,12 +1461,9 @@ function TopNav() {
 
 // ─── app ──────────────────────────────────────────────────────────────────────
 
-export default function CloudAPIConsole({ __showFeat }: { __showFeat?: boolean }) {
+export default function App() {
   const [activePage, setActivePage] = useState<Page>("sync-records");
   const [prevPage, setPrevPage] = useState<Page>("tenant-interfaces");
-  const [docCode, setDocCode] = useState<string | null>(null);
-  const openDoc = useCallback((code: string) => setDocCode(code), []);
-  const closeDoc = useCallback(() => setDocCode(null), []);
 
   const navigate = (p: Page) => {
     setPrevPage(activePage);
@@ -1629,9 +1477,9 @@ export default function CloudAPIConsole({ __showFeat }: { __showFeat?: boolean }
       case "sync-records":
         return <SyncRecordsPage />;
       case "tenant-interfaces":
-        return <InterfaceListPage title="接口列表" onEdit={() => navigate("edit-interface")} featCode="B.04" />;
+        return <InterfaceListPage title="接口列表" onEdit={() => navigate("edit-interface")} />;
       case "ops-interfaces":
-        return <InterfaceListPage title="接口列表" onEdit={() => navigate("edit-interface")} featCode="B.01" />;
+        return <InterfaceListPage title="接口列表" onEdit={() => navigate("edit-interface")} />;
       case "tenant-categories":
       case "ops-categories":
         return <InterfaceCategoryPage />;
@@ -1649,15 +1497,12 @@ export default function CloudAPIConsole({ __showFeat }: { __showFeat?: boolean }
   };
 
   return (
-    <DocContext.Provider value={{ openDoc, showFeat: !!__showFeat }}>
-      <div className="flex min-h-screen bg-[#f0f2f5] overflow-hidden">
+    <div className="flex flex-col h-screen bg-[#f0f2f5] overflow-hidden">
+      <TopNav />
+      <div className="flex flex-1 overflow-hidden">
         <Sidebar activePage={activePage} setActivePage={navigate} />
-        <div className="flex flex-1 flex-col min-w-0">
-          <TopNav />
-          <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden">{renderPage()}</main>
-        </div>
+        <main className="flex-1 overflow-y-auto">{renderPage()}</main>
       </div>
-      <DocPanel code={docCode} onClose={closeDoc} />
-    </DocContext.Provider>
+    </div>
   );
 }

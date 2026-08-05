@@ -36,9 +36,11 @@ For detailed rules, read `.skills/page-generator.md`. Key points:
 1. **Directory**: `src/pages/<Module>/<Page>/` with `index.tsx`, `meta.json`, optional `_versions/`
 2. **Export**: `export default function XxxPage()` (no named export)
 3. **Style**: Tailwind + Shadcn, no antd/inline-style, use design tokens
-4. **Design system**: 5 presets (default/element-plus/ant-design/arco-design/naive-ui), ask user
-5. **Mode C mandatory**: PRD `**FR-X` markers, `?raw` import, `extractSection`, `FEATURE_DOCS`, DocPanel with `createPortal`
-6. **Anti-patterns**: No `**/` in comments, no CJK punctuation, no inline DocPanel, keys must match 1:1
+4. **Figma layout**: `min-h-screen` not `h-screen`, Sidebar 通顶, no `overflow-y-auto` on main (see §4.1)
+5. **Wide table scroll**: flex 容器每层加 `min-w-0` + 外层 `overflow-hidden`，表格内部 `overflow-x-auto` + `min-w-[Npx]`，否则宽表格撑开整页 (see §4.1)
+6. **Design system**: 5 presets (default/element-plus/ant-design/arco-design/naive-ui), ask user
+7. **Mode C mandatory**: PRD `**FR-X` markers, `?raw` import, `extractSection`, `FEATURE_DOCS`, DocPanel with `createPortal`
+8. **Anti-patterns**: No `**/` in comments, no CJK punctuation, no inline DocPanel, keys must match 1:1, no `h-screen` from Figma, no flex item missing `min-w-0` under wide table
 
 ## Validation
 
