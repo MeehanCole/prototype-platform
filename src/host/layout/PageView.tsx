@@ -5,14 +5,36 @@
  * 纯前端架构：PRD 内容通过 Vite `?raw` 在 pageRegistry 中加载（见 router/pageRegistry.ts），
  * 不再依赖 Express 后端读写。原型功能点标注系统（蓝色圆点 + DocPanel）由各版本组件内部实现。
  */
-import { useState, useEffect, lazy, Suspense, type ComponentType } from 'react'
+import { useState, useEffect, lazy, Suspense, type ComponentType, type ReactElement } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { Monitor, FileText, Maximize2, Minimize2, ZoomIn, ZoomOut } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import mermaid from 'mermaid'
 import { findPageByPath } from '@/host/router/pageRegistry'
 import { DesignSystemSwitcher } from '@/host/components/DesignSystemSwitcher'
 import { cn } from '@/lib/utils'
+
+mermaid.initialize({ startOnLoad: false, theme: 'default' })
+let mmdId = 0
+
+function MermaidDiagram({ chart }: { chart: string }) {
+  const [svg, setSvg] = useState('')
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    const id = `mmd-${++mmdId}`
+    mermaid.render(id, chart.trim())
+      .then(({ svg }) => { if (!cancelled) setSvg(svg) })
+      .catch((e) => { if (!cancelled) setError(String(e)) })
+    return () => { cancelled = true }
+  }, [chart])
+
+  if (error) return <pre className="text-xs text-red-500 p-2 whitespace-pre-wrap">{error}</pre>
+  if (!svg) return <div className="text-xs text-muted-foreground p-2">渲染中…</div>
+  return <div className="my-2 overflow-x-auto" dangerouslySetInnerHTML={{ __html: svg }} />
+}
 
 export function PageView() {
   const params = useParams()
@@ -257,7 +279,22 @@ export function PageView() {
         <div key={`prd-${prdKey}`} className="flex-1 overflow-auto p-3 animate-fade-in">
           {prdContent ? (
             <div className="prose prose-sm max-w-3xl mx-auto">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{prdContent}</ReactMarkdown>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  pre({ children, ...props }) {
+                    const child = Array.isArray(children) ? children[0] : children
+                    if (child && typeof child === 'object' && 'props' in child) {
+                      const cp = (child as ReactElement).props as Record<string, unknown>
+                      const lang = typeof cp.className === 'string' ? cp.className : Array.isArray(cp.className) ? cp.className.join(' ') : ''
+                      if (lang.includes('mermaid')) {
+                        return <MermaidDiagram chart={String(cp.children ?? '')} />
+                      }
+                    }
+                    return <pre {...props}>{children}</pre>
+                  },
+                }}
+              >{prdContent}</ReactMarkdown>
             </div>
           ) : (
             <div className="text-muted-foreground text-sm text-center py-12">

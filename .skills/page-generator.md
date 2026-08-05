@@ -224,6 +224,7 @@ import { useState, useRef, useEffect, createContext, useContext, useCallback } f
 import { createPortal } from 'react-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import rehypeMermaid from 'rehype-mermaid'
 import prdV2Raw from '../prd_v2.md?raw'
 ```
 
@@ -294,7 +295,7 @@ function DocPanel({ code, onClose }: { code: string | null; onClose: () => void 
         </div>
         <div className="flex-1 overflow-y-auto px-5 py-4">
           <div className="prose prose-sm max-w-none prose-headings:text-foreground prose-headings:font-semibold prose-p:text-foreground/90 prose-li:text-foreground/90 prose-th:text-foreground prose-td:text-foreground/80 prose-strong:text-foreground prose-code:text-foreground prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{doc}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[[rehypeMermaid, { strategy: 'img-svg' }]]}>{doc}</ReactMarkdown>
           </div>
         </div>
       </div>
@@ -432,6 +433,8 @@ const FEATURE_LABELS: Record<string, { type: 'A'|'B'|'M'|'R'; title: string; des
 | TopNav 全宽压顶（Sidebar 在下方） | Sidebar 底部与 main 不对齐 | Sidebar 通顶，详见 §4.1 |
 | flex 容器下宽表格不加 `min-w-0` | flex item 默认 `min-width: auto`，表格撑开整页，`overflow-x-auto` 失效 | 每层 flex 容器加 `min-w-0` + 外层 `overflow-hidden`，详见 §4.1 |
 | 表格用固定 `w-[2400px]` | 宽度被锁死无法自适应窄容器 | 用 `min-w-[2400px] w-full`，让 `overflow-x-auto` 接管滚动 |
+| PRD 交互流程只有文字无流程图 | 复杂流程难理解、易歧义 | Mermaid 流程图 + 文字流程双轨制，详见 §6 |
+| DocPanel 缺少 rehype-mermaid | PRD 中 Mermaid 代码块不渲染为流程图 | 配置 `rehypePlugins={[[rehypeMermaid, { strategy: 'img-svg' }]]}` |
 
 ## 10. 输出 Checklist
 
@@ -454,43 +457,170 @@ const FEATURE_LABELS: Record<string, { type: 'A'|'B'|'M'|'R'; title: string; des
 - [ ] Mode C：DocPanel 支持 Esc + 遮罩关闭
 - [ ] Mode C：功能点按钮蓝色可点击 / 灰色仅 tooltip
 - [ ] Mode C：`FEATURE_DOCS` 与 `FEATURE_LABELS` key 1:1
+- [ ] Mode C：DocPanel 配置 `rehypeMermaid`（strategy: 'img-svg'），PRD 中 Mermaid 流程图可渲染
 
 ## 11. PRD 标准结构
+
+PRD 采用「分层渐进式」结构：简单页面可只填前 4 节，复杂页面填全部 11 节。
+强制必填：§1 业务背景、§3 用户故事、§4 功能需求详单、§8 验收标准。
+
+### 11.1 完整模板
 
 ```markdown
 # <页面标题> PRD
 
-## Business Context
-- **Target product**: <产品名>
-- **Target tech stack**: <技术栈>
-- **Design system**: <设计系统>
-- **Entry point**: <在产品中的位置>
+## 0. 文档信息
+| 版本 | 日期 | 修改内容 | 作者 |
+|------|------|---------|------|
+| v1.0 | YYYY-MM-DD | 初稿 | <作者> |
 
-## Feature Overview
-<2-3 句话说明功能>
+## 1. 业务背景
+- **产品定位**: <产品名>
+- **目标用户**: <角色，如运营人员 / 租户管理员>
+- **业务背景**: <为什么做，解决什么问题>
+- **商业价值**: <预期收益，如效率提升 X% / 错误率降低 Y%>
+- **成功指标**: <可量化的衡量标准，如转化率提升 X%>
+- **目标产品技术栈**: <待业务方确定，建议与现有产品线一致，如 Vue3 + Element Plus / React + Ant Design>
+- **设计系统**: <目标产品设计系统，如 Ant Design / Element Plus / Arco / Naive UI>
+- **入口位置**: <在产品中的位置，如 云API管理 > 接口管理>
 
-## Functional Requirements
+## 2. 功能概览
+<2-3 句话说明核心功能与用户价值>
+
+| 模块 | 功能点 | 优先级 | 类型 |
+|------|--------|--------|------|
+| <模块> | <功能> | Must / Should / Could | 新增 / 修改 / 重构 |
+
+优先级采用 MoSCoW：Must（必做）/ Should（应做）/ Could（可做）/ Won't（不做）
+
+## 3. 用户故事
+- US-1: 作为 <角色>，我想要 <动作>，以便于 <价值>
+- US-2: 作为 <角色>，我想要 <动作>，以便于 <价值>
+
+## 4. 功能需求详单
 
 **FR-1 <功能名>**
 | 项目 | 说明 |
-|---|---|
-| 描述 | ... |
-| 业务规则 | ... |
-| 权限控制 | ... |
+|------|------|
+| 用户故事 | US-1 |
+| 优先级 | Must / Should / Could / Won't |
+| 描述 | <用户能做什么> |
+| 输入 | <字段名 / 类型 / 格式 / 校验规则> |
+| 输出 | <结果 / 数据格式 / 提示> |
+| 业务规则 | 1) 触发条件: <...> 2) 校验逻辑: <...> 3) 冲突处理: <...> 4) 旧数据兼容: <...> |
+| 权限控制 | <角色 / 可见性 / 操作权限> |
+| 状态流转 | <状态A → 状态B，触发条件> |
+
+**验收标准 (Acceptance Criteria)**
+- AC-1: Given <前置条件>, When <操作>, Then <预期结果>
+- AC-2: Given <前置条件>, When <操作>, Then <预期结果>
+- AC-3: Given <前置条件>, When <操作>, Then <预期结果>
 
 **FR-2 <功能名>**
 ...
 
-## Interaction Flow
-1. <操作步骤>
+## 5. 数据要求
+| 字段 | 类型 | 必填 | 校验规则 | 说明 |
+|------|------|------|---------|------|
+| code | string | 是 | 唯一，字母+数字 | 接口编码 |
+| name | string | 是 | 1-50 字符 | 接口名称 |
 
-## Edge Cases
-- 空状态：...
-- 加载状态：...
-- 错误状态：...
+## 6. 交互流程
 
-## Component Mapping (optional)
-| 组件 | 目标库组件 | 备注 |
-|------|-----------|------|
-| Btn | ElButton | type="primary" |
+流程图（Mermaid）+ 文字流程双轨制，复杂流程必须两者都有，简单流程可只有文字。
+
+### 6.1 页面导航主流程
+```mermaid
+flowchart TD
+    A[入口] --> B[默认页]
+    B --> C{切换}
+    C -->|分支1| D1[页面1]
+    C -->|分支2| D2[页面2]
 ```
+文字流程：入口 → 默认页 → 通过导航切换到各分支页面
+
+### 6.2 核心操作流程
+```mermaid
+flowchart LR
+    A[列表页] -->|点击「操作」| B[详情/编辑页]
+    B --> C{校验}
+    C -->|失败| D[提示错误]
+    D --> C
+    C -->|通过| E[保存成功]
+    E --> F[返回列表页]
+```
+文字流程：列表页 → 操作 → 校验 → 保存 → 返回
+
+### 6.3 状态机（有状态流转的实体必填）
+```mermaid
+stateDiagram-v2
+    [*] --> 草稿: 新增
+    草稿 --> 已发布: 发布
+    已发布 --> 已下线: 下线
+    已下线 --> [*]: 删除
+```
+
+## 7. 非功能性需求
+- **性能**: 页面加载 ≤ 2s，列表查询 ≤ 500ms
+- **安全**: 敏感字段脱敏显示，操作日志记录
+- **兼容性**: Chrome 90+ / Firefox 88+ / Edge 90+
+- **可访问性**: 键盘导航、ARIA 标签、对比度 AA
+
+## 8. 边界情况
+- 空状态: <无数据时显示什么>
+- 加载状态: <skeleton / spinner>
+- 错误状态: <网络异常 / 权限不足 / 数据冲突>
+- 数据边界: <最大层级 / 最大数量 / 字符长度上限>
+
+## 9. 待办问题
+- [ ] Q1: <问题> @<负责人>
+- [ ] Q2: <问题> @<负责人>
+
+## 10. 组件映射
+
+> 目标产品开发时的组件库建议映射，实际以目标产品选定的技术栈为准。
+
+| UI 元素 | Ant Design | Element Plus | 关键属性 |
+|---------|-----------|--------------|---------|
+| 按钮 | Button | ElButton | type="primary" / "default" |
+| 数据表格 | Table | ElTable | columns, dataSource, pagination, scroll |
+| 文本输入 | Input | ElInput | placeholder, allowClear |
+| 下拉选择 | Select | ElSelect | options, placeholder, allowClear |
+| 树形控件 | Tree | ElTree | treeData, onSelect |
+| 表单项 | Form.Item | ElFormItem | label, rules |
+| 弹窗 | Modal | ElDialog | title, open, onOk, onCancel |
+| 分页 | Pagination | ElPagination | total, current, pageSize |
+| 标签 | Tag | ElTag | color |
+```
+
+### 11.2 渐进式采用规则
+
+| 页面复杂度 | 必填章节 | 可选章节 |
+|-----------|---------|---------|
+| 简单（单一列表 / 静态展示） | §0 §1 §2 §3 §4 | §5 §6 §7 §8 §9 §10 |
+| 中等（表单 / 筛选 / 弹窗） | §0 §1 §2 §3 §4 §6 §8 | §5 §7 §9 §10 |
+| 复杂（多版本 / 状态机 / 权限矩阵） | 全部 §0-§10 | - |
+
+### 11.3 关键字段约束
+
+| 字段 | 约束 | 示例 |
+|------|------|------|
+| `**FR-X` | 必须行首，编号连续不跳号，每个功能段落唯一 | `**FR-1 接口管理` |
+| 优先级 | 枚举：Must / Should / Could / Won't | `Must` |
+| AC 编号 | 同一 FR 内连续编号 | `AC-1 AC-2 AC-3` |
+| US 编号 | 全文连续编号 | `US-1 US-2 US-3` |
+| 验收标准格式 | 必须 Given-When-Then 三段式 | `Given 已登录，When 点击，Then 弹出` |
+
+### 11.4 DocPanel 兼容性
+
+`extractSection` 仍按 `**FR-X` 标记拆分 PRD，新增章节（§0 §3 §5 §7 §9）不影响 DocPanel 提取逻辑。DocPanel 展示的是 §4 中对应 FR-X 的完整段落（含验收标准 AC-X），便于测试对照验收。
+
+### 11.5 禁止事项
+
+| 反模式 | 原因 | 正确做法 |
+|--------|------|---------|
+| 跳过 §3 用户故事 | 缺失用户视角，难以验收 | 每个 FR 必须关联至少一个 US |
+| 验收标准用文字描述 | 歧义、不可测 | Given-When-Then 三段式 |
+| 业务规则一行带过 | 边界不清，开发自由发挥 | 拆 4 项：触发/校验/冲突/兼容 |
+| 无优先级 | 资源冲突时无法取舍 | MoSCoW 标注每个 FR |
+| 状态流转缺触发条件 | 状态机不完整 | 每条流转标注「事件 + 条件」 |

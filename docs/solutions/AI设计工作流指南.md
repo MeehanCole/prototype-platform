@@ -85,12 +85,17 @@
 **产物**：`prd.md` 完整 PRD 文档
 
 PRD 必须包含：
-- Business Context（业务上下文）
-- Feature Overview（功能概述）
-- Functional Requirements（功能需求）
-- Interaction Flow（交互流程）
-- Edge Cases（边界情况）
-- Component Mapping（组件映射，可选）
+- 文档信息（版本/日期/作者）
+- 业务背景（产品定位/目标用户/商业价值/成功指标/目标产品技术栈）
+- 功能概览（模块/功能点/优先级 MoSCoW/类型）
+- 用户故事（As a... I want to... so that...）
+- 功能需求详单（`**FR-X` 标记，含输入/输出/业务规则/验收标准 Given-When-Then）
+- 数据要求（核心实体/字段/关系）
+- 交互流程（Mermaid 流程图 + 文字流程双轨制）
+- 非功能性需求（性能/安全/兼容性）
+- 边界情况（空/超长/并发/失败）
+- 待办问题（未决策项）
+- 组件映射（指向目标产品的组件库，非原型平台）
 
 ---
 
@@ -235,36 +240,78 @@ Mode C 混合模式的起点是「已有产品 + 新需求」，**「已有产�
 ```markdown
 # <页面标题> PRD
 
-## Business Context
-**Target product**: <产品名>
-**Target tech stack**: <技术栈>
-**Design system**: <设计系统>
-**Entry point**: <在产品中的位置>
-**Related existing pages**: <关联页面>
+## 0. 文档信息
+| 版本 | 日期 | 修改内容 | 作者 |
+|------|------|---------|------|
+| v1.0 | <日期> | 初稿 | <作者> |
 
-## Feature Overview
+## 1. 业务背景
+- **产品定位**: <产品名>
+- **目标用户**: <用户角色>
+- **业务背景**: <为什么做这个功能>
+- **商业价值**: <预期收益>
+- **成功指标**: <可衡量的指标>
+- **目标产品技术栈**: <待业务方确定>
+- **设计系统**: <设计系统>
+- **入口位置**: <在产品中的位置>
+
+## 2. 功能概览
 <这个页面做什么，2-3 句话>
 
-## Functional Requirements
-| 区域 | 功能 | 数据来源 | 说明 |
-|------|------|---------|------|
+| 模块 | 功能点 | 优先级 | 类型 |
+|------|--------|--------|------|
+| ... | ... | Must/Should/Could | 新增/修改/重构 |
+
+## 3. 用户故事
+- US-1: 作为<角色>，我想要<操作>，以便于<目的>
+
+## 4. 功能需求详单
+
+**FR-1 <功能名称>**
+| 项目 | 说明 |
+|------|------|
+| 用户故事 | US-1 |
+| 优先级 | Must |
+| 描述 | <功能描述> |
+| 输入 | <输入条件> |
+| 输出 | <输出结果> |
+| 业务规则 | 1) ... 2) ... |
+| 验收标准 | AC-1: Given... When... Then... |
+
+## 5. 数据要求
+### <核心实体>
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
 | ... | ... | ... | ... |
 
-## Interaction Flow
-1. <操作步骤>
+## 6. 交互流程
+### 6.1 <流程名称>
+```mermaid
+flowchart TD
+    A[步骤1] --> B[步骤2]
+```
+文字流程：步骤1 → 步骤2 → 步骤3
 
-## Edge Cases
+## 7. 非功能性需求
+- 性能：<响应时间/并发量>
+- 安全：<权限/加密>
+
+## 8. 边界情况
 - 空状态：<如何展示>
 - 加载状态：<如何展示>
 - 错误状态：<如何展示>
 - 边界值：<如何处理>
 
-## Design Intent
-<为什么这样设计，业务理由>
+## 9. 待办问题
+- [ ] <未决策项>
 
-## Future Extension
-<未来可能扩展的方向>
+## 10. 组件映射
+| 页面区域 | 目标产品组件 | 说明 |
+|---------|------------|------|
+| ... | ... | ... |
 ```
+
+> ⚠️ **PRD 中英文规范**：章节标题用中文，保留行业标准术语缩写（如 MoSCoW、Given-When-Then、FR-X）。技术栈和组件映射指向**目标产品**，不是原型平台。
 
 ---
 
@@ -313,19 +360,25 @@ Mode C 混合模式的起点是「已有产品 + 新需求」，**「已有产�
 **AI 任务**：输出包含"现有功能 + 新增功能"的完整 PRD，并将 PRD 业务描述内嵌到原型代码
 **产物**：`prd.md`（或 `prd_v2.md`）+ 功能点标注代码
 
-PRD 结构：
-- 现有功能描述（简要）
-- 新增/修改功能（详细）
+PRD 结构（同 A5，完整 10 节标准结构）：
+- 文档信息 / 业务背景 / 功能概览 / 用户故事 / 功能需求详单 / 数据要求 / 交互流程 / 非功能性需求 / 边界情况 / 待办问题 / 组件映射
+- 新增/修改功能需在功能概览中标注类型，在功能需求详单中详细描述
 - 改动影响分析（对现有功能的影响）
 - 迁移/兼容说明（如有）
 
 **PRD 内嵌代码规范**（Mode C 强制）：
 1. PRD 中每个功能需求加 `**FR-X` 标记段落起始
 2. 版本文件 `import prdRaw from '../prd_v2.md?raw'`
-3. 包含 `extractSection` 工具函数按 FR 段落提取
+3. 包含 `extractSection(raw, startFr)` 工具函数按 FR 段落提取（只接收 `startFr`，自动到下一个 `**FR-` 或 `##` 结束）
 4. `FEATURE_DOCS` 映射表（key 与 `FEATURE_LABELS` 1:1）
-5. 功能点标注为胶囊形「说明」按钮：蓝色可点击 → 弹出 DocPanel 展示完整 PRD
-6. DocPanel 用 `createPortal` 渲染到 `document.body`，支持 Esc + 遮罩关闭
+5. 功能点标注为胶囊形「说明」按钮：蓝色可点击 → 弹出 DocPanel 展示完整 PRD 段落
+6. DocPanel 宽度 `560px`（`max-w-[92vw]`），用 `createPortal` 渲染到 `document.body`，支持 Esc + 遮罩关闭
+7. DocPanel 内 `ReactMarkdown` 需支持 Mermaid 渲染：自定义 `pre` 组件拦截 `language-mermaid` 代码块，交给 `MermaidDiagram` 组件（`mermaid.render()` 异步生成 SVG）
+
+**PRD 视图 Mermaid 渲染**（PageView.tsx，所有模式通用）：
+- PRD 视图的 `ReactMarkdown` 同样需自定义 `pre` 组件拦截 Mermaid 代码块
+- 使用 `mermaid` 库直接渲染（非 `rehype-mermaid`，后者浏览器兼容性差）
+- `mermaid.initialize({ startOnLoad: false, theme: 'default' })` 初始化
 
 **测试验收 Changelog**（Mode C 强制）：
 - 生成 `c5_v1_vs_v2_changelog.md`，6 节结构
@@ -340,21 +393,21 @@ PRD 结构：
 
 | 阶段 | Skill 能力 | 当前状态 |
 |------|-----------|---------|
-| A1 需求输入 | 引导式提问模板 | 待实现 |
-| A2 需求分析 | 竞品分析模板 + 调研 checklist | 待实现 |
-| A3 方案设计 | 方案对比文档模板 | 待实现 |
-| A4 原型生成 | `prototype-page-generator` | ✅ 已有 |
-| A5 PRD 文档 | PRD 模板 + 整合逻辑 | ✅ 已有 |
-| B1 输入采集 | `figma-implement-design` | ✅ 已有 |
-| B2 视觉还原 | AI 代码生成 | ✅ 已有 |
-| B3 规范适配 | `prototype-page-generator` 适配规则 | ✅ 已有 |
-| B4 平台接入 | 自动路由注册 | ✅ 已有 |
-| B5 反向 PRD | 引导式追问模板 | ✅ 已有 |
-| C1 现有还原 | = B1-B4 | ✅ 已有 |
+| A1 需求输入 | 引导式提问模板（角色/目标/约束） | 待实现 |
+| A2 需求分析 | 竞品分析模板 + 调研 checklist + MoSCoW 优先级 | 待实现 |
+| A3 方案设计 | 2-3 方案对比文档模板（体验/成本/风险/扩展性） | 待实现 |
+| A4 原型生成 | `prototype-page-generator`（含设计系统 preset、空/加载/错误状态、Figma 布局适配） | ✅ 已有 |
+| A5 PRD 文档 | 10 节标准 PRD 模板（中文标题 + 用户故事 + 验收标准 + Mermaid 流程图） | ✅ 已有 |
+| B1 输入采集 | `figma-implement-design` + B1.1 路径决策（90%直接出代码 / 10%转 Figma） | ✅ 已有 |
+| B2 视觉还原 | AI 代码生成（识别设计系统 preset → 用 preset token 出代码） | ✅ 已有 |
+| B3 规范适配 | `prototype-page-generator` 适配规则（默认导出/meta.json/去UI库/颜色映射/`min-h-screen`/宽表格滚动） | ✅ 已有 |
+| B4 平台接入 | 自动路由注册（扫描 meta.json） | ✅ 已有 |
+| B5 反向 PRD | 引导式追问模板（为什么/数据来源/边界/异常/扩展） | ✅ 已有 |
+| C1 现有还原 | = B1-B4（C1 基线必须产出 index.tsx + v1.tsx + prd_v1.md） | ✅ 已有 |
 | C2 新需求分析 | = A1-A2 | 待实现 |
-| C3 改造方案 | 改造方案模板 | 待实现 |
-| C4 原型改造 | 基于 diff 的改造生成 | 待实现 |
-| C5 PRD + 内嵌 | PRD 模板 + `?raw` 内嵌 + DocPanel | ✅ 已有 |
+| C3 改造方案 | 改造方案模板（新增/修改/删除/重组分类） | 待实现 |
+| C4 原型改造 | 基于 diff 的改造生成（保留未改动部分、版本对比） | 待实现 |
+| C5 PRD + 内嵌 | PRD 模板 + `?raw` 内嵌 + `extractSection` + DocPanel(560px) + Mermaid 渲染 + Changelog | ✅ 已有 |
 
 ---
 
@@ -366,12 +419,12 @@ PRD 结构：
 src/pages/<Module>/<Page>/
   ├── index.tsx              # 原型代码
   ├── meta.json              # 页面元数据
-  ├── prd.md                 # 最终 PRD（单版本）
-  ├── prd_v1.md              # 多版本 PRD（含 **FR-X 标记）
-  ├── prd_v2.md
+  ├── prd.md                 # 最终 PRD（单版本，含 Mermaid 流程图）
+  ├── prd_v1.md              # 多版本 PRD（含 **FR-X 标记，中文标题）
+  ├── prd_v2.md              # 含 Mermaid 流程图
   ├── _versions/             # 多版本原型
-  │   ├── v1.tsx
-  │   └── v2.tsx             # 含 ?raw 导入 + FEATURE_DOCS + DocPanel
+  │   ├── v1.tsx             # 基线版本
+  │   └── v2.tsx             # 含 ?raw 导入 + FEATURE_DOCS + DocPanel + Mermaid 渲染
   └── _workflow/             # 工作流产物（可选）
       ├── requirement.md     # A1 需求清单
       ├── analysis.md        # A2 分析报告

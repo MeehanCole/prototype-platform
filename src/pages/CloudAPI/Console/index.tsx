@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, createContext, useContext, useCallback } from "react";
-import type { ReactNode } from "react";
+import type { ReactNode, ReactElement } from "react";
 import { createPortal } from "react-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import mermaid from "mermaid";
 import prdRaw from "./prd.md?raw";
 import {
   ChevronDown,
@@ -20,15 +21,30 @@ import {
   FolderOpen,
 } from "lucide-react";
 
+mermaid.initialize({ startOnLoad: false, theme: "default" });
+let mmdId = 0;
+
 // ─── PRD extractSection ────────────────────────────────────────────────────────
-function extractSection(raw: string, startFr: string, endFr?: string): string {
+// Extract the full FR-X section including Acceptance Criteria, up to the
+// next **FR-Y or next ## heading. Returns only this segment for isolated
+// display in DocPanel (not a scroll position in the full PRD).
+function extractSection(raw: string, startFr: string): string {
   const lines = raw.split("\n");
-  let start = -1, end = lines.length;
+  let start = -1;
+  let end = lines.length;
   for (let i = 0; i < lines.length; i++) {
-    if (lines[i].includes(`**${startFr}`)) start = i;
-    if (endFr && lines[i].includes(`**${endFr}`)) { end = i; break; }
+    if (start === -1) {
+      if (lines[i].includes(`**${startFr}`)) start = i;
+    } else {
+      const line = lines[i];
+      if (line.startsWith("**FR-") || /^##\s/.test(line)) {
+        end = i;
+        break;
+      }
+    }
   }
-  return lines.slice(start, end).join("\n").replace(/^#{1,6} /gm, (m) => m + " ");
+  if (start === -1) return `<!-- Section ${startFr} not found in PRD -->`;
+  return lines.slice(start, end).join("\n").replace(/\n{2,}$/, "\n");
 }
 
 const FEATURE_LABELS: Record<string, { type: "A" | "B" | "M" | "R"; title: string; desc: string }> = {
@@ -50,6 +66,8 @@ const FEATURE_DOCS: Record<string, string> = {
   "B.06": extractSection(prdRaw, "FR-6"),
   "B.07": extractSection(prdRaw, "FR-7"),
 };
+// NOTE: extractSection now returns only the FR functional description,
+// not the Acceptance Criteria. AC items are visible in the PRD view.
 
 const DocContext = createContext<{ openDoc: (code: string) => void; showFeat: boolean }>({ openDoc: () => {}, showFeat: false });
 
@@ -110,6 +128,24 @@ function NewTag({ code }: { code: string }) {
   );
 }
 
+function MermaidDiagram({ chart }: { chart: string }) {
+  const [svg, setSvg] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    const id = `mmd-${++mmdId}`;
+    mermaid.render(id, chart.trim())
+      .then(({ svg }) => { if (!cancelled) setSvg(svg); })
+      .catch((e) => { if (!cancelled) setError(String(e)); });
+    return () => { cancelled = true; };
+  }, [chart]);
+
+  if (error) return <pre className="text-xs text-red-500 p-2 whitespace-pre-wrap">{error}</pre>;
+  if (!svg) return <div className="text-xs text-muted-foreground p-2">渲染中…</div>;
+  return <div className="my-2 overflow-x-auto" dangerouslySetInnerHTML={{ __html: svg }} />;
+}
+
 function DocPanel({ code, onClose }: { code: string | null; onClose: () => void }) {
   useEffect(() => {
     if (!code) return;
@@ -123,7 +159,7 @@ function DocPanel({ code, onClose }: { code: string | null; onClose: () => void 
   return createPortal(
     <div className="fixed inset-0 z-[70]" onClick={onClose}>
       <div className="absolute inset-0 bg-black/20 backdrop-blur-[1px]" />
-      <div className="absolute right-0 top-0 h-full w-[400px] max-w-[90vw] bg-background border-l border-border shadow-2xl flex flex-col animate-fade-in" onClick={(e) => e.stopPropagation()}>
+      <div className="absolute right-0 top-0 h-full w-[560px] max-w-[92vw] bg-background border-l border-border shadow-2xl flex flex-col animate-fade-in" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-2 px-5 py-4 border-b border-border">
           <div>
             <div className="flex items-center gap-2">
@@ -138,7 +174,22 @@ function DocPanel({ code, onClose }: { code: string | null; onClose: () => void 
         </div>
         <div className="flex-1 overflow-y-auto px-5 py-4">
           <div className="prose prose-sm max-w-none prose-headings:text-foreground prose-headings:font-semibold prose-p:text-foreground/90 prose-li:text-foreground/90 prose-th:text-foreground prose-td:text-foreground/80 prose-strong:text-foreground prose-code:text-foreground prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{doc}</ReactMarkdown>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                pre({ children, ...props }) {
+                  const child = Array.isArray(children) ? children[0] : children;
+                  if (child && typeof child === "object" && "props" in child) {
+                    const cp = (child as ReactElement).props as Record<string, unknown>;
+                    const lang = typeof cp.className === "string" ? cp.className : "";
+                    if (lang.includes("mermaid")) {
+                      return <MermaidDiagram chart={String(cp.children ?? "")} />;
+                    }
+                  }
+                  return <pre {...props}>{children}</pre>;
+                },
+              }}
+            >{doc}</ReactMarkdown>
           </div>
         </div>
       </div>

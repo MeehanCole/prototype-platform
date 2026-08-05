@@ -50,7 +50,7 @@ export function Sidebar({
           </div>
           {!collapsed && (
             <span className="text-xs font-semibold tracking-wide text-sidebar-foreground truncate">
-              Prototype
+              原型协作台
             </span>
           )}
         </div>
