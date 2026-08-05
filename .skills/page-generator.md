@@ -70,6 +70,38 @@ export { default } from './_versions/v2'
 - 禁止 antd、inline-style、CSS Modules
 - 必须使用平台设计 token：`bg-background`、`text-foreground`、`bg-primary`、`text-primary-foreground`、`bg-muted`、`text-muted-foreground`、`border-border`
 
+### 4.0 Figma 代码转换的样式保留原则（强约束）
+
+> **核心原则：Figma 代码转换时，参考源是 Figma 原始代码本身，不是平台 CSS 变量。**
+
+当输入源是 Figma 插件导出的代码工程（放入 `01-raw/`），转换策略为**最小改动**，保留原始设计风格：
+
+| 项目 | 策略 | 原因 |
+|------|------|------|
+| inline style (`style={{}}`) | **保留原样** | Figma 导出的精确样式值（颜色/尺寸/间距）是设计稿的真实还原，强行映射为 CSS 变量会丢失视觉保真度 |
+| 原始颜色值（`#1890ff` 等） | **保留原样** | 不映射为 `bg-primary` 等 token。Figma 设计稿的配色体系（如 Ant Design 风格）与平台 token 不一定一致 |
+| 内联 SVG 图标 | **保留原样** | 不替换为 lucide-react。Figma 导出的 SVG 是设计师精确定制的，替换会丢失视觉细节 |
+| Tailwind 类名 | **保留原样** | 不重构为平台约定写法 |
+| `React.ReactNode` / `React.CSSProperties` | **改为 type-only import** | `import type { ReactNode, CSSProperties } from "react"`，去掉 `React.` 前缀 |
+| `height: "100vh"` | **改为 `minHeight: "100vh"`** | 防止内容溢出（唯一必须改的样式） |
+
+**仅做以下改动**：
+1. `React.ReactNode` → `ReactNode`，`React.CSSProperties` → `CSSProperties`（去命名空间 + type-only import）
+2. `React.useState` → `useState` 等（去 React. 前缀 + 显式 import）
+3. 外层容器 `height: "100vh"` → `minHeight: "100vh"`
+4. 保留 `export default function App()` 不改名
+
+**禁止做的事**：
+- 不要把 inline style 改成 Tailwind 类
+- 不要把颜色映射为 CSS 变量（`#1890ff` → `text-primary` 等）
+- 不要把内联 SVG 替换为 lucide-react 图标
+- 不要引入 `cn()` / `clsx` / `tailwind-merge` 工具函数
+- 不要重构组件结构或逻辑
+
+> **对比：AI 生成代码（模式 A）vs Figma 代码转换（模式 B）**
+> - 模式 A（AI 生成）：必须遵守上方"样式系统"规则，使用平台 token，禁止 inline style
+> - 模式 B（Figma 转换）：保留 Figma 原始设计，仅做技术适配（React 命名空间 + 布局溢出修复）
+
 ## 4.1 Figma 代码转换布局适配（强约束）
 
 Figma 导出的代码通常自带全屏布局（`h-screen` + Header + Sidebar），直接放入平台会导致高度冲突、侧边栏底部与内容区不对齐等问题。
@@ -191,6 +223,104 @@ return (
 3. 使用 `bg-primary` / `text-primary` token，不硬编码颜色
 4. 如目标产品使用自定义设计系统，提取关键 token 并记录在 PRD
 
+## 5.5 PRD 文档结构规范（强约束）
+
+所有 PRD 文档（`prd.md` / `prd_v1.md` / `prd_v2.md`）必须采用统一的 10 章节结构，使用结构化表格格式（非纯文本描述）。
+
+### 章节结构
+
+| 章节 | 标题 | 内容形式 | 说明 |
+|------|------|---------|------|
+| §0 | 文档信息 | 表格（版本/日期/修改内容/作者） | 版本迭代记录 |
+| §1 | 业务背景 | 列表 | 含产品定位、目标用户、业务背景、商业价值、成功指标、**技术栈、设计系统、入口位置** |
+| §2 | 功能概览 | 表格（模块/功能点/优先级/类型） | 类型列标注「新增/重构/修改/删除」 |
+| §3 | 用户故事 | 列表 | `US-X: 作为X，我想要Y，以便Z` 格式 |
+| §4 | 功能需求详单 | **结构化表格 + 独立 AC 段落** | 每个 FR 用 `**FR-X` 标记，含 8 个维度 |
+| §5 | 数据要求 | **字段表** | 每个实体一张表（字段/类型/必填/校验规则/说明） |
+| §6 | 交互流程 | **Mermaid + 文字流程** | 每个流程图后必须有文字说明 |
+| §7 | 非功能性需求 | 列表 | 性能/安全/兼容性/可访问性 |
+| §8 | 边界情况 | 列表 | 场景 + 处理方式 |
+| §9 | 待办问题 | 列表 | `Q-X: 问题 @责任人` 格式 |
+| §10 | 组件映射 | **三列对比表** | UI元素 / Ant Design / Element Plus / 关键属性 |
+
+### §4 功能需求详单格式（强约束）
+
+每个 FR 必须采用结构化表格 + 独立验收标准段落：
+
+```markdown
+**FR-1 功能点名称**
+| 项目 | 说明 |
+|------|------|
+| 用户故事 | US-X |
+| 优先级 | Must / Should / Could |
+| 描述 | 功能点的简要描述 |
+| 输入 | 输入字段、筛选条件等 |
+| 输出 | 输出内容、列表结构等 |
+| 业务规则 | 1) 触发条件 2) 校验逻辑 3) 冲突处理 4) 旧数据兼容 |
+| 权限控制 | 角色 + 可执行操作 |
+| 状态流转 | 状态A →(动作)→ 状态B（无则填"无"） |
+
+**验收标准 (Acceptance Criteria)**
+- AC-1: Given 前置条件, When 触发动作, Then 预期结果
+- AC-2: ...
+```
+
+**禁止的反模式**：
+- ❌ 纯文本描述功能需求（如"管理员可以添加用户..."）
+- ❌ 验收标准混在 FR 描述中（必须独立成段）
+- ❌ 缺少业务规则/权限控制/状态流转维度（无则填"无"，不可省略）
+- ❌ Given/When/Then 写在描述段落里（必须用 AC-X 列表）
+
+### §5 数据要求格式（强约束）
+
+使用**字段表**（非 ER 图）。每个实体一张表：
+
+```markdown
+### 实体名 (EntityName)
+| 字段 | 类型 | 必填 | 校验规则 | 说明 |
+|------|------|------|---------|------|
+| id | string | 是 | 唯一 | 主键 |
+| name | string | 是 | 1-100 字符 | 名称 |
+| status | enum | 是 | active / inactive | 状态 |
+```
+
+**禁止的反模式**：
+- ❌ 使用 Mermaid ER 图替代字段表（ER 图无法表达校验规则和必填性）
+- ❌ 实体间关系用 Mermaid 关系图（关系在字段说明中体现即可）
+
+### §6 交互流程格式（强约束）
+
+每个流程必须同时包含 Mermaid 图和文字流程说明：
+
+```markdown
+### 6.X 流程名称
+
+\`\`\`mermaid
+flowchart TD
+    A[步骤A] --> B[步骤B]
+    B --> C{判断}
+    C -->|是| D[结果D]
+    C -->|否| E[结果E]
+\`\`\`
+
+文字流程：步骤A → 步骤B → 判断 → 是则结果D / 否则结果E
+```
+
+**禁止的反模式**：
+- ❌ 只有 Mermaid 图无文字说明
+- ❌ 只有文字说明无 Mermaid 图
+
+### §10 组件映射格式（强约束）
+
+使用三列对比表，覆盖主流组件库：
+
+```markdown
+| UI 元素 | Ant Design | Element Plus | 关键属性 |
+|---------|-----------|--------------|---------|
+| 按钮 | Button | ElButton | type="primary" / "default" |
+| 数据表格 | Table | ElTable | columns, dataSource, pagination |
+```
+
 ## 6. PRD 段落标记（Mode C 多版本必做）
 
 PRD 中每个功能需求必须用 `**FR-X` 标记段落起始：
@@ -309,12 +439,12 @@ function DocPanel({ code, onClose }: { code: string | null; onClose: () => void 
 ```tsx
 function NewTag({ code }: { code: string }) {
   const hostRef = useRef<HTMLButtonElement | null>(null)
-  const openDoc = useContext(DocContext)
+  const { openDoc, showFeat } = useContext(DocContext)
   const [tip, setTip] = useState<{ top: number; left: number; above: boolean; show: boolean }>({ top: 0, left: 0, above: true, show: false })
 
   const f = FEATURE_LABELS[code]
+  if (!showFeat) return null
   if (!f) return null
-  const typeShort = { A: '重构', B: '新增', M: '修改', R: '删除' }[f.type]
   const hasDoc = !!FEATURE_DOCS[code]
 
   const showTip = () => {
@@ -341,10 +471,8 @@ function NewTag({ code }: { code: string }) {
         onFocus={showTip}
         onBlur={hideTip}
         onClick={hasDoc ? (e) => { e.stopPropagation(); openDoc(code) } : undefined}
-        title={hasDoc ? '查看 PRD 详细说明' : `${typeShort}：${f.title}`}
-        aria-label={`${code} ${typeShort}`}
-        tabIndex={0}
-        className={`absolute -top-1.5 right-0 inline-flex items-center gap-0.5 h-4 px-1 rounded-full bg-background/95 ring-1 text-[9px] transition-colors z-10 whitespace-nowrap font-medium shadow-sm ${
+        title={hasDoc ? '查看 PRD 详细说明' : `${f.title}`}
+        className={`inline-flex items-center gap-0.5 h-4 px-1 rounded-full bg-background/95 ring-1 text-[9px] transition-colors z-10 whitespace-nowrap font-medium shadow-sm ${
           hasDoc
             ? 'ring-primary/40 text-primary hover:bg-primary/10 hover:ring-primary/60 cursor-pointer'
             : 'ring-border text-muted-foreground hover:bg-accent cursor-help'
@@ -416,6 +544,52 @@ const FEATURE_LABELS: Record<string, { type: 'A'|'B'|'M'|'R'; title: string; des
 - 蓝色按钮 = 有 PRD 详情 → 可点击 → DocPanel 展示完整 PRD
 - 灰色按钮 = 无 PRD 详情 → 仅 hover 显示简短 tooltip
 - 关闭开关 → 所有按钮瞬间消失，零占位零位移
+
+### 8.4 NewTag 位置规范（强约束）
+
+NewTag 角标统一采用 **inline 紧贴标题文字右侧**的定位方式，确保角标与标题视觉关联性强、位置可预测。
+
+**核心原则**：角标作为 `inline-flex` 元素，在 `flex items-center gap-2` 容器中紧跟标题文字流动。禁止使用 `absolute` 定位（会导致角标跑到页面右上角，与标题脱节）。
+
+#### 统一规则
+
+所有层级（L1 页面标题、L2 卡片子标题、L3 操作组）均采用相同的 inline 紧贴方式：
+
+```tsx
+<div className="flex items-center gap-2">
+  <div className="font-medium" style={{ fontSize: 20 }}>策略管理</div>
+  <NewTag code="B.06" />
+</div>
+```
+
+#### 不同场景的写法
+
+| 场景 | 写法 | 说明 |
+|------|------|------|
+| **L1 页面标题** | `<div className="flex items-center gap-2"><div className="font-medium">标题</div><NewTag code="X.XX" /></div>` | 标题独占一行，角标紧跟标题文字 |
+| **L2 卡片子标题**（含返回按钮） | `<div className="flex items-center justify-between"><div className="flex items-center gap-2"><h3>标题</h3><NewTag code="X.XX" /></div><button>返回</button></div>` | 标题+角标为一组，返回按钮在右侧 |
+| **L3 操作组** | `<div className="flex items-center gap-2"><Btn>按钮1</Btn><Btn>按钮2</Btn><NewTag code="X.XX" /></div>` | 角标紧贴最后一个按钮 |
+
+#### 强制规则
+
+1. **必须用 `flex items-center gap-2` 包裹**标题和 NewTag，确保垂直对齐和水平间距
+2. **禁止使用 `absolute` 定位** — 会导致角标脱离文档流，跑到 `relative` 祖先的右上角
+3. **禁止使用 `relative` 父容器 + `absolute -top-1.5 right-0` 角标** — 角标离标题太远，关联性弱
+4. **NewTag 组件本身不需要 `position` prop** — 默认就是 inline-flex，跟随父容器流动
+
+#### 禁止的反模式
+
+- ❌ `<div className="font-medium relative">标题<NewTag /></div>` + 组件内 `absolute -top-1.5 right-0` → 角标跑到右上角
+- ❌ 角标放在行首（如 `<NewTag /><Btn>按钮</Btn>`）→ 语义不明确，应紧贴标题或按钮
+- ❌ 标题和角标不在同一个 flex 容器 → 间距不可控，垂直不对齐
+
+#### 自检 Checklist
+
+生成代码后必须自检：
+- [ ] 所有 NewTag 是否都用 `flex items-center gap-2` 包裹？
+- [ ] 是否有 NewTag 使用了 `absolute` 定位？（应为否）
+- [ ] L2 含返回按钮的场景，标题+角标是否为一组，返回按钮在右侧？
+- [ ] L3 操作组角标是否紧贴最后一个按钮？
 
 ## 9. 禁止事项
 
@@ -524,6 +698,59 @@ PRD 采用「分层渐进式」结构：简单页面可只填前 4 节，复杂�
 |------|------|------|---------|------|
 | code | string | 是 | 唯一，字母+数字 | 接口编码 |
 | name | string | 是 | 1-50 字符 | 接口名称 |
+
+### 5.1 ER 图（强约束）
+
+涉及多实体关联时必须输出 ER 图。Mermaid `erDiagram` 语法严格，以下规则必须遵守：
+
+**语法格式**：`<实体1> <基数> <实体2> : <关系名>`
+
+**基数符号**（必须使用下列之一）：
+| 符号 | 含义 |
+|------|------|
+| `\|\|--\|\|` | 一对一 |
+| `\|\|--o{` | 一对多（零或多） |
+| `\|\|--\|{` | 一对多（一或多） |
+| `}o--o{` | 多对多 |
+| `}o--\|\|` | 多对一 |
+
+**强制规则**：
+1. **每条关系只能连接两个实体**。禁止三元关系语法 `A ||--o{ B }||--|| C : label`，Mermaid 解析器会在第二个 `}` 处报 `Expecting 'COLON', 'STYLE_SEPARATOR', got 'ONE_OR_MORE'` 错误。
+2. **多对多关系必须拆解**：通过中间表拆为两条一对多关系。
+
+```mermaid
+erDiagram
+    USER ||--o{ USER_GROUP_MEMBER : has
+    USER_GROUP ||--o{ USER_GROUP_MEMBER : contains
+    USER_GROUP ||--o{ POLICY_ASSOC : has
+    POLICY ||--o{ POLICY_ASSOC : associated_with
+```
+
+3. **实体属性块**用大括号包裹，每行 `<类型> <字段名> <约束>`：
+```mermaid
+erDiagram
+    USER {
+        string id PK
+        string name
+        enum status
+        datetime created
+    }
+```
+
+4. **关系名**用英文或中文均可，但同一 PRD 内保持一致风格。
+
+**错误示例**（会报错）：
+```mermaid
+erDiagram
+    USER ||--o{ USER_GROUP_MEMBER }||--|| USER_GROUP : belongs_to
+```
+
+**正确示例**（拆为两条）：
+```mermaid
+erDiagram
+    USER ||--o{ USER_GROUP_MEMBER : has
+    USER_GROUP ||--o{ USER_GROUP_MEMBER : contains
+```
 
 ## 6. 交互流程
 

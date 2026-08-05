@@ -1,0 +1,16 @@
+{
+  "name": "vision-mcp",
+  "version": "1.0.0",
+  "description": "Vision Bridge MCP Server - 为不支持多模态的模型提供视觉识别降级方案",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "vision-mcp": "index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1"
+  }
+}

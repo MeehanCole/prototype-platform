@@ -65,6 +65,21 @@
 - 输出结构化 UI 描述（组件树 + 样式 token）
 - **可仅生成 PRD 不生成代码**（Figma 链接 → MCP 读取 → 直接输出标准 PRD）
 
+> **Vision Bridge（视觉桥接降级方案）**
+>
+> 当当前模型**不支持多模态**（如 DeepSeek）时，通过 `vision-bridge` Skill + `vision-mcp` MCP Server 自动降级处理图片：
+> - **触发条件**：Skill 检测到用户提供了图片路径（文本形式如 `src/assets/screenshot.png`）或关键词（"截图"、"设计稿"、"图片"），且当前模型不支持多模态
+> - **工作原理**：图片以文件路径形式传递 → Skill 调用 `vision-mcp` 工具 → MCP Server 内部转发给多模态 API（默认 OpenAI GPT-4o，密钥通过环境变量 `OPENAI_API_KEY` 配置）→ 返回结构化 JSON → 当前模型基于 JSON 继续工作
+> - **透明性**：若当前模型已支持多模态（如 GPT-4o / Claude Vision），Skill 自动跳过桥接，直接由模型处理图片，不额外消耗 API 调用
+> - **适用场景**：B1 截图结构识别、B2 设计系统匹配、B5 反向 PRD 推断、C5 标注点定位等所有涉及图片视觉识别的环节
+> - **工具列表**（详见 `mcp-servers/vision-mcp/`）：
+>   - `analyze_ui_structure`：截图 → 组件树 + 布局结构 JSON
+>   - `match_design_system`：截图 → 匹配预设 + token 值 JSON
+>   - `infer_prd_from_screenshot`：截图 → 功能需求 + 实体 + 边界 JSON
+>   - `cluster_screenshots`：多截图 → 页面分组 + 精度分级 JSON
+>   - `locate_annotations`：原型截图 → 标注点坐标 + 选择器 JSON
+>   - `diff_versions`：V1/V2 截图 → 差异区域 + 变更类型 JSON
+
 #### B2 视觉还原
 - 匹配设计系统预设（用户提供或 AI 推断）
 - 按规范生成可交互原型代码
@@ -74,6 +89,17 @@
 - 将 AI 生成的代码适配到原型平台规范
 - 修正组件映射、设计 token、命名约定
 - 确保符合 [page-generator.md](./page-generator.md) 所有规则
+
+> **Figma 代码工程的适配策略（与 AI 生成代码不同）**
+>
+> 当输入源是 **Figma 插件导出的代码工程**（非 AI 生成），B3 的适配策略为**最小改动**，保留 Figma 原始设计风格：
+> - **参考源是 Figma 原始代码**，不是平台 CSS 变量。不要查看平台项目的 CSS/颜色后去映射
+> - **保留**：inline style、原始颜色值（`#1890ff` 等）、内联 SVG 图标、Tailwind 类名、组件结构
+> - **仅改**：`React.ReactNode` → `ReactNode`（type-only import）、`React.useState` → `useState`、`height: "100vh"` → `minHeight: "100vh"`
+> - **禁止**：颜色映射为 token、SVG 替换为 lucide-react、引入 cn()/clsx、重构组件逻辑
+> - 详见 [page-generator.md](./page-generator.md) § 4.0 Figma 代码转换的样式保留原则
+>
+> 对比：**AI 生成代码**（模式 A）必须使用平台 token、禁止 inline style；**Figma 转换代码**（模式 B）保留原始设计，仅做技术适配
 
 #### B4 平台接入
 - 自动注册路由、导航、标题
