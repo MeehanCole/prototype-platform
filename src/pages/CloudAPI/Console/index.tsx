@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, createContext, useContext, useCallback, ReactNode } from "react";
+import { useState, useRef, useEffect, createContext, useContext, useCallback } from "react";
+import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -13,7 +14,6 @@ import {
   Download,
   Trash2,
   X,
-  Check,
   ChevronLeft,
   ChevronRight as ChevronRightIcon,
   Folder,
