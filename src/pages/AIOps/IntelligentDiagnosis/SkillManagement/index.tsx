@@ -8,12 +8,8 @@ import {
   X,
   AlertTriangle,
   Layers,
-  ChevronLeft,
-  ChevronRight,
-  Check,
   Upload,
   Download,
-  FileText,
 } from "lucide-react";
 import { Pagination } from "../_shared";
 
@@ -242,49 +238,6 @@ const mockSkills: SkillItem[] = [
       "",
       "## 注意事项",
       "- 语言精炼客观，结论先行",
-    ].join("\n"),
-  },
-];
-
-/** 创建向导可用的指令模板 */
-const skillTemplates = [
-  {
-    id: "diag",
-    name: "故障诊断模板",
-    description: "适用于问题定位与根因分析的通用技能骨架",
-    content: [
-      "# {技能名称}",
-      "",
-      "## 使用场景",
-      "描述该技能在什么情况下被调用。",
-      "",
-      "## 执行步骤",
-      "1. 收集相关上下文信息",
-      "2. 调用工具完成分析",
-      "3. 输出结论与建议",
-      "",
-      "## 注意事项",
-      "- 明确失败处理与边界条件",
-    ].join("\n"),
-  },
-  {
-    id: "inspect",
-    name: "定时巡检模板",
-    description: "适用于周期性巡检与状态上报类技能骨架",
-    content: [
-      "# {技能名称}",
-      "",
-      "## 调度规则",
-      "描述执行周期与覆盖范围。",
-      "",
-      "## 检查项",
-      "- 指标1",
-      "- 指标2",
-      "",
-      "## 执行步骤",
-      "1. 采集数据",
-      "2. 阈值比对",
-      "3. 生成巡检报告",
     ].join("\n"),
   },
 ];
