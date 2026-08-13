@@ -28,6 +28,122 @@ src/pages/<Module>/<Page>/
       └── v2.tsx
 ```
 
+### 1.1 完整应用单入口（强约束）
+
+> **核心原则：1 个完整应用 = 1 个 `index.tsx` + 1 个 `meta.json` + 1 个 `prd.md`。**
+> 禁止把一个完整应用拆成多个独立路由页面（每个带 `meta.json`），这会破坏导航、交互流和信息架构。
+
+完整应用是指：多个功能模块共享同一套平台外壳（Header + 导航栏）、同一套用户上下文、模块间有导航跳转关系的产品。例如「智能诊断平台」包含智能对话、模型管理、工具管理、技能管理、智能体管理5个模块，但它是一个完整应用，应该只有1个入口。
+
+> ⚠️ **两级目录是硬性前提**：应用入口（`index.tsx` + `meta.json` + `prd.md`）**必须放在 `src/pages/<Module>/<Page>/` 两级目录下**（如 `src/pages/AIOps/IntelligentDiagnosis/`）。
+> - 平台路由机制是 `:module/:page`（两级，见 `src/App.tsx`），路由路径由 meta.json 所在目录推导
+> - `src/pages/IntelligentDiagnosis/meta.json`（一级目录）→ 路由 `/intelligentdiagnosis`（一级）→ **匹配失败，页面找不到路由**
+> - `src/pages/AIOps/IntelligentDiagnosis/meta.json`（两级目录）→ 路由 `/aiops/intelligentdiagnosis`（两级）→ 正常匹配
+> - 一级目录（`<Module>`）是业务域分组，二级目录（`<Page>`）才是应用入口，与其他页面（`CloudAPI/Console`、`UnifiedPortal/TenantPortal`）结构一致
+
+### 正确做法（两级目录 + 单入口 + 内部状态切换）
+
+```
+src/pages/AIOps/IntelligentDiagnosis/   # 1 个完整应用 = 两级目录下的 1 个入口
+  ├── index.tsx                          # 唯一入口，default export
+  ├── meta.json                          # 唯一元数据（module: "AIOps"）
+  ├── prd.md                             # 唯一 PRD（覆盖全部模块）
+  ├── _shared.tsx                        # 共享组件（PlatformShell、FloatingChatButton 等）
+  ├── ChatInterface/index.tsx            # 子模块（具名导出，无 meta.json）
+  ├── ModelManagement/index.tsx          # 子模块（具名导出，无 meta.json）
+  ├── ToolManagement/index.tsx           # 子模块（具名导出，无 meta.json）
+  ├── SkillManagement/index.tsx          # 子模块（具名导出，无 meta.json）
+  └── AgentManagement/index.tsx          # 子模块（具名导出，无 meta.json）
+```
+
+入口 `index.tsx` 通过 `useState` 管理当前激活的子模块，内部切换不走路由：
+
+```tsx
+import { useState } from 'react'
+import { PlatformShell, FloatingChatButton } from './_shared'
+import { ChatInterfacePage } from './ChatInterface'
+import { ModelManagementPage } from './ModelManagement'
+// ...
+
+export default function IntelligentDiagnosisApp() {
+  const [activePage, setActivePage] = useState('chat')
+
+  const renderPage = () => {
+    switch (activePage) {
+      case 'chat': return <ChatInterfacePage />
+      case 'model': return <ModelManagementPage />
+      // ...
+      default: return <ChatInterfacePage />
+    }
+  }
+
+  return (
+    <PlatformShell activePage={activePage} onPageChange={setActivePage}>
+      <FloatingChatButton />
+      {renderPage()}
+    </PlatformShell>
+  )
+}
+```
+
+### 错误做法
+
+```
+# ❌ 错误1：完整应用放一级目录 → 一级路由匹配失败，页面找不到路由
+src/pages/IntelligentDiagnosis/
+  ├── index.tsx + meta.json    # 错误：路由 /intelligentdiagnosis 无法匹配 :module/:page
+
+# ❌ 错误2：每个子模块都有 meta.json → 平台侧边栏出现5个独立入口
+src/pages/AIOps/IntelligentDiagnosis/
+  ├── ChatInterface/index.tsx + meta.json    # 错误：独立路由
+  ├── ModelManagement/index.tsx + meta.json  # 错误：独立路由
+  └── ...
+```
+
+### 判定标准
+
+| 场景 | 是否单入口 | 原因 |
+|------|-----------|------|
+| 多模块共享平台 Header + 导航 | ✅ 单入口 | 完整应用，内部状态切换 |
+| 多模块间有导航跳转关系 | ✅ 单入口 | 交互流不可割裂 |
+| Figma 导出的完整应用 | ✅ 单入口 | 保留导航和交互完整性 |
+| 独立的无关联页面（如登录页 + 首页） | ❌ 多入口 | 不同业务域，各自独立 |
+| 不同产品的页面 | ❌ 多入口 | 项目隔离，各自独立 |
+
+### 子模块的导出规范
+
+子模块文件（如 `ChatInterface/index.tsx`）必须：
+1. **具名导出**（`export function ChatInterfacePage()`），不使用 `export default`
+2. **不带 `meta.json`**（避免被 pageRegistry 注册为独立路由）
+3. **不包裹 `PlatformShell`**（由父 `index.tsx` 统一包裹，避免 Header/导航重复渲染）
+4. **return 直接返回内容区**（`<div className="flex-1 ...">...</div>`，不含平台外壳）
+
+### 1.2 AI Agent 平台分层架构（领域强约束）
+
+> 设计智能诊断 / AI Agent 管理类应用时，必须遵循业界标准四层分层，**技能（Skill）不绑定模型**。
+
+| 层级 | 模块 | 定位（类比人） | 核心内容 | 绑定模型 |
+|------|------|---------------|---------|---------|
+| L1 | 模型 Model | 大脑 | 推理、语义理解、生成 | — |
+| L2 | 工具 Tool | 手脚 | 原子操作（读文件、执行命令、API 调用） | ❌ 不绑定 |
+| L3 | 技能 Skill | 专业技能 | **多个工具的编排组合** + 触发方式（对话/定时/事件），可复用能力标准 | ❌ **不绑定** |
+| L4 | 智能体 Agent | 完整的人 | **具体模型** + 绑定工具 + 关联技能 + SystemPrompt 人设 | ✅ 必须绑定 |
+
+**核心逻辑**：技能是"能力定义"，不是"执行实例"。同一个技能可以被不同智能体 + 不同模型复用（解耦）：
+
+```
+技能"集群故障诊断"（工具组合 + 流程标准）
+  ├─ 被「K8s运维专家」Agent 用 DeepSeek-R1 执行
+  └─ 被「新手运维助手」Agent 用 glm-4-flash 执行
+```
+
+**原型生成规则**：
+- 技能管理页：技能 = 基本信息 + 触发方式 + 绑定工具 + 版本 + 状态。**创建流程禁止出现"绑定模型"步骤**，卡片禁止展示模型信息
+- 智能体管理页：智能体 = 名称 + 描述 + SystemPrompt + **模型（必选）** + 绑定工具 + 关联技能。创建表单必须含"选择模型"
+- 模型管理页：模型 = 名称 + 服务商 + 类型（LLM/Embedding/Image）+ API Endpoint + API Key + 状态
+- 工具管理页：工具 = 名称 + 协议（SSE/Stdio/Streamable HTTP）+ 部署方式 + 端点 + 状态
+- 用户反馈"技能里面不需要绑定模型"即违反此分层，需移除技能页的模型字段/步骤
+
 ## 2. 默认导出（强约束）
 
 入口文件必须 `export default function XxxPage()`，基座通过 `React.lazy(() => import(...))` 加载。
@@ -63,6 +179,81 @@ export { default } from './_versions/v2'
 
 必填字段：`title`、`module`
 可选字段：`defaultVersion`、`versions`、`tags`
+
+## 3.5 原型协作台外壳边界（强约束）
+
+> **核心原则：原型协作台外壳代码与原型页面代码严格隔离。AI 只能修改原型页面内部代码，禁止触碰外壳。**
+
+平台架构分为两层：
+- **外壳层（Host）**：原型协作台本身的基础设施，包括平台 Header、左侧导航栏、路由系统、版本切换器、缩放控件等
+- **页面层（Pages）**：用户具体业务原型，位于 `src/pages/<Module>/<Page>/`
+
+### 边界定义
+
+| 路径 | 归属 | 是否允许修改 |
+|------|------|-------------|
+| `src/host/layout/` | 外壳层 | ❌ 禁止 |
+| `src/host/router/` | 外壳层 | ❌ 禁止 |
+| `src/host/components/` | 外壳层 | ❌ 禁止 |
+| `src/host/design-systems/` | 外壳层 | ❌ 禁止 |
+| `src/host/hooks/` | 外壳层 | ❌ 禁止 |
+| `src/App.tsx` | 外壳层 | ❌ 禁止 |
+| `src/main.tsx` | 外壳层 | ❌ 禁止 |
+| `src/pages/<Module>/<Page>/*.tsx` | 页面层 | ✅ 允许 |
+| `src/pages/<Module>/<Page>/*.md` | 页面层 | ✅ 允许 |
+| `src/pages/<Module>/<Page>/meta.json` | 页面层 | ✅ 允许 |
+
+### 全局 Header / 导航栏的处理规则
+
+当用户要求"增加全局 Header"、"添加平台导航栏"时，**这些内容是原型页面内部的一部分**，不是修改外壳：
+
+```tsx
+// ❌ 错误：修改 src/host/layout/Header.tsx（外壳）
+export function Header() { /* 添加新内容 */ }
+
+// ❌ 错误：修改 src/host/layout/AppLayout.tsx（外壳）
+export function AppLayout() { /* 注入 PlatformShell */ }
+
+// ✅ 正确：在原型页面的 _shared.tsx 中定义 PlatformShell 组件
+// src/pages/<Module>/<Page>/_shared.tsx
+export function PlatformShell({ children, activePage }: { ... }) {
+  return (
+    <div className="h-[calc(100vh-68px)] flex flex-col overflow-hidden">
+      <PlatformHeader />  {/* 原型内部的平台级 Header */}
+      <div className="flex flex-1 overflow-hidden">
+        <PlatformSidebar activePage={activePage} />
+        <div className="flex-1 flex flex-col overflow-hidden bg-[#F5F7FA]">
+          {children}
+        </div>
+      </div>
+    </div>
+  )
+}
+```
+
+> **高度说明**：PlatformShell 根必须用 `h-[calc(100vh-68px)]` 而非 `flex-1` —— 平台外壳渲染页面时中间隔了非 flex 容器的 `animate-fade-in` div（`PageView.tsx`），`flex-1` 高度无法确定，页面会按内容撑开出现浏览器整页滚动。68px = 平台外壳 topbar（~44px）+ 内容区 p-3 padding（24px）。子页面内部：顶栏 `shrink-0`，内容区 `flex-1 overflow-y-auto`（内部滚动）。
+
+// ✅ 正确：在原型页面 index.tsx 中使用 PlatformShell
+return (
+  <PlatformShell activePage="chat">
+    {/* 原型页面内容 */}
+  </PlatformShell>
+)
+```
+
+### 强制规则
+
+1. **禁止编辑 `src/host/` 下的任何文件**，即使任务描述中提到"全局"、"平台"、"Header"、"导航栏"等词
+2. **所有平台级 UI（Header、导航、面包屑、用户菜单）必须在原型页面内部实现**，作为 `_shared.tsx` 中的共享组件
+3. **若用户要求修改外壳行为**（如平台级搜索、全局路由），必须先与用户确认，并明确告知这是外壳修改，需要单独处理
+4. **误改外壳的恢复方式**：`git checkout -- src/host/` 恢复所有外壳文件到 HEAD 状态
+
+### 自检 Checklist
+
+生成/修改代码后必须自检：
+- [ ] 本次修改是否触及了 `src/host/` 下的文件？（应为否）
+- [ ] 平台级 Header/导航是否定义在原型页面的 `_shared.tsx` 中？
+- [ ] 是否修改了 `src/App.tsx` 或 `src/main.tsx`？（应为否）
 
 ## 4. 样式系统（强约束）
 
@@ -609,6 +800,79 @@ NewTag 角标统一采用 **inline 紧贴标题文字右侧**的定位方式，�
 | 表格用固定 `w-[2400px]` | 宽度被锁死无法自适应窄容器 | 用 `min-w-[2400px] w-full`，让 `overflow-x-auto` 接管滚动 |
 | PRD 交互流程只有文字无流程图 | 复杂流程难理解、易歧义 | Mermaid 流程图 + 文字流程双轨制，详见 §6 |
 | DocPanel 缺少 rehype-mermaid | PRD 中 Mermaid 代码块不渲染为流程图 | 配置 `rehypePlugins={[[rehypeMermaid, { strategy: 'img-svg' }]]}` |
+| 批量替换 JSX return 结构导致标签不配对 | `Adjacent JSX elements must be wrapped` 解析错误，Vite 编译失败 | 替换前精确统计 `<div>` 开闭数量，替换后逐个核对；见 §9.1 |
+| 修改 `src/host/` 外壳文件 | 破坏原型协作台基础架构，影响所有页面 | 所有平台级 UI 在原型页面 `_shared.tsx` 内实现，见 §3.5 |
+| PlatformShell 根用 `flex-1` | 父级非 flex 容器（`animate-fade-in` 中间层）高度不确定，页面按内容撑开整页滚动 | 用 `h-[calc(100vh-68px)]`，见 §3.5 高度说明 |
+| 页面顶栏不加 `shrink-0` / 内容区不滚动 | 顶栏被 flex 压缩、内容超高被裁剪 | 顶栏 `shrink-0`，内容区 `flex-1 overflow-y-auto`，见 §3.5 高度说明 |
+
+### 9.1 JSX 标签闭合校验（强约束）
+
+> **核心原则：批量修改页面 `return` 结构时，必须精确统计标签开闭数量，确保替换前后配对。**
+
+批量重构多个页面的 `return` 语句（如统一包裹 `PlatformShell`）时，极易出现 `<div>` 开闭不配对的情况，导致 `Adjacent JSX elements must be wrapped in an enclosing tag` 解析错误，Vite 编译失败。
+
+### 校验流程
+
+1. **替换前统计**：阅读原 `return` 块，统计每种标签的开闭数量
+   - 例如：`<div>` 开 3 个、`</div>` 闭 3 个 → 配对
+2. **设计新结构**：明确新 `return` 块的最外层包裹标签和内部结构
+3. **替换后核对**：逐一核对新代码中每种标签的开闭数量是否与设计一致
+4. **编译验证**：保存后观察 Vite 是否报 `PARSE_ERROR` 或 `Adjacent JSX elements` 错误
+
+### 常见错误模式
+
+```tsx
+// ❌ 错误：少一个 </div>
+return (
+  <PlatformShell activePage="chat">
+    <FloatingChatButton />
+    <div className="flex-1 flex flex-col">
+      {/* 工具栏 */}
+      <div className="h-[52px]">...</div>
+  </PlatformShell>  // ← 缺少两个 </div>
+);
+
+// ❌ 错误：多一个 </div>
+return (
+  <PlatformShell activePage="chat">
+    <FloatingChatButton />
+    <div className="flex-1 flex flex-col">
+      {/* 工具栏 */}
+      <div className="h-[52px]">...</div>
+    </div>
+    </div>  // ← 多一个 </div>
+  </PlatformShell>
+);
+
+// ✅ 正确：标签严格配对
+return (
+  <PlatformShell activePage="chat">
+    <FloatingChatButton />
+    <div className="flex-1 flex flex-col">
+      {/* 工具栏 */}
+      <div className="h-[52px]">...</div>
+      {/* 主体内容 */}
+      <div className="flex-1">...</div>
+    </div>
+  </PlatformShell>
+);
+```
+
+### 批量重构规范
+
+当需要对 N 个页面统一包裹同一组件（如 `PlatformShell`）时：
+
+1. **先在一个页面试跑**：完成单个页面的重构 + 编译验证通过后，再推广到其他页面
+2. **保持内部结构不变**：仅在最外层添加包裹组件，不改动内部 `div` 层级
+3. **逐页编译验证**：每改完一个页面，立即检查 Vite 编译输出，不要等全部改完再验证
+4. **使用 Edit 工具而非批量脚本**：避免正则替换破坏标签结构，优先用 `Edit` 工具精确替换
+
+### 自检 Checklist
+
+- [ ] 替换前后 `<div>` 开闭数量是否一致？
+- [ ] 最外层是否单一根元素（或 Fragment）？
+- [ ] Vite 是否编译通过（无 `PARSE_ERROR`）？
+- [ ] 批量重构是否逐页验证而非一次性全改？
 
 ## 10. 输出 Checklist
 
@@ -632,6 +896,10 @@ NewTag 角标统一采用 **inline 紧贴标题文字右侧**的定位方式，�
 - [ ] Mode C：功能点按钮蓝色可点击 / 灰色仅 tooltip
 - [ ] Mode C：`FEATURE_DOCS` 与 `FEATURE_LABELS` key 1:1
 - [ ] Mode C：DocPanel 配置 `rehypeMermaid`（strategy: 'img-svg'），PRD 中 Mermaid 流程图可渲染
+- [ ] 未修改 `src/host/` 下的任何外壳文件（见 §3.5）
+- [ ] 平台级 Header/导航定义在原型页面 `_shared.tsx` 中，非外壳层
+- [ ] PlatformShell 根用 `h-[calc(100vh-68px)]`（非 `flex-1`），页面填满视口、内部滚动（见 §3.5 高度说明）
+- [ ] 批量重构 JSX 后标签开闭配对，Vite 编译无 `PARSE_ERROR`（见 §9.1）
 
 ## 11. PRD 标准结构
 

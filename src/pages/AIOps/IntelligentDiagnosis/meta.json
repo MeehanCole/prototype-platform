@@ -1,0 +1,6 @@
+{
+  "title": "智能诊断平台",
+  "module": "AIOps",
+  "tags": ["智能诊断", "Agent", "MCP", "模型管理", "技能管理"],
+  "description": "IssuePilot 智能诊断平台，管理面涵盖模型管理、工具管理、技能管理三大模块（对话统一走应用面常驻入口），统一主 Agent + 预置 Skill + 动态派发 Subagent，完整应用单入口"
+}

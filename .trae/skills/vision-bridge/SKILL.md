@@ -21,4 +21,5 @@ description: "视觉桥接降级方案：当当前模型不支持多模态（如
 ## Prerequisites
 
 - vision-mcp MCP Server 已安装并注册（位于 `mcp-servers/vision-mcp/`）
-- 环境变量 `OPENAI_API_KEY` 已配置
+- 环境变量 `OPENAI_API_KEY` 已配置（本地 llama.cpp 场景填任意非空值）
+- 本地部署方式、模型选型（Qwen3-VL-8B 推荐）、llama.cpp 版本要求（≥ b6907）与工具质量评估，详见 `.skills/vision-bridge.md` §8「MCP 部署与配置（本地 llama.cpp）」

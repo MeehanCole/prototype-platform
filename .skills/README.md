@@ -6,6 +6,7 @@
 
 | 文件 | 用途 | 适用场景 |
 |------|------|---------|
+| [`agent-rules.md`](./agent-rules.md) | **Agent 行为红线（最高优先级）**：外壳边界、项目隔离、JSX 校验、Vision 检查、经验召回 | Agent 执行任何任务前必读 |
 | [`page-generator.md`](./page-generator.md) | 代码生成规范（目录约定、默认导出、样式系统、PRD 内嵌） | 生成新页面、Figma 转码、截图还原 |
 | [`design-workflow.md`](./design-workflow.md) | 设计工作流（正向/逆向/混合三种模式完整流程） | 需求分析、方案设计、版本迭代 |
 | [`templates.md`](./templates.md) | 代码模板（extractSection、DocPanel、NewTag、Changelog） | Mode C 多版本改造的代码脚手架 |

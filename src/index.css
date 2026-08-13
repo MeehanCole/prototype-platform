@@ -54,6 +54,17 @@ body {
   animation: fade-in 0.2s var(--ease-soft);
 }
 
+/* drawer slide-in for dialogs / artifact panels */
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
 /* subtle scrollbar */
 ::-webkit-scrollbar {
   width: 8px;

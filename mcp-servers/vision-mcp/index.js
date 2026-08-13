@@ -25,6 +25,8 @@ import { extname, resolve } from "path";
 const API_KEY = process.env.OPENAI_API_KEY || "";
 const BASE_URL = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
 const MODEL = process.env.VISION_MODEL || "gpt-4o";
+// 不同模型 max_tokens 上限不同（如智谱 glm-4v-flash 上限 1024），可通过环境变量覆盖
+const MAX_TOKENS = Number(process.env.MAX_TOKENS) || 4096;
 
 // 6 个场景的 system prompt 定义
 const SCENE_PROMPTS = {
@@ -174,7 +176,12 @@ async function callVisionAPI(images, systemPrompt, userPrompt) {
     })),
   ];
 
-  const response = await fetch(`${BASE_URL}/chat/completions`, {
+  // 兼容 BASE_URL 两种写法：已含 /chat/completions（完整端点）或仅根地址（如 https://xxx/v1）
+  const url = BASE_URL.endsWith("/chat/completions")
+    ? BASE_URL
+    : `${BASE_URL.replace(/\/$/, "")}/chat/completions`;
+
+  const response = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -186,7 +193,7 @@ async function callVisionAPI(images, systemPrompt, userPrompt) {
         { role: "system", content: systemPrompt },
         { role: "user", content },
       ],
-      max_tokens: 4096,
+      max_tokens: MAX_TOKENS,
       temperature: 0.1,
     }),
   });
@@ -201,15 +208,29 @@ async function callVisionAPI(images, systemPrompt, userPrompt) {
 }
 
 /**
- * 从模型返回中提取 JSON
+ * 从模型返回中提取 JSON（鲁棒版）
  */
 function extractJSON(text) {
-  // 尝试从 markdown 代码块中提取
+  // 1. 匹配 ```json ... ``` 或 ``` ... ``` 代码块
   const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (codeBlockMatch) {
-    return JSON.parse(codeBlockMatch[1].trim());
+    try {
+      return JSON.parse(codeBlockMatch[1].trim());
+    } catch {
+      // 落到兜底逻辑
+    }
   }
-  // 尝试直接解析
+  // 2. 兜底：截取第一个 { 到最后一个 } 之间的内容（兼容前后带说明文字/多余代码块）
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start !== -1 && end > start) {
+    try {
+      return JSON.parse(text.slice(start, end + 1));
+    } catch {
+      // 落到直接解析
+    }
+  }
+  // 3. 直接解析
   return JSON.parse(text.trim());
 }
 

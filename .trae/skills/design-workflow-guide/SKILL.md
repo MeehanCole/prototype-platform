@@ -56,9 +56,9 @@ Read `.skills/design-workflow.md` for complete Mode C details.
 ## Output Artifacts
 
 All workflow artifacts go into `_workflow/` directory (not part of routes):
-- `requirement.md` — A1/C2 requirements
-- `analysis.md` — A2/C2 analysis
-- `solutions.md` — A3/C3 solution comparison
+- `需求清单.md` — A1/C2 requirements
+- `需求分析.md` — A2/C2 analysis
+- `方案设计.md` — A3/C3 solution comparison
 - `decision.md` — Final decision record
 - `c5_v1_vs_v2_changelog.md` — C5 test acceptance checklist
 
