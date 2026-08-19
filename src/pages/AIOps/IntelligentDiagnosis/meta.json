@@ -1,6 +1,24 @@
 {
   "title": "智能诊断平台",
   "module": "AIOps",
+  "source": "ai",
+  "designSystem": "element-plus",
+  "status": "review",
+  "updatedAt": "2026-08-13",
   "tags": ["智能诊断", "Agent", "MCP", "模型管理", "技能管理"],
-  "description": "IssuePilot 智能诊断平台，管理面涵盖模型管理、工具管理、技能管理三大模块（对话统一走应用面常驻入口），统一主 Agent + 预置 Skill + 动态派发 Subagent，完整应用单入口"
+  "description": "IssuePilot 智能诊断平台，管理面涵盖模型管理、工具管理、技能管理三大模块（对话统一走应用面常驻入口），统一主 Agent + 预置 Skill + 动态派发 Subagent，完整应用单入口",
+  "versionSummary": {
+    "default": {
+      "summary": "v3.0: 对话助手统一命名「Copilot AI 智能助手」；技能管理移除创建/编辑能力（仅导入/导出/删除）；新增配置管理（FR-6 Agent 运行参数）",
+      "features": [
+        { "code": "FR-1", "type": "M", "title": "模型管理", "desc": "模型注册、启停控制、默认模型设置；支持 LLM / 视觉模型，仅 LLM 可设为默认" },
+        { "code": "FR-2", "type": "M", "title": "工具管理 (MCP)", "desc": "MCP 工具注册与管理：协议（SSE/Streamable HTTP）、自定义请求头、连通性测试、函数查看与调试" },
+        { "code": "FR-3", "type": "M", "title": "技能管理", "desc": "SKILL.md 技能导入/导出/删除；技能即文件，文件存在即生效" },
+        { "code": "FR-4", "type": "M", "title": "智能诊断（应用面统一入口）", "desc": "Copilot AI 智能助手：常驻对话 + 告警行内联动，五阶段诊断流程，历史还原与导出" },
+        { "code": "FR-5", "type": "M", "title": "告警中心", "desc": "告警消息中心（概览/指标/日志/事件/历史 5 Tab），行内「智能诊断」联动" },
+        { "code": "FR-6", "type": "B", "title": "配置管理（Agent 运行参数）", "desc": "新增：Agent 迭代次数、上下文压缩上限、诊断超时、并发 Subagent 数、最大回溯步数" },
+        { "code": "F-Copilot", "type": "M", "title": "对话助手统一命名 Copilot AI 智能助手", "desc": "对话框顶部标题、欢迎语、导出报告统一命名为「Copilot AI 智能助手」" }
+      ]
+    }
+  }
 }

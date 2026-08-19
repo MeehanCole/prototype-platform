@@ -48,11 +48,13 @@ pass(`Directory exists: ${pageDir}`)
 
 // check 2: meta.json exists and has required fields
 const metaPath = join(absDir, 'meta.json')
+// meta 提升到外层作用域,供 check 5 判断 Figma 来源豁免
+let meta = null
 if (!existsSync(metaPath)) {
   error('meta.json is missing')
 } else {
   try {
-    const meta = JSON.parse(readFileSync(metaPath, 'utf-8'))
+    meta = JSON.parse(readFileSync(metaPath, 'utf-8'))
     if (!meta.title) error('meta.json: missing "title" field')
     else pass(`meta.json: title = "${meta.title}"`)
     if (!meta.module) error('meta.json: missing "module" field')
@@ -92,8 +94,13 @@ if (!existsSync(entryPath)) {
   }
 
   // check 5: no inline styles
+  // Figma 转码页面按 page-generator.md §4.0 保留 inline style(精确还原设计稿),声明 meta.source="figma" 时降级为 warn
   if (/style=\s*\{/.test(entryContent)) {
-    error('index.tsx: inline style attribute found (use Tailwind classes instead)')
+    if (meta && meta.source === 'figma') {
+      warn('index.tsx: inline style attributes found (Figma-converted page, allowed by design - see page-generator.md 4.0)')
+    } else {
+      error('index.tsx: inline style attribute found (use Tailwind classes instead)')
+    }
   } else {
     pass('index.tsx: no inline style attributes')
   }

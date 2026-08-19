@@ -1,6 +1,10 @@
 {
   "title": "租户门户",
   "module": "统一运营平台",
+  "source": "figma",
+  "designSystem": "element-plus",
+  "status": "review",
+  "updatedAt": "2026-08-05",
   "tags": ["租户门户", "用户管理", "用户组", "策略管理", "云API密钥", "UASS认证", "账号纳管", "个人中心"],
   "description": "统一运营平台租户门户，包含用户管理、用户组管理、策略管理、云API密钥、UASS认证管理、账号纳管、个人中心等完整功能模块"
 }

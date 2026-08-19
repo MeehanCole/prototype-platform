@@ -4,16 +4,18 @@
  */
 import { useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { ChevronRight, ChevronDown, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { ChevronRight, ChevronDown, PanelLeftClose, PanelLeftOpen, Search, LayoutGrid } from 'lucide-react'
 import { getPagesByModule } from '@/host/router/pageRegistry'
 import { cn } from '@/lib/utils'
 
 export function Sidebar({
   collapsed,
   onToggleCollapse,
+  onOpenSearch,
 }: {
   collapsed: boolean
   onToggleCollapse: () => void
+  onOpenSearch: () => void
 }) {
   const grouped = getPagesByModule()
   const modules = Object.keys(grouped).sort()
@@ -74,7 +76,51 @@ export function Sidebar({
         </button>
       )}
 
+      {/* search entry: opens global SearchPanel (Cmd+K) */}
+      <div className="px-2 pb-1">
+        <button
+          onClick={onOpenSearch}
+          title="搜索页面 / PRD (Cmd+K)"
+          className={cn(
+            'w-full flex items-center gap-2 rounded-md border border-sidebar-border bg-sidebar-muted/40 transition-colors',
+            collapsed ? 'justify-center py-1.5' : 'px-2.5 py-1.5',
+            'text-sidebar-muted-foreground hover:text-sidebar-foreground hover:border-sidebar-border/80',
+          )}
+        >
+          <Search size={13} className="shrink-0" />
+          {!collapsed && (
+            <>
+              <span className="flex-1 text-left text-xs truncate">搜索页面 / PRD...</span>
+              <kbd className="text-[10px] text-sidebar-muted-foreground/70 border border-sidebar-border rounded px-1 py-px shrink-0">
+                ⌘K
+              </kbd>
+            </>
+          )}
+        </button>
+      </div>
+
       <nav className="flex-1 overflow-y-auto py-3 text-sm">
+        {/* 平台总览: 返回首页(根路径 /) */}
+        <div className="mb-1.5">
+          <NavLink
+            to="/"
+            end
+            title="平台总览"
+            className={({ isActive }) =>
+              cn(
+                'w-full flex items-center gap-1.5 rounded-md transition-colors',
+                collapsed ? 'justify-center px-0 py-1.5' : 'px-2.5 py-1.5',
+                isActive
+                  ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-soft'
+                  : 'text-sidebar-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-muted',
+              )
+            }
+          >
+            <LayoutGrid size={14} className="shrink-0" />
+            {!collapsed && <span className="truncate text-xs">平台总览</span>}
+          </NavLink>
+        </div>
+
         {modules.map((mod) => {
           const isOpen = !collapsed && expanded.has(mod)
           const pages = grouped[mod]

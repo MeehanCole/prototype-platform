@@ -180,6 +180,34 @@ export { default } from './_versions/v2'
 必填字段：`title`、`module`
 可选字段：`defaultVersion`、`versions`、`tags`
 
+### 3.1 扩展字段（平台层增强 2026-08, 可选但推荐）
+
+| 字段 | 类型 | 说明 | 示例 |
+|------|------|------|------|
+| `source` | string | 代码来源: `ai` / `figma` / `screenshot` / `manual`。**声明 `figma` 时校验器对 inline style 降级为 warn**(page-generator §4.0 保留原样原则) | `"source": "figma"` |
+| `designSystem` | string | 目标产品设计系统: `element-plus` / `ant-design` / `arco-design` / `naive-ui`。设计系统切换器据此显示「页面匹配」徽标与提示 | `"designSystem": "element-plus"` |
+| `status` | string | 页面状态: `draft`(草稿) / `review`(评审中) / `accepted`(已验收) / `archived`(已归档)。总览页与页面卡片展示状态徽标 | `"status": "review"` |
+| `updatedAt` | string | 最后更新时间 `YYYY-MM-DD` | `"updatedAt": "2026-08-13"` |
+| `owner` | string | 页面负责人 | `"owner": "lianghua"` |
+| `description` | string | 页面一句话描述(总览页卡片展示, 单版本页面建议填写) | `"description": "..."` |
+| `versionSummary` | object | 按版本的变更摘要, key 为版本名(`default` / `v1` / `v2`)。**变更总览视图**(PageView「变更」Tab)优先读取; 未声明时兜底从 PRD 自动提取 `**FR-X` | 见下 |
+
+```json
+{
+  "versionSummary": {
+    "default": {
+      "summary": "v2: 新增 XX, 重构 YY",
+      "features": [
+        { "code": "B.01", "type": "B", "title": "团队统计卡", "desc": "团队视角聚合统计" },
+        { "code": "M.01", "type": "M", "title": "部门筛选", "desc": "新增部门下拉" }
+      ]
+    }
+  }
+}
+```
+
+`features[].type` 枚举与 FEATURE_LABELS 一致: `A`(重构) / `B`(新增) / `M`(修改) / `R`(删除)。`code` 建议与 FEATURE_LABELS key 对齐(`A.01` / `B.02` / `FR-1` / `F-Copilot` 均可)。
+
 ## 3.5 原型协作台外壳边界（强约束）
 
 > **核心原则：原型协作台外壳代码与原型页面代码严格隔离。AI 只能修改原型页面内部代码，禁止触碰外壳。**
