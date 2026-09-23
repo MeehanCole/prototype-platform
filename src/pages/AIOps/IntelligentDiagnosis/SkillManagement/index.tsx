@@ -7,7 +7,6 @@ import {
   Trash2,
   X,
   AlertTriangle,
-  Layers,
   Upload,
   Download,
 } from "lucide-react";
@@ -250,6 +249,7 @@ export function SkillManagementPage() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  const searchRef = useRef<HTMLInputElement>(null);
   const pageSize = 4;
 
   const filteredSkills = skills.filter((s) => {
@@ -295,28 +295,48 @@ export function SkillManagementPage() {
 
   return (
     <div className="flex flex-col flex-1">
-      {/* 顶部操作栏 */}
+      {/* 页面标题 */}
+      <div className="bg-[#FFFFFF] border-b border-[#DCDFE6] px-[24px] pt-[16px] pb-[8px] shrink-0">
+        <h1 className="text-[16px] font-semibold text-[#303133] flex items-center gap-[6px]">技能管理 <NewTag code="FR-3" /></h1>
+      </div>
+      {/* 工具栏：创建(左) + 搜索(右) */}
       <div className="bg-[#FFFFFF] border-b border-[#DCDFE6] px-[24px] py-[12px] shrink-0">
-        <div className="flex items-center justify-between">
-          <h1 className="text-[16px] font-semibold text-[#303133] flex items-center gap-[6px]">技能管理 <NewTag code="FR-3" /></h1>
-          <div className="flex items-center gap-[12px]">
-          <div className="relative">
-            <Search className="w-[14px] h-[14px] absolute left-[10px] top-1/2 -translate-y-1/2 text-[#A0A0A0]" />
-            <input
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="搜索技能名称或描述..."
-              className="w-[240px] h-[32px] pl-[30px] pr-[10px] text-[14px] border border-[#DCDFE6] rounded-[4px] bg-[#FFFFFF] text-[#303133] placeholder:text-[#A0A0A0] outline-none focus:border-[#409EFF] transition-colors"
-            />
-          </div>
+        <div className="flex items-center justify-between gap-[12px] flex-wrap">
           <button
             onClick={() => setShowImportModal(true)}
-            className="h-[32px] px-[16px] bg-[#FFFFFF] text-[#606266] text-[14px] border border-[#DCDFE6] rounded-[4px] hover:text-[#409EFF] hover:border-[#409EFF] transition-colors flex items-center gap-[4px]"
+            className="h-[32px] px-[16px] bg-[#409EFF] text-white text-[14px] rounded-[4px] hover:bg-[#66B1FF] active:bg-[#3A8EE6] transition-colors flex items-center gap-[6px] shrink-0"
             title="导入已有的 SKILL.md 技能文件"
           >
             <Upload className="w-[14px] h-[14px]" />
-            导入技能
+            <span>导入技能</span>
           </button>
+          <div className="flex items-stretch h-[36px] w-[240px]">
+            <div className="relative flex-1">
+              <Search className="w-[16px] h-[16px] absolute left-[12px] top-1/2 -translate-y-1/2 text-[#A0A0A0]" />
+              <input
+                ref={searchRef}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="搜索技能名称或描述..."
+                className="w-full h-[36px] pl-[36px] pr-[36px] text-[14px] text-[#303133] border border-[#DCDFE6] border-r-0 rounded-l-[4px] outline-none focus:border-[#409EFF] focus:ring-[2px] focus:ring-[#409EFF]/20 transition-colors placeholder:text-[#A0A0A0]"
+              />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm("")}
+                  className="absolute right-[10px] top-1/2 -translate-y-1/2 w-[18px] h-[18px] flex items-center justify-center rounded-full text-[#A0A0A0] hover:bg-[#F5F7FA] hover:text-[#606266] transition-colors"
+                  title="清空搜索"
+                >
+                  <X className="w-[14px] h-[14px]" />
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => searchRef.current?.focus()}
+              className="h-[36px] px-[16px] bg-[#409EFF] text-white text-[14px] rounded-r-[4px] hover:bg-[#66B1FF] active:bg-[#3A8EE6] transition-colors flex items-center gap-[4px] shrink-0"
+            >
+              <Search className="w-[14px] h-[14px]" />
+              <span>搜索</span>
+            </button>
           </div>
         </div>
       </div>
@@ -351,30 +371,6 @@ export function SkillManagementPage() {
               <p className="text-[13px] text-[#606266] leading-[1.6] mb-[12px] line-clamp-2">
                 {skill.description}
               </p>
-
-              {/* 元信息 */}
-              <div className="flex items-center gap-[16px] mb-[12px]">
-                <div className="flex items-center gap-[4px] text-[12px] text-[#909399]">
-                  <Layers className="w-[14px] h-[14px]" />
-                  <span>{skill.tools.length > 0 ? `工具 ${skill.tools.length} 个` : "纯指令技能"}</span>
-                </div>
-              </div>
-
-              {/* 绑定工具标签 */}
-              {skill.tools.length > 0 ? (
-                <div className="flex flex-wrap gap-[6px] mb-[12px]">
-                  {skill.tools.map((tool) => (
-                    <span
-                      key={tool}
-                      className="px-[6px] py-[1px] text-[12px] bg-[#f5f7fa] text-[#606266] border border-[#DCDFE6] rounded-[4px]"
-                    >
-                      {tool}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-[12px] text-[#A0A0A0] mb-[12px]">不依赖工具，由 AI 直接按指令执行</p>
-              )}
 
               {/* 操作按钮 */}
               <div className="flex items-center justify-end gap-[4px] pt-[12px] border-t border-[#EBEEF5]">
@@ -556,8 +552,9 @@ function ImportSkillModal({
               }}
             />
             <Upload className="w-[32px] h-[32px] text-[#909399] mx-auto mb-[8px]" />
-            <p className="text-[14px] text-[#606266]">点击或拖拽上传 SKILL.md 文件</p>
-            <p className="text-[12px] text-[#A0A0A0] mt-[4px]">支持 .md / .markdown 文件，自动解析 frontmatter</p>
+            <p className="text-[14px] text-[#606266]">点击或拖拽上传</p>
+            <p className="text-[12px] text-[#A0A0A0] mt-[4px]">zip 或.skill 文件，根目录包含 SKILL.md。SKILL.md 通过 YAML 格式定义
+技能名称与描述。</p>
           </div>
 
           {fileName && <div className="text-[12px] text-[#909399]">已选择：{fileName}</div>}

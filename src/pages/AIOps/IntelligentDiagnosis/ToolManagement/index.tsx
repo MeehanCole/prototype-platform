@@ -1,5 +1,5 @@
 // [功能标注] PRD FR-2 工具管理 (MCP)
-import { useState, useMemo, Fragment } from "react";
+import { useState, useMemo, Fragment, useRef } from "react";
 import { NewTag } from "../feature-tags";
 import {
   Plus,
@@ -12,19 +12,29 @@ import {
   Braces,
   Wifi,
   Server,
-  Boxes,
-  FileCode2,
-  Check,
   Loader2,
   CheckCircle2,
   ArrowLeft,
+  AlertTriangle,
 } from "lucide-react";
 import { Pagination } from "../_shared";
 
 // ─── 类型定义 ─────────────────────────────────────────────────────────────────────────
 
 type Protocol = "sse" | "streamable-http";
-type ToolType = "mcp" | "builtin" | "custom";
+type ToolType = "mcp" | "builtin";
+
+/** MCP Server 生命周期状态（含连通性测试结果） */
+type ToolStatus =
+  | "disabled" // 已禁用：管理员关闭
+  | "connecting" // 连接/更新中：尚未取得有效目录或正在刷新
+  | "ready" // 已就绪：工具目录已成功发布
+  | "degraded" // 状态异常：曾成功，后续刷新暂失败
+  | "authRequired" // 凭据异常：缺失或已不可用
+  | "incompatible" // 协议不兼容：协议或目录不符合要求
+  | "unavailable"; // 服务不可达：地址/网络/传输问题
+
+/** 鉴权通过自定义请求头（如 Authorization: Bearer xxx）承载，无需独立配置字段 */
 
 interface FuncParam {
   name: string;
@@ -46,7 +56,7 @@ interface ToolItem {
   name: string;
   type: ToolType;
   protocol: Protocol;
-  status: "on" | "off";
+  status: ToolStatus;
   endpoint: string;
   description: string;
   headers: { key: string; value: string }[];
@@ -63,7 +73,17 @@ const protocolOptions: { value: Protocol; label: string }[] = [
 const typeConfig: Record<ToolType, { label: string; bg: string; text: string }> = {
   mcp: { label: "MCP工具", bg: "bg-[#e6f7ff]", text: "text-[#1890ff]" },
   builtin: { label: "内置工具", bg: "bg-[#f5f5f5]", text: "text-[#8c8c8c]" },
-  custom: { label: "自定义工具", bg: "bg-[#fff7e6]", text: "text-[#fa8c16]" },
+};
+
+/** 状态徽标样式（7 态）：disabled 为持久态，其余为连通性/运行态 */
+const statusConfig: Record<ToolStatus, { label: string; bg: string; text: string; dot: string }> = {
+  disabled: { label: "已禁用", bg: "bg-[#f5f5f5]", text: "text-[#8c8c8c]", dot: "#8c8c8c" },
+  connecting: { label: "连接中", bg: "bg-[#e6f7ff]", text: "text-[#1890ff]", dot: "#1890ff" },
+  ready: { label: "已就绪", bg: "bg-[#f6ffed]", text: "text-[#52c41a]", dot: "#52c41a" },
+  degraded: { label: "状态异常", bg: "bg-[#fff7e6]", text: "text-[#fa8c16]", dot: "#fa8c16" },
+  authRequired: { label: "凭据异常", bg: "bg-[#fff1f0]", text: "text-[#f5222d]", dot: "#f5222d" },
+  incompatible: { label: "协议不兼容", bg: "bg-[#fff1f0]", text: "text-[#f5222d]", dot: "#f5222d" },
+  unavailable: { label: "服务不可达", bg: "bg-[#fff1f0]", text: "text-[#f5222d]", dot: "#f5222d" },
 };
 
 // ─── Mock 数据 ────────────────────────────────────────────────────────────────────────
@@ -74,7 +94,7 @@ const mockTools: ToolItem[] = [
     name: "Elasticsearch 诊断工具(111环境)",
     type: "mcp",
     protocol: "streamable-http",
-    status: "on",
+    status: "ready",
     endpoint: "http://10.62.48.111:32133/mcp",
     description: "基于 MCP 接入 Elasticsearch，支持搜索、ES|QL 查询、索引与分片诊断、Pod 日志查询",
     headers: [{ key: "Authorization", value: "Bearer sk-***" }],
@@ -136,7 +156,7 @@ const mockTools: ToolItem[] = [
     name: "Prometheus诊断工具(111环境)",
     type: "mcp",
     protocol: "streamable-http",
-    status: "on",
+    status: "ready",
     endpoint: "http://10.62.48.111:30242/mcp",
     description: "基于 MCP 接入 Prometheus，支持指标查询、告警规则检索与时间序列分析",
     headers: [],
@@ -180,7 +200,7 @@ const mockTools: ToolItem[] = [
     name: "k8s-cluster-diagnosis",
     type: "mcp",
     protocol: "sse",
-    status: "on",
+    status: "ready",
     endpoint: "http://k8s-diagnosis.svc:8080/sse",
     description: "Kubernetes 集群诊断工具，支持 Pod/Node/Service 异常检测",
     headers: [],
@@ -217,7 +237,7 @@ const mockTools: ToolItem[] = [
     name: "log-analyzer",
     type: "mcp",
     protocol: "sse",
-    status: "off",
+    status: "disabled",
     endpoint: "http://log-analyzer.svc:8081/sse",
     description: "日志分析工具，从 ELK/Loki 检索分析应用日志",
     headers: [],
@@ -246,11 +266,11 @@ const mockTools: ToolItem[] = [
   {
     id: "5",
     name: "alert-query",
-    type: "custom",
+    type: "mcp",
     protocol: "streamable-http",
-    status: "on",
+    status: "authRequired",
     endpoint: "http://10.0.1.50:9090/api/v1/alerts",
-    description: "告警查询工具，对接 Prometheus AlertManager（自定义 HTTP 工具）",
+    description: "告警查询工具，对接 Prometheus AlertManager（MCP 接入）",
     headers: [],
     functions: [],
   },
@@ -259,7 +279,7 @@ const mockTools: ToolItem[] = [
     name: "loggrep",
     type: "builtin",
     protocol: "sse",
-    status: "on",
+    status: "ready",
     endpoint: "内置",
     description: "内置日志检索命令工具，支持 grep 式日志过滤",
     headers: [],
@@ -268,12 +288,23 @@ const mockTools: ToolItem[] = [
   {
     id: "7",
     name: "db-performance-advisor",
-    type: "custom",
+    type: "mcp",
     protocol: "streamable-http",
-    status: "on",
+    status: "degraded",
     endpoint: "http://10.0.1.51:8083/advise",
     description: "数据库性能建议工具，分析慢查询和索引优化",
     headers: [{ key: "X-Api-Key", value: "****" }],
+    functions: [],
+  },
+  {
+    id: "8",
+    name: "node-terminal",
+    type: "mcp",
+    protocol: "sse",
+    status: "unavailable",
+    endpoint: "http://k8s-node.svc:8082/sse",
+    description: "节点终端工具，基于特权 Pod + nsenter 接入 K8s 节点终端",
+    headers: [],
     functions: [],
   },
 ];
@@ -303,11 +334,12 @@ const emptyForm: ToolForm = {
 export function ToolManagementPage() {
   const [tools, setTools] = useState<ToolItem[]>(mockTools);
   const [searchTerm, setSearchTerm] = useState("");
-  const [typeTab, setTypeTab] = useState<ToolType | "">("");
+  const [statusTab, setStatusTab] = useState<ToolStatus | "abnormal" | "">("");
   const [modalVisible, setModalVisible] = useState(false);
   const [editingTool, setEditingTool] = useState<ToolItem | null>(null);
   const [form, setForm] = useState<ToolForm>(emptyForm);
   const [page, setPage] = useState(1);
+  const searchRef = useRef<HTMLInputElement>(null);
   const pageSize = 5;
 
   // 调试：新页面（非弹窗），面包屑导航
@@ -315,13 +347,15 @@ export function ToolManagementPage() {
   // 查看函数：行内展开（当前展开的工具 id）
   const [expandFuncId, setExpandFuncId] = useState<string | null>(null);
 
-  // 统计（按类型）
+  // 统计（按状态视角）
   const stats = useMemo(() => {
     const total = tools.length;
-    const builtin = tools.filter((t) => t.type === "builtin").length;
-    const mcp = tools.filter((t) => t.type === "mcp").length;
-    const custom = tools.filter((t) => t.type === "custom").length;
-    return { total, builtin, mcp, custom };
+    const ready = tools.filter((t) => t.status === "ready").length;
+    const abnormal = tools.filter((t) =>
+      ["degraded", "authRequired", "incompatible", "unavailable"].includes(t.status),
+    ).length;
+    const disabled = tools.filter((t) => t.status === "disabled").length;
+    return { total, ready, abnormal, disabled };
   }, [tools]);
 
   // 筛选
@@ -329,10 +363,14 @@ export function ToolManagementPage() {
     () =>
       tools.filter((t) => {
         const matchSearch = t.name.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchType = !typeTab || t.type === typeTab;
-        return matchSearch && matchType;
+        const matchStatus =
+          !statusTab ||
+          (statusTab === "abnormal"
+            ? ["degraded", "authRequired", "incompatible", "unavailable"].includes(t.status)
+            : t.status === statusTab);
+        return matchSearch && matchStatus;
       }),
-    [tools, searchTerm, typeTab],
+    [tools, searchTerm, statusTab],
   );
 
   // 分页数据
@@ -368,7 +406,7 @@ export function ToolManagementPage() {
       const newTool: ToolItem = {
         id: String(Date.now()),
         ...form,
-        status: "off",
+        status: "ready",
         functions: [],
       };
       setTools((prev) => [...prev, newTool]);
@@ -378,7 +416,18 @@ export function ToolManagementPage() {
 
   const toggleStatus = (id: string) => {
     setTools((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, status: t.status === "on" ? "off" : "on" } : t)),
+      prev.map((t) => {
+        if (t.id !== id) return t;
+        // 关(disabled) → 开：先 connecting 中间态，模拟连接后落 ready
+        if (t.status === "disabled") {
+          setTimeout(() => {
+            setTools((p) => p.map((x) => (x.id === id ? { ...x, status: "ready" } : x)));
+          }, 1000);
+          return { ...t, status: "connecting" };
+        }
+        // 开 / 异常态 → 停用
+        return { ...t, status: "disabled" };
+      }),
     );
   };
 
@@ -411,60 +460,37 @@ export function ToolManagementPage() {
         <DebugPage tool={debugTool} onBack={() => setDebugTool(null)} />
       ) : (
         <>
-          {/* 页面标题 + 操作栏 */}
-          <div className="p-[16px] px-[24px] bg-[#FFFFFF] border-b border-[#DCDFE6] shrink-0">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-[16px] font-semibold text-[#303133] flex items-center gap-[6px]">工具管理 <NewTag code="FR-2" /></h1>
-            <p className="text-[12px] text-[#909399] mt-[2px] flex items-center gap-[6px]">按分类查看并管理工具集合 <NewTag code="F-Perm" /></p>
-          </div>
+          {/* 页面标题 */}
+          <div className="px-[24px] pt-[16px] pb-[8px] bg-[#FFFFFF] border-b border-[#DCDFE6] shrink-0">
+        <h1 className="text-[16px] font-semibold text-[#303133] flex items-center gap-[6px]">工具管理 <NewTag code="FR-2" /></h1>
+        <p className="text-[12px] text-[#909399] mt-[2px] flex items-center gap-[6px]">按分类查看并管理工具集合 <NewTag code="F-Perm" /></p>
+      </div>
+      {/* 工具栏：创建(左) + 搜索/筛选(右) */}
+      <div className="px-[24px] py-[12px] bg-[#FFFFFF] border-b border-[#DCDFE6] shrink-0">
+        <div className="flex items-center justify-between gap-[12px] flex-wrap">
           <button
             onClick={openRegister}
-            className="flex items-center gap-1.5 px-4 h-8 bg-[#409EFF] text-white text-[14px] rounded-[4px] hover:bg-[#66b1ff] transition-colors"
+            className="flex items-center gap-1.5 px-4 h-8 bg-[#409EFF] text-white text-[14px] rounded-[4px] hover:bg-[#66b1ff] transition-colors shrink-0"
           >
             <Plus className="w-4 h-4" />
             添加工具
           </button>
-        </div>
-      </div>
-
-      {/* 主要内容 */}
-      <div className="flex-1 p-6 overflow-y-auto">
-        {/* 统计卡片 */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-          <StatCard color="#1890ff" label="总计" value={stats.total} />
-          <StatCard color="#52c41a" label="内置" value={stats.builtin} />
-          <StatCard color="#1890ff" label="MCP" value={stats.mcp} />
-          <StatCard color="#fa8c16" label="自定义" value={stats.custom} />
-        </div>
-
-        {/* 筛选栏 */}
-        <div className="bg-white rounded-[4px] border border-[#DCDFE6] px-4 py-3 mb-4">
-          <div className="flex items-center gap-4 flex-wrap">
-            <div className="relative flex-1 max-w-[280px]">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#A0A0A0]" />
-              <input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="搜索工具..."
-                className="w-full h-9 pl-9 pr-3 text-[14px] text-[#303133] border border-[#DCDFE6] rounded-[4px] placeholder:text-[#A0A0A0] focus:outline-none focus:border-[#409EFF] transition-colors"
-              />
-            </div>
+          <div className="flex items-center gap-[12px] flex-wrap">
             <div className="flex items-center gap-1 bg-[#F5F7FA] rounded-[4px] p-[2px]">
               {[
                 { key: "", label: "全部" },
-                { key: "mcp", label: "MCP工具" },
-                { key: "builtin", label: "内置工具" },
-                { key: "custom", label: "自定义工具" },
+                { key: "ready", label: "已就绪" },
+                { key: "abnormal", label: "异常" },
+                { key: "disabled", label: "已禁用" },
               ].map((tab) => (
                 <button
                   key={tab.key}
                   onClick={() => {
-                    setTypeTab(tab.key as ToolType | "");
+                    setStatusTab(tab.key as ToolStatus | "abnormal" | "");
                     setPage(1);
                   }}
                   className={`px-3 h-7 text-[13px] rounded-[4px] transition-colors ${
-                    typeTab === tab.key
+                    statusTab === tab.key
                       ? "bg-white text-[#409EFF] shadow-sm font-medium"
                       : "text-[#606266] hover:text-[#409EFF]"
                   }`}
@@ -473,18 +499,46 @@ export function ToolManagementPage() {
                 </button>
               ))}
             </div>
-            <button
-              onClick={() => {
-                setSearchTerm("");
-                setTypeTab("");
-              }}
-              disabled={!searchTerm && !typeTab}
-              className="h-9 px-3 text-[14px] text-[#606266] border border-[#DCDFE6] rounded-[4px] hover:bg-[#f5f7fa] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              重置
-            </button>
+            <div className="flex items-stretch h-9 w-[240px]">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#A0A0A0]" />
+                <input
+                  ref={searchRef}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="搜索工具..."
+                  className="w-full h-9 pl-9 pr-9 text-[14px] text-[#303133] border border-[#DCDFE6] border-r-0 rounded-l-[4px] placeholder:text-[#A0A0A0] focus:outline-none focus:border-[#409EFF] transition-colors"
+                />
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm("")}
+                    className="absolute right-[10px] top-1/2 -translate-y-1/2 w-[18px] h-[18px] flex items-center justify-center rounded-full text-[#A0A0A0] hover:bg-[#E4E7ED] hover:text-[#606266] transition-colors"
+                    title="清空搜索"
+                  >
+                    <X className="w-[14px] h-[14px]" />
+                  </button>
+                )}
+              </div>
+              <button
+                onClick={() => searchRef.current?.focus()}
+                className="h-9 px-[16px] bg-[#409EFF] text-white text-[14px] rounded-r-[4px] hover:bg-[#66b1ff] transition-colors flex items-center gap-[4px] shrink-0"
+              >
+                <Search className="w-[14px] h-[14px]" />
+                <span>搜索</span>
+              </button>
+            </div>
           </div>
+        </div>
+      </div>
+
+      {/* 主要内容 */}
+      <div className="flex-1 p-6 overflow-y-auto">
+        {/* 统计卡片（状态视角） */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+          <StatCard color="#1890ff" label="总计" value={stats.total} />
+          <StatCard color="#52c41a" label="已就绪" value={stats.ready} />
+          <StatCard color="#F56C6C" label="异常" value={stats.abnormal} />
+          <StatCard color="#909399" label="已禁用" value={stats.disabled} />
         </div>
 
         {/* 表格 */}
@@ -495,7 +549,7 @@ export function ToolManagementPage() {
                 <Th className="w-[60px]">ID</Th>
                 <Th>工具名称</Th>
                 <Th>工具类型</Th>
-                <Th>协议</Th>
+                <Th>工具协议</Th>
                 <Th>路径/来源</Th>
                 <Th className="w-[80px]">开关</Th>
                 <Th className="text-center w-[240px]">操作</Th>
@@ -538,28 +592,20 @@ export function ToolManagementPage() {
                         </code>
                       </Td>
                       <Td>
-                        <button
-                          onClick={() => toggleStatus(tool.id)}
-                          className={`w-[36px] h-[20px] rounded-full relative transition-colors ${
-                            tool.status === "on" ? "bg-[#409EFF]" : "bg-[#DCDFE6]"
-                          }`}
-                        >
-                          <span
-                            className={`absolute top-[2px] w-[16px] h-[16px] rounded-full bg-white shadow transition-all ${
-                              tool.status === "on" ? "left-[18px]" : "left-[2px]"
-                            }`}
-                          />
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <ToolToggle status={tool.status} onClick={() => toggleStatus(tool.id)} />
+                          {tool.status !== "disabled" && tool.status !== "ready" && tool.status !== "connecting" && (
+                            <span className="relative flex items-center text-[#F56C6C] group">
+                              <AlertTriangle className="w-4 h-4 cursor-help" />
+                              <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-1 whitespace-nowrap rounded-[4px] bg-[#303133] px-2 py-1 text-[12px] text-white opacity-0 group-hover:opacity-100 transition-opacity z-10 shadow-sm">
+                                {statusConfig[tool.status].label}
+                              </span>
+                            </span>
+                          )}
+                        </div>
                       </Td>
                       <Td>
                         <div className="flex items-center justify-center gap-3">
-                          <button
-                            onClick={() => setDebugTool(tool)}
-                            title="调试"
-                            className="text-[13px] text-[#1890ff] hover:text-[#409EFF] transition-colors"
-                          >
-                            调试
-                          </button>
                           <button
                             onClick={() => openEdit(tool)}
                             title="编辑"
@@ -648,6 +694,32 @@ function Td({ children }: { children: React.ReactNode }) {
   return <td className="px-4 py-3">{children}</td>;
 }
 
+// ─── 开关（toggle） ──────────────────────────────────────────────────────────────────
+// disabled=关（灰）；ready/异常态=开（蓝）；connecting=开+转圈；异常态下点击无效，需先停用
+
+function ToolToggle({ status, onClick }: { status: ToolStatus; onClick: () => void }) {
+  // 仅 ready / connecting 为开（蓝）；disabled 与 4 个异常态均为关（灰）——异常态是开启失败，开关回关
+  const isOn = status === "ready" || status === "connecting";
+  const isConnecting = status === "connecting";
+  return (
+    <button
+      onClick={onClick}
+      className={`w-[36px] h-[20px] rounded-full relative transition-colors ${
+        isOn ? "bg-[#409EFF]" : "bg-[#DCDFE6]"
+      }`}
+      title={statusConfig[status].label}
+    >
+      <span
+        className={`absolute top-[2px] w-[16px] h-[16px] rounded-full bg-white shadow transition-all ${
+          isOn ? "left-[18px]" : "left-[2px]"
+        } flex items-center justify-center`}
+      >
+        {isConnecting && <Loader2 className="w-3 h-3 text-[#409EFF] animate-spin" />}
+      </span>
+    </button>
+  );
+}
+
 // ─── 统计卡片 ─────────────────────────────────────────────────────────────────────────
 
 function StatCard({ color, label, value }: { color: string; label: string; value: string | number }) {
@@ -681,13 +753,25 @@ function ToolFormModal({
     onChange({ ...form, [key]: value });
   };
 
-  // 连通性测试状态：idle | testing | success | fail
-  const [testState, setTestState] = useState<"idle" | "testing" | "success" | "fail">("idle");
+  // 连通性测试：模拟 MCP Server 状态（connecting 为过程态，其余为测试结果）
+  const [testState, setTestState] = useState<ToolStatus | "idle" | "testing">("idle");
 
   const runConnectivityTest = () => {
     if (!form.endpoint.trim()) return;
     setTestState("testing");
-    setTimeout(() => setTestState("success"), 900);
+    setTimeout(() => {
+      // 演示用判定：鉴权请求头缺失→authRequired；非法地址→unavailable；否则 ready
+      const hasAuthHeader = form.headers.some((h) =>
+        /^(authorization|x-api-key|api-key|token)$/i.test(h.key.trim()),
+      );
+      if (!hasAuthHeader) {
+        setTestState("authRequired");
+      } else if (!/^https?:\/\//.test(form.endpoint.trim())) {
+        setTestState("unavailable");
+      } else {
+        setTestState("ready");
+      }
+    }, 900);
   };
 
   const updateHeader = (i: number, key: string, value: string) => {
@@ -717,51 +801,7 @@ function ToolFormModal({
 
         {/* 表单 */}
         <div className="p-6 space-y-5">
-          {/* 类型选择（MCP / 自定义） */}
-          <div>
-            <label className="text-[14px] text-[#606266] font-medium mb-2 block">
-              工具类型 <span className="text-[#F56C6C]">*</span>
-            </label>
-            <div className="grid grid-cols-2 gap-4">
-              {[
-                {
-                  value: "mcp" as ToolType,
-                  icon: <Boxes className="w-5 h-5 text-[#1e40af]" />,
-                  title: "MCP 工具",
-                  desc: "基于 Model Context Protocol 协议，一键接入生态现有的标准能力",
-                },
-                {
-                  value: "custom" as ToolType,
-                  icon: <FileCode2 className="w-5 h-5 text-[#4b5563]" />,
-                  title: "自定义工具",
-                  desc: "通过 OpenAPI (Swagger) 规范定义，灵活对接任意 HTTP 服务",
-                },
-              ].map((opt) => (
-                <div
-                  key={opt.value}
-                  onClick={() => update("type", opt.value)}
-                  className={`relative p-4 border rounded-[6px] cursor-pointer transition-colors ${
-                    form.type === opt.value
-                      ? "border-[#3b82f6] bg-[#eff6ff]"
-                      : "border-[#DCDFE6] bg-white hover:border-[#409EFF]"
-                  }`}
-                >
-                  {form.type === opt.value && (
-                    <span className="absolute top-2 right-2 w-4 h-4 rounded-full bg-[#3b82f6] flex items-center justify-center">
-                      <Check className="w-3 h-3 text-white" />
-                    </span>
-                  )}
-                  <div className="flex items-center gap-2 mb-1.5">
-                    {opt.icon}
-                    <span className="text-[15px] font-semibold text-[#1f2937]">{opt.title}</span>
-                  </div>
-                  <p className="text-[13px] text-[#4b5563] leading-[1.5]">{opt.desc}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <FormField label="协议" required>
+          <FormField label="工具协议" required>
             <select
               value={form.protocol}
               onChange={(e) => update("protocol", e.target.value as Protocol)}
@@ -859,8 +899,10 @@ function ToolFormModal({
             onClick={runConnectivityTest}
             disabled={!form.endpoint.trim() || testState === "testing"}
             className={`px-4 h-9 text-[14px] rounded-[4px] border transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed ${
-              testState === "success"
+              testState === "ready"
                 ? "border-[#67C23A] bg-[#f0f9eb] text-[#67C23A]"
+                : testState === "authRequired" || testState === "incompatible" || testState === "unavailable"
+                ? "border-[#F56C6C] bg-[#fef0f0] text-[#F56C6C]"
                 : "border-[#409EFF] bg-[#e5efff] text-[#1e40af] hover:bg-[#cce6ff]"
             }`}
           >
@@ -869,10 +911,15 @@ function ToolFormModal({
                 <Loader2 className="w-4 h-4 animate-spin" />
                 测试中...
               </>
-            ) : testState === "success" ? (
+            ) : testState === "ready" ? (
               <>
                 <CheckCircle2 className="w-4 h-4" />
                 连接成功
+              </>
+            ) : testState === "authRequired" || testState === "incompatible" || testState === "unavailable" ? (
+              <>
+                <X className="w-4 h-4" />
+                {testState === "authRequired" ? "凭据异常" : testState === "incompatible" ? "协议不兼容" : "服务不可达"}
               </>
             ) : (
               <>
