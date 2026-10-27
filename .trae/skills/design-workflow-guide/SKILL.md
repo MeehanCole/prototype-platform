@@ -1,6 +1,6 @@
 ---
 name: "design-workflow-guide"
-description: "Guides users through AI design workflows (forward design, reverse design, hybrid). Invoke when user starts a new design task, has a requirement to analyze, has a screenshot to restore, or wants to iterate on an existing product."
+description: "Guides users through AI design workflows (Mode D incremental edits / Agentation UI annotations, Mode A forward design, Mode B reverse design, Mode C hybrid). Invoke when user pastes Agentation visual feedback, wants quick UI/PRD tweaks, starts a new design task, has a screenshot to restore, or wants to iterate on an existing product."
 ---
 
 # Design Workflow Guide
@@ -9,24 +9,27 @@ description: "Guides users through AI design workflows (forward design, reverse 
 
 **This skill's canonical rules live in the project-level `.skills/` directory.** Read these files first before starting any workflow:
 
-1. **`.skills/design-workflow.md`** — Complete workflow definitions (Mode A/B/C stages, version management, change types, artifact structure)
-2. **`.skills/page-generator.md`** — Code generation contract (called during A4/B3/C4 stages)
-3. **`.skills/templates.md`** — Copy-paste ready templates for all artifacts
+1. **`.skills/agent-rules.md`** — **Highest-priority Agent rules**: R1-R6 red lines, Mode A/B/C/D decision tree, Mode D incremental edit & Agentation annotation rules
+2. **`.skills/design-workflow.md`** — Complete workflow definitions (Mode A/B/C/D stages, version management, change types, artifact structure)
+3. **`.skills/page-generator.md`** — Code generation contract (called during A4/B3/C4/D stages)
+4. **`.skills/templates.md`** — Copy-paste ready templates for all artifacts
 
 ## When to Invoke
 
-- User starts a new design task from a requirement
-- User has a screenshot/product to reverse-engineer
-- User wants to iterate on an existing product (Mode C)
-- User asks about design workflow or process
+- User pastes **Agentation** UI annotations (`**Location:**`, `**Source:**`, `**React:**`, `**Feedback:**`) or asks to process pending Agentation MCP annotations (→ **Mode D**)
+- User asks for incremental UI/copy/layout/feature tweaks on an existing prototype page (→ **Mode D**)
+- User starts a new design task from a requirement (→ **Mode A**)
+- User has a screenshot/product to reverse-engineer (→ **Mode B**)
+- User wants a major version iteration on an existing product (→ **Mode C**)
 
-## Three Modes
+## Four Modes
 
 | Mode | Start Point | Best For |
 |------|------------|----------|
+| **D** Incremental (Default 80%) | Existing prototype + small tweak / Agentation annotation | Fast direct edits to current version (0 confirmation steps) |
 | **A** Forward | Text requirement | New product from scratch |
 | **B** Reverse | Screenshot/URL | Restore existing product to prototype |
-| **C** Hybrid | Existing product + new requirement | Version iteration, A/B comparison |
+| **C** Hybrid | Existing product + major requirement (≥3 features) | Version iteration, A/B comparison |
 
 ## Stage Mapping
 

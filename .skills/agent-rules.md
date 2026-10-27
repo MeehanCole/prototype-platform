@@ -266,6 +266,20 @@ src/pages/<业务域>/<应用>/          # 必须是两级目录！平台路由�
 - ❌ 小修改也强制走 A1-A5 全流程确认（直接改完交付）
 - ❌ 修改过程中擅自重构周边代码（最小改动原则）
 
+#### D2 Agentation 页面视觉批注处理规范（高频）
+
+当用户粘贴 **Agentation** 生成的 Markdown 批注（含 `**Location:**`、`**Source:**`、`**React:**`、`**Context:**`、`**Feedback:**` 或 `[rearrange]` / `[placement]`）或要求通过 `agentation-mcp` 处理页面批注时：
+
+1. **默认走 Mode D（增量修改）**：除非批注累计涉及 ≥3 个全新功能模块或路由架构级调整，否则一律按 Mode D 直接修改当前版本代码，0 次前置确认。
+2. **定位目标文件与具体组件**：
+   - 优先读取批注中的 `**Source:**`（源码路径与行号）和 `**React:**`（组件调用链，如 `<IntelligentDiagnosisPage> > <AlertCenter>`）。
+   - 若批注落在子模块组件（如 `AlertCenter/index.tsx`、`ToolManagement/index.tsx`），直接去对应子模块文件修改，不要误改父级入口外壳。
+3. **数据驱动逆向溯源（关键，防改不动/破坏结构）**：
+   - B 端原型大量采用顶部常量数组渲染（如 `TAB_LIST`、`SIDEBAR_NAV`、`TAB_COLUMNS`、`MOCK_DATA` + `.map()`）。
+   - 当批注指向表头、菜单项、Tab 标签、表格某行文本（参考批注中的 `**Selected text:**` 或 `**Context:**`）时，**禁止把循环 JSX 硬改成静态文本**，必须在同文件或 `_shared.tsx` 中搜索该文本字面量，直接修改对应的常量数组或类型定义。
+4. **批量批注一次性处理**：
+   - 一次输入包含编号 `1. 2. 3. ...` 多条批注时，按文件归类后逐条用 `Edit` 精确修改，全部完成后统一执行编译校验与必要的 PRD 同步。
+
 详见 [design-workflow.md Mode D](./design-workflow.md#模式-d增量修改日常小步迭代)
 
 ---
