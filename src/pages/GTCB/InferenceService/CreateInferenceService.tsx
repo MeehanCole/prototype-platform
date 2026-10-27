@@ -1231,7 +1231,7 @@ export function CreateInferenceService({
                 ) : (
                   <div className="flex items-center gap-1.5 h-8 text-[12px] text-[#f53f3f]">
                     <TriangleAlert size={12} />
-                    请先在上方「算力规格」中选择一行
+                    请先选择一种算力规格
                   </div>
                 )}
               </Field>
