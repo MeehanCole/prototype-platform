@@ -3,10 +3,12 @@
  * 子视图: 由推理服务列表页的「创建」按钮进入，返回箭头/取消回到列表
  */
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import type { ReactNode } from 'react'
-import { ArrowLeft, ArrowUp, Check, ChevronDown, ChevronUp, CircleX, Info, Minus, Plus, TriangleAlert } from 'lucide-react'
+import { ArrowLeft, ArrowUp, Check, ChevronDown, ChevronUp, CircleX, Info, Minus, Plus, Trash2, TriangleAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { InfoDot } from './_shared'
+import { NewTag } from './feature-tags'
 
 const LABEL_W = 'w-[88px]'
 const FIELD_W = 'w-[304px]'
@@ -50,6 +52,7 @@ function Field({
   required,
   hint,
   hintInline,
+  tag,
   children,
   alignTop,
 }: {
@@ -57,11 +60,13 @@ function Field({
   required?: boolean
   hint?: ReactNode
   hintInline?: boolean
+  /** 功能点批注（显示新增功能点开关打开时可见） */
+  tag?: ReactNode
   children: ReactNode
   alignTop?: boolean
 }) {
   return (
-    <div className="flex items-start gap-3">
+    <div className="relative flex items-start gap-3">
       <span
         className={cn(
           'shrink-0 whitespace-nowrap text-right text-[12px] text-[#1f2329]',
@@ -72,6 +77,8 @@ function Field({
         {label}
         {required && <span className="text-[#f53f3f]"> *</span>}
       </span>
+      {tag && <div className="absolute -top-0 right-0 z-10">{tag}</div>}
+
       <div className={cn('min-w-0 flex-1', hintInline && 'flex items-center gap-3')}>
         {children}
         {hint &&
@@ -81,6 +88,74 @@ function Field({
             <div className="mt-1 text-[11px] leading-4 text-[#8f959e]">{hint}</div>
           ))}
       </div>
+    </div>
+  )
+}
+
+/** 下拉框（自定义面板，替代原生 select） */
+function Dropdown({
+  value,
+  options,
+  onChange,
+  width,
+  disabled,
+  placeholder = '请选择',
+}: {
+  value: string
+  options: { value: string; label: string }[]
+  onChange: (v: string) => void
+  width: string
+  disabled?: boolean
+  placeholder?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const current = options.find((o) => o.value === value)
+  return (
+    <div className={cn('relative', width)}>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          'flex h-8 w-full items-center justify-between gap-2 rounded-[2px] border border-[#d9dce3] bg-white px-2.5 text-left text-[12px]',
+          disabled ? 'cursor-not-allowed bg-[#f7f8fa] text-[#c9cdd4]' : 'text-[#1f2329] hover:border-[#1668ff]',
+          open && 'border-[#1668ff]',
+        )}
+      >
+        <span className={cn('truncate', !current && 'text-[#c9cdd4]')}>{current?.label ?? placeholder}</span>
+        <ChevronDown
+          size={13}
+          className={cn('shrink-0 text-[#8f959e] transition-transform', open && 'rotate-180')}
+        />
+      </button>
+
+      {open && !disabled && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 right-0 top-[34px] z-20 max-h-[220px] overflow-y-auto rounded-[2px] border border-[#e5e6eb] bg-white py-1 shadow-[0_4px_16px_rgba(0,0,0,0.08)]">
+            {options.length === 0 && (
+              <div className="px-3 py-2 text-[12px] text-[#8f959e]">暂无可选项</div>
+            )}
+            {options.map((o) => (
+              <button
+                key={o.value}
+                type="button"
+                onClick={() => {
+                  onChange(o.value)
+                  setOpen(false)
+                }}
+                className={cn(
+                  'flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[12px] hover:bg-[#f7f8fa]',
+                  o.value === value ? 'text-[#1668ff]' : 'text-[#1f2329]',
+                )}
+              >
+                <span className="truncate">{o.label}</span>
+                {o.value === value && <Check size={12} className="shrink-0" />}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   )
 }
@@ -185,6 +260,21 @@ const GPU_METRICS: Record<string, GpuMetric[]> = {
   ],
 }
 
+/** Prometheus 指标名（联想用，mock；实际应取自 /api/v1/label/__name__/values） */
+const PROM_METRICS: { name: string; desc: string }[] = [
+  { name: 'gpu.clock.frequency', desc: 'GPU 时钟频率' },
+  { name: 'gpu.ecc.errors', desc: 'ECC 错误数' },
+  { name: 'gpu.encode.utilization', desc: '编码器利用率' },
+  { name: 'gpu.energy.consumption', desc: '能耗' },
+  { name: 'gpu.interconnect.throughput', desc: '互联带宽' },
+  { name: 'gpu.memory.free', desc: '空闲显存' },
+  { name: 'gpu.memory.total', desc: '显存总量' },
+  { name: 'gpu.memory.used', desc: '已用显存' },
+  { name: 'gpu.utilization', desc: '算力利用率' },
+]
+
+type MetricCond = { id: number; key: string; th: string }
+
 const SPECS = [
   { model: '英伟达 H100', virt: '整卡', count: '1卡', ratio: '100%', mem: '81559Mi', cpu: '32核', ram: '10Gi', disk: '30Gi', over: '未开启', net: '无' },
   { model: '英伟达 H100', virt: '整卡', count: '1卡', ratio: '100%', mem: '81559Mi', cpu: '24核', ram: '100Gi', disk: '30Gi', over: '未开启', net: '无' },
@@ -214,73 +304,256 @@ const COL_W: Record<string, string> = {
   高速网络: 'w-auto',
 }
 
-export function CreateInferenceService({ onBack }: { onBack: () => void }) {
+/** 编辑态的初始数据（结构上与列表服务对象兼容） */
+export interface EditSeed {
+  service: {
+    name: string
+    framework: string
+    model: string
+    pool: string
+    priority: string
+    deployMode: string
+    modelReplicas: string
+  }
+  elastic?: {
+    mode: '常规模式' | 'Serverless 模式' | '指标模式'
+    minReplicas?: string
+    maxReplicas?: string
+    shrinkWindow?: string
+    targetRequests?: string
+    maxRequests?: string
+  }
+}
+
+/** 去掉「600 秒」这类单位 */
+const onlyNumber = (v?: string) => (v ?? '').replace(/[^\d.]/g, '')
+
+/** 提交给列表的数据 */
+export interface ServicePayload {
+  name: string
+  framework: string
+  model: string
+  pool: string
+  priority: string
+  deployMode: string
+  modelReplicas: string
+  elasticMode: '常规模式' | 'Serverless 模式' | '指标模式'
+  spec: string
+  elastic: {
+    mode: '常规模式' | 'Serverless 模式' | '指标模式'
+    replicas?: string
+    minReplicas?: string
+    maxReplicas?: string
+    shrinkWindow?: string
+    targetRequests?: string
+    maxRequests?: string
+    source?: '内置指标' | '自定义 PromQL'
+    conditions?: { text: string }[]
+    join?: 'and' | 'or'
+    agg?: string
+    expr?: string
+  }
+}
+
+export function CreateInferenceService({
+  onBack,
+  onSubmit,
+  mode = 'create',
+  initial,
+}: {
+  onBack: () => void
+  onSubmit?: (payload: ServicePayload) => void
+  mode?: 'create' | 'edit'
+  initial?: EditSeed
+}) {
+  // 预览参数：?elastic=metric&source=custom&spec=0&expr=... 便于截图/联调，无需改代码
+  const [searchParams] = useSearchParams()
+  const previewElastic = searchParams.get('elastic') as 'resident' | 'serverless' | 'metric' | null
+  const previewSource = searchParams.get('source') as 'builtin' | 'custom' | null
+  const previewSpec = searchParams.get('spec')
+  const previewExpr = searchParams.get('expr')
+
+  const seed = initial?.service
+  const seedElastic = initial?.elastic
+  // 框架与弹性模式必须匹配: KTransformer 没有 Serve 层, 只能常规模式
+  const seedMode: 'resident' | 'serverless' | 'metric' =
+    seed?.framework === 'KTransformer'
+      ? 'resident'
+      : seedElastic?.mode === '指标模式'
+        ? 'metric'
+        : seedElastic?.mode === 'Serverless 模式'
+          ? 'serverless'
+          : 'resident'
+
   const [scene, setScene] = useState<'center' | 'edge'>('center')
-  const [name, setName] = useState('')
-  const [framework, setFramework] = useState('vLLM')
+  const [name, setName] = useState(seed?.name ?? '')
+  const [framework, setFramework] = useState(seed?.framework ?? 'vLLM')
   const [modelSource, setModelSource] = useState<'official' | 'private'>('official')
-  const [model, setModel] = useState('')
+  const [model, setModel] = useState(
+    seed?.model.includes('Qwen2.5') ? 'qwen2.5-0.5b' : seed?.model.includes('Qwen3.5') ? 'qwen3.5-35b-a3b' : '',
+  )
   const [desc, setDesc] = useState('')
-  const [pool, setPool] = useState('nv-h100-gpu（nv-zhanghu-ceshi）')
-  const [priority, setPriority] = useState('低')
+  const [nameError, setNameError] = useState(false)
+  const [specError, setSpecError] = useState(false)
+  const [exprError, setExprError] = useState<'empty' | 'noCompare' | null>(null)
+  const [pool, setPool] = useState(seed?.pool ?? 'nv-h100-gpu（nv-zhanghu-ceshi）')
+  const [priority, setPriority] = useState(seed?.priority ?? '低')
   const [allModel, setAllModel] = useState(false)
   const [h100, setH100] = useState(false)
   const [count, setCount] = useState('全部')
-  const [specIdx, setSpecIdx] = useState<number | null>(null)
+  const [specIdx, setSpecIdx] = useState<number | null>(
+    previewSpec !== null ? Number(previewSpec) : seed ? 0 : null,
+  )
   const [shm, setShm] = useState('25')
   const [gang, setGang] = useState(false)
   const [topo, setTopo] = useState(false)
-  const [svcName, setSvcName] = useState('')
-  const [svcVer, setSvcVer] = useState('')
-  const [deployMode, setDeployMode] = useState<'simple' | 'dist'>('simple')
+  const [svcName, setSvcName] = useState(seed ? seed.model.replace(/^官方\s*/, '') : '')
+  const [svcVer, setSvcVer] = useState(seed ? 'v2' : '')
+  const [deployMode, setDeployMode] = useState<'simple' | 'dist'>(
+    seed?.deployMode === '分布式并行' ? 'dist' : 'simple',
+  )
   const [tp, setTp] = useState('')
   const [pp, setPp] = useState('')
   const [dp, setDp] = useState('')
   const [ep, setEp] = useState(false)
   const [advanced, setAdvanced] = useState(false)
-  const [elastic, setElastic] = useState<'resident' | 'serverless' | 'metric'>('resident')
-  // 指标模式（按 GPU 指标调整模型副本范围）
-  const [metricSource, setMetricSource] = useState<'builtin' | 'custom'>('builtin')
-  const [metricKey, setMetricKey] = useState('')
+  const [elastic, setElastic] = useState<'resident' | 'serverless' | 'metric'>(
+    previewElastic ?? seedMode,
+  )
+  // 指标模式（按算力指标调整模型副本范围）
+  const [metricSource, setMetricSource] = useState<'builtin' | 'custom'>(previewSource ?? 'builtin')
+  const [conds, setConds] = useState<MetricCond[]>([{ id: 1, key: '', th: '' }])
+  const [condJoin, setCondJoin] = useState<'and' | 'or'>('and')
   const [metricAgg, setMetricAgg] = useState('avg')
-  const [customQuery, setCustomQuery] = useState('')
-  const [scaleUpTh, setScaleUpTh] = useState('')
-  const [scaleDownTh, setScaleDownTh] = useState('')
+  const [customQuery, setCustomQuery] = useState(previewExpr ?? '')
+  const [suggestOpen, setSuggestOpen] = useState(false)
   const [scaleDownHold, setScaleDownHold] = useState('600')
   const [metricMinReplicas, setMetricMinReplicas] = useState('1')
   const [metricMaxReplicas, setMetricMaxReplicas] = useState('4')
   const [replicas, setReplicas] = useState('1')
-  const [minReplicas, setMinReplicas] = useState('1')
-  const [maxReplicas, setMaxReplicas] = useState('1')
-  const [shrinkWindow, setShrinkWindow] = useState('600')
-  const [targetReq, setTargetReq] = useState('10.0')
-  const [maxReq, setMaxReq] = useState('20.0')
+  const [minReplicas, setMinReplicas] = useState(seedElastic?.minReplicas ?? '1')
+  const [maxReplicas, setMaxReplicas] = useState(seedElastic?.maxReplicas ?? '1')
+  const [shrinkWindow, setShrinkWindow] = useState(onlyNumber(seedElastic?.shrinkWindow) || '600')
+  const [targetReq, setTargetReq] = useState(seedElastic?.targetRequests ?? '10.0')
+  const [maxReq, setMaxReq] = useState(seedElastic?.maxRequests ?? '20.0')
 
   // 算力型号来自「资源规格 → 算力规格」的选中行（不是独立选择）
   const selectedModel = specIdx !== null ? SPECS[specIdx].model : null
   const metricList = selectedModel ? GPU_METRICS[selectedModel] ?? [] : []
-  const activeMetric =
-    metricList.find((m) => m.key === metricKey) ?? (metricList.length ? metricList[0] : undefined)
-  const thresholdUnit = metricSource === 'custom' ? '' : activeMetric?.unit ?? ''
+  // 提交：把表单状态组装成列表可用的载荷
+  const handleSubmit = () => {
+    if (!name.trim()) {
+      setNameError(true)
+      return
+    }
+    setNameError(false)
+    // 指标模式的指标目录来自「算力规格」选中行, 未选则无法判定指标
+    if (elastic === 'metric' && specIdx === null) {
+      setSpecError(true)
+      return
+    }
+    setSpecError(false)
+    // 自定义表达式: 必须写完整判断条件, 且能收敛为单值
+    if (elastic === 'metric' && metricSource === 'custom') {
+      if (!customQuery.trim()) {
+        setExprError('empty')
+        return
+      }
+      if (!/[<>]|[=!]=/.test(customQuery)) {
+        setExprError('noCompare')
+        return
+      }
+      setExprError(null)
+    }
+    const specRow = specIdx !== null ? SPECS[specIdx] : null
+    const specText = specRow
+      ? `${specRow.model === '英伟达 H100' ? 'Nvidia H100' : specRow.model}（${specRow.mem}）*${specRow.count.replace('卡', '')},CPU ${specRow.cpu}...`
+      : 'Nvidia H100（81559Mi）*1,CPU 32核...'
+    const modelLabel =
+      mode === 'edit' && !model && seed
+        ? seed.model // 编辑态: 下拉未覆盖该模型时保持原值，避免改坏数据
+        : model === 'qwen2.5-0.5b'
+          ? '官方 Qwen2.5-0.5B'
+          : model === 'qwen3.5-35b-a3b'
+            ? '官方 Qwen3.5-35B-A3B'
+            : '官方 Qwen3.5-35B-A3B'
+    const elasticMode: '常规模式' | 'Serverless 模式' | '指标模式' =
+      elastic === 'resident' ? '常规模式' : elastic === 'serverless' ? 'Serverless 模式' : '指标模式'
+    const aggLabel = { avg: '平均值', max: '最大值', sum: '求和' }[metricAgg] ?? '平均值'
 
-  // 阈值默认值: 扩容取指标推荐值, 缩容取其 37.5%（80 → 30）
-  const upThreshold = scaleUpTh || (activeMetric ? String(activeMetric.def) : '')
-  const downThreshold =
-    scaleDownTh ||
-    (activeMetric ? String(Math.round(activeMetric.def * 0.375 * 100) / 100) : '')
+    const elasticDetail: ServicePayload['elastic'] =
+      elastic === 'resident'
+        ? { mode: '常规模式', replicas }
+        : elastic === 'serverless'
+          ? {
+              mode: 'Serverless 模式',
+              minReplicas,
+              maxReplicas,
+              shrinkWindow: `${shrinkWindow} 秒`,
+              targetRequests: targetReq,
+              maxRequests: maxReq,
+            }
+          : metricSource === 'custom'
+            ? {
+                mode: '指标模式',
+                source: '自定义 PromQL',
+                expr: customQuery,
+                minReplicas: metricMinReplicas,
+                maxReplicas: metricMaxReplicas,
+                shrinkWindow: `${scaleDownHold} 秒`,
+              }
+            : {
+                mode: '指标模式',
+                source: '内置指标',
+                conditions: condRows.map((r) => ({
+                  text: `${r.metric?.name ?? ''} ≥ ${r.th}${r.metric?.unit ? ` ${r.metric.unit}` : ''}`,
+                })),
+                join: condJoin,
+                agg: aggLabel,
+                minReplicas: metricMinReplicas,
+                maxReplicas: metricMaxReplicas,
+                shrinkWindow: `${scaleDownHold} 秒`,
+              }
+
+    onSubmit?.({
+      name: name.trim(),
+      framework,
+      model: modelLabel,
+      pool,
+      priority,
+      deployMode: deployMode === 'dist' ? '分布式并行' : '简易模式',
+      modelReplicas:
+        elastic === 'resident'
+          ? replicas
+          : elastic === 'serverless'
+            ? `${minReplicas}–${maxReplicas}`
+            : `${metricMinReplicas}–${metricMaxReplicas}`,
+      elasticMode,
+      spec: specText,
+      elastic: elasticDetail,
+    })
+  }
+
+  // KTransformer 暂不支持 Serve 自带的请求驱动弹性与指标驱动弹性
+  const ktLimited = framework === 'KTransformer'
+  const metricOf = (key: string) => metricList.find((m) => m.key === key)
+  // 条件行: 未选指标时默认第一项, 未填阈值时用该指标推荐值
+  const condRows = conds.map((c) => {
+    const m = metricOf(c.key) ?? metricList[0]
+    return { ...c, metric: m, th: c.th !== '' ? c.th : m ? String(m.def) : '' }
+  })
+  // 自定义 PromQL 联想: 取表达式末尾的标识符作为过滤词
+  const typingToken = (customQuery.match(/[a-zA-Z0-9_.]*$/) ?? [''])[0]
+  const suggestions = typingToken
+    ? PROM_METRICS.filter((m) => m.name.includes(typingToken))
+    : PROM_METRICS
+
   // 副本区间: min > max 非法; min == max 合法（等价固定副本）
   const replicaInvalid = Number(metricMinReplicas) > Number(metricMaxReplicas)
   const replicaFixed =
     metricMinReplicas !== '' &&
     metricMaxReplicas !== '' &&
     Number(metricMinReplicas) === Number(metricMaxReplicas)
-  // 扩容阈值必须严格大于缩容阈值（相等会震荡，倒置会两个条件同时成立）
-  const thresholdInvalid =
-    upThreshold !== '' &&
-    downThreshold !== '' &&
-    !Number.isNaN(Number(upThreshold)) &&
-    !Number.isNaN(Number(downThreshold)) &&
-    Number(upThreshold) <= Number(downThreshold)
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
@@ -294,7 +567,9 @@ export function CreateInferenceService({ onBack }: { onBack: () => void }) {
           <ArrowLeft size={15} />
         </button>
         <span className="w-px h-3.5 bg-[#d9dce3]" />
-        <h1 className="text-[14px] font-medium text-[#1f2329]">创建内部推理服务</h1>
+        <h1 className="text-[14px] font-medium text-[#1f2329]">
+          {mode === 'edit' ? '编辑内部推理服务' : '创建内部推理服务'}
+        </h1>
       </div>
 
       {/* 表单区 */}
@@ -311,22 +586,30 @@ export function CreateInferenceService({ onBack }: { onBack: () => void }) {
                 中心部署
               </button>
               <button
-                onClick={() => setScene('edge')}
-                className="flex items-center gap-1.5 text-[12px] text-[#1f2329]"
+                disabled
+                title="边缘部署暂未开放"
+                className="flex cursor-not-allowed items-center gap-1.5 text-[12px] text-[#c9cdd4]"
               >
-                <Radio checked={scene === 'edge'} />
+                <Radio checked={false} />
                 边缘部署
               </button>
             </div>
           </Field>
 
-          <Field label="服务名称" required>
+          <Field
+            label="服务名称"
+            required
+            hint={nameError ? <span className="text-[#f53f3f]">请输入服务名称</span> : undefined}
+          >
             <div className={cn('relative', FIELD_W)}>
               <input
                 value={name}
-                onChange={(e) => setName(e.target.value.slice(0, 56))}
+                onChange={(e) => {
+                  setName(e.target.value.slice(0, 56))
+                  setNameError(false)
+                }}
                 placeholder="请输入服务名称"
-                className={cn(INPUT, 'w-full pr-14')}
+                className={cn(INPUT, 'w-full pr-14', nameError && 'border-[#f53f3f]')}
               />
               <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-[#c9cdd4]">
                 {name.length} / 56
@@ -337,13 +620,19 @@ export function CreateInferenceService({ onBack }: { onBack: () => void }) {
           <Field
             label="推理框架"
             required
+            tag={<NewTag code="F-LIMIT" compact />}
             hint="一般情况推荐选择vLLM，如果需要CPU offload能力请选择KTransformer"
           >
             <div className={cn('relative', FIELD_W)}>
               <select
                 value={framework}
-                onChange={(e) => setFramework(e.target.value)}
-                className={cn(INPUT, 'w-full appearance-none pr-8')}
+                disabled={mode === 'edit'}
+                title={mode === 'edit' ? '推理框架创建后不可修改' : undefined}
+                onChange={(e) => {
+                  setFramework(e.target.value)
+                  if (e.target.value === 'KTransformer') setElastic('resident')
+                }}
+                className={cn(INPUT, 'w-full appearance-none pr-8', mode === 'edit' && 'disabled:bg-[#f7f8fa] disabled:text-[#8f959e] disabled:cursor-not-allowed')}
               >
                 <option>vLLM</option>
                 <option>KTransformer</option>
@@ -359,15 +648,23 @@ export function CreateInferenceService({ onBack }: { onBack: () => void }) {
             <div className="space-y-2">
               <div className="flex items-center gap-5 h-5">
                 <button
-                  onClick={() => setModelSource('official')}
-                  className="flex items-center gap-1.5 text-[12px] text-[#1f2329]"
+                  onClick={() => mode !== 'edit' && setModelSource('official')}
+                  disabled={mode === 'edit'}
+                  className={cn(
+                    'flex items-center gap-1.5 text-[12px] text-[#1f2329]',
+                    mode === 'edit' && 'cursor-not-allowed opacity-50',
+                  )}
                 >
                   <Radio checked={modelSource === 'official'} />
                   官方模型
                 </button>
                 <button
-                  onClick={() => setModelSource('private')}
-                  className="flex items-center gap-1.5 text-[12px] text-[#1f2329]"
+                  onClick={() => mode !== 'edit' && setModelSource('private')}
+                  disabled={mode === 'edit'}
+                  className={cn(
+                    'flex items-center gap-1.5 text-[12px] text-[#1f2329]',
+                    mode === 'edit' && 'cursor-not-allowed opacity-50',
+                  )}
                 >
                   <Radio checked={modelSource === 'private'} />
                   私有模型
@@ -376,8 +673,10 @@ export function CreateInferenceService({ onBack }: { onBack: () => void }) {
               <div className={cn('relative', FIELD_W)}>
                 <select
                   value={model}
+                  disabled={mode === 'edit'}
+                  title={mode === 'edit' ? '模型创建后不可修改' : undefined}
                   onChange={(e) => setModel(e.target.value)}
-                  className={cn(INPUT, 'w-full appearance-none pr-8')}
+                  className={cn(INPUT, 'w-full appearance-none pr-8', mode === 'edit' && 'disabled:bg-[#f7f8fa] disabled:text-[#8f959e] disabled:cursor-not-allowed')}
                 >
                   <option value="">请选择模型</option>
                   <option value="qwen3.5-35b-a3b">Qwen3.5-35B-A3B</option>
@@ -489,7 +788,12 @@ export function CreateInferenceService({ onBack }: { onBack: () => void }) {
             </div>
           </Field>
 
-          <Field label="算力规格" required alignTop>
+          <Field
+            label="算力规格"
+            required
+            alignTop
+            hint={specError ? <span className="text-[#f53f3f]">指标模式需先选择算力规格</span> : undefined}
+          >
             <div className="rounded-[2px] border border-[#e5e6eb] overflow-hidden">
               <table className="w-full text-[12px]">
                 <thead>
@@ -600,15 +904,17 @@ export function CreateInferenceService({ onBack }: { onBack: () => void }) {
             <div className="flex items-center gap-2">
               <input
                 value={svcName}
+                disabled={mode === 'edit'}
+                title={mode === 'edit' ? '服务模型名称不可修改' : undefined}
                 onChange={(e) => setSvcName(e.target.value)}
                 placeholder="请输入服务模型名称"
-                className={cn(INPUT, 'w-[144px]')}
+                className={cn(INPUT, 'w-[220px]', mode === 'edit' && 'disabled:bg-[#f7f8fa] disabled:text-[#8f959e] disabled:cursor-not-allowed')}
               />
               <input
                 value={svcVer}
                 onChange={(e) => setSvcVer(e.target.value)}
                 placeholder="请输入服务模型版本"
-                className={cn(INPUT, 'w-[152px]')}
+                className={cn(INPUT, 'w-[76px]')}
               />
             </div>
           </Field>
@@ -729,12 +1035,15 @@ export function CreateInferenceService({ onBack }: { onBack: () => void }) {
           <Field
             label="弹性模式"
             required
+            tag={<NewTag code="F-METRIC" compact />}
             hint={
-              elastic === 'resident'
+              ktLimited
+                ? 'KTransformer 暂不支持 Serverless 与指标模式，仅支持常规模式（固定副本）'
+                : elastic === 'resident'
                 ? '一般用于稳定负载，无需频繁扩缩容场景'
                 : elastic === 'serverless'
                   ? '一般用于负载变化较大场景，根据请求情况自动扩缩容，无需人工干预'
-                  : '按 GPU 指标调整模型副本范围：KEDA 只放开/收窄副本上下限，副本数仍由 Ray Serve Autoscaler 按请求扩缩，worker 由副本数自动换算'
+                  : '根据算力使用情况自动伸缩：负载升高时增加实例，负载回落后释放资源，避免算力长期闲置'
             }
           >
             <div className="flex items-center gap-5 h-8">
@@ -749,20 +1058,26 @@ export function CreateInferenceService({ onBack }: { onBack: () => void }) {
                 常规模式
               </button>
               <button
-                onClick={() => setElastic('serverless')}
+                onClick={() => !ktLimited && setElastic('serverless')}
+                disabled={ktLimited}
+                title={ktLimited ? 'KTransformer 暂不支持 Serverless 模式' : undefined}
                 className={cn(
                   'flex items-center gap-1.5 text-[13px]',
                   elastic === 'serverless' ? 'text-[#1668ff]' : 'text-[#1f2329]',
+                  ktLimited && 'cursor-not-allowed opacity-40',
                 )}
               >
                 <Radio checked={elastic === 'serverless'} />
                 Serverless 模式
               </button>
               <button
-                onClick={() => setElastic('metric')}
+                onClick={() => !ktLimited && setElastic('metric')}
+                disabled={ktLimited}
+                title={ktLimited ? 'KTransformer 暂不支持指标模式' : undefined}
                 className={cn(
                   'flex items-center gap-1.5 text-[13px]',
                   elastic === 'metric' ? 'text-[#1668ff]' : 'text-[#1f2329]',
+                  ktLimited && 'cursor-not-allowed opacity-40',
                 )}
               >
                 <Radio checked={elastic === 'metric'} />
@@ -903,10 +1218,10 @@ export function CreateInferenceService({ onBack }: { onBack: () => void }) {
             </>
           )}
 
-          {/* ---- 指标模式：与 Serverless 同构，按 GPU 指标调整副本范围 ---- */}
+          {/* ---- 指标模式：与 Serverless 同构，按算力指标调整副本范围 ---- */}
           {elastic === 'metric' && (
             <>
-              <Field label="算力型号" required>
+              <Field label="算力型号" required tag={<NewTag code="F-VENDOR" compact />}>
                 {selectedModel ? (
                   <div className="flex items-center gap-2 h-8 text-[12px]">
                     <span className="inline-flex items-center rounded-[2px] border border-[#b9d4ff] bg-[#eef4ff] px-1.5 text-[11px] leading-5 text-[#1668ff]">
@@ -947,74 +1262,180 @@ export function CreateInferenceService({ onBack }: { onBack: () => void }) {
               </Field>
 
               {metricSource === 'builtin' ? (
-                <Field
-                  label="指标"
-                  required
-                  hint={
-                    activeMetric
-                      ? activeMetric.desc
-                      : selectedModel
-                        ? '该卡型号暂无内置指标，可切换到「自定义 PromQL」'
-                        : ''
-                  }
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <div className="relative">
-                      <select
-                        value={activeMetric?.key ?? ''}
-                        onChange={(e) => {
-                          setMetricKey(e.target.value)
-                          setScaleUpTh('')
-                          setScaleDownTh('')
-                        }}
-                        disabled={metricList.length === 0}
-                        className={cn(
-                          INPUT,
-                          'w-[240px] appearance-none pr-8 disabled:bg-[#f7f8fa] disabled:text-[#c9cdd4]',
+                <>
+                  <Field
+                    label="伸缩条件"
+                    required
+                    hint={
+                      condRows.length > 1
+                        ? `${condJoin === 'and' ? '同时满足' : '满足任一条'}上述条件时，允许服务扩展到最大副本数以应对高峰；条件长时间不满足时，回落至最小副本数并释放算力资源`
+                        : '满足条件时，允许服务扩展到最大副本数以应对高峰；条件长时间不满足时，回落至最小副本数并释放算力资源'
+                    }
+                  >
+                    <div className="space-y-2">
+                      {condRows.map((r, i) => (
+                        <div key={r.id} className="flex flex-wrap items-center gap-2">
+                          <div className="relative">
+                            <select
+                              value={r.metric?.key ?? ''}
+                              onChange={(e) => {
+                                const next = [...conds]
+                                next[i] = { ...next[i], key: e.target.value, th: '' }
+                                setConds(next)
+                              }}
+                              disabled={metricList.length === 0}
+                              className={cn(
+                                INPUT,
+                                'w-[200px] appearance-none pr-8 disabled:bg-[#f7f8fa] disabled:text-[#c9cdd4]',
+                              )}
+                            >
+                              {metricList.length === 0 && <option value="">暂无内置指标</option>}
+                              {metricList.map((m) => (
+                                <option key={m.key} value={m.key}>
+                                  {m.name}
+                                  {m.unit ? `（${m.unit}）` : ''}
+                                </option>
+                              ))}
+                            </select>
+                            <ChevronDown
+                              size={13}
+                              className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8f959e]"
+                            />
+                          </div>
+                          <span className="text-[12px] text-[#1668ff]">≥</span>
+                          <input
+                            type="number"
+                            value={r.th}
+                            onChange={(e) => {
+                              const next = [...conds]
+                              next[i] = { ...next[i], th: e.target.value }
+                              setConds(next)
+                            }}
+                            className={cn(INPUT, 'w-[100px]')}
+                          />
+                          <span className="text-[12px] text-[#646a73]">{r.metric?.unit}</span>
+                          {conds.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => setConds(conds.filter((c) => c.id !== r.id))}
+                              title="删除该条件"
+                              className="ml-1 flex h-7 w-7 items-center justify-center rounded-[2px] border border-transparent text-[#8f959e] transition-colors hover:border-[#ffccc7] hover:bg-[#fff1f0] hover:text-[#f53f3f]"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+
+                      <div className="flex items-center gap-3 pt-0.5">
+                        {conds.length < 3 && (
+                          <button
+                            onClick={() =>
+                              setConds([
+                                ...conds,
+                                { id: Date.now(), key: metricList[0]?.key ?? '', th: '' },
+                              ])
+                            }
+                            className="flex items-center gap-1 text-[12px] text-[#1668ff] hover:underline"
+                          >
+                            <Plus size={12} />
+                            添加条件
+                          </button>
                         )}
-                      >
-                        {metricList.length === 0 && <option value="">暂无内置指标</option>}
-                        {metricList.map((m) => (
-                          <option key={m.key} value={m.key}>
-                            {m.name}
-                            {m.unit ? `（${m.unit}）` : ''}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown
-                        size={13}
-                        className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8f959e]"
-                      />
+                        <NewTag code="F-MULTI" />
+                      </div>
+
+                      {conds.length > 1 && (
+                        <div className="flex items-center gap-1.5 pt-1">
+                          <span className="text-[12px] text-[#1f2329]">条件关系</span>
+                          <span className="text-[#f53f3f]">*</span>
+                          <Dropdown
+                            value={condJoin}
+                            width="w-[100px]"
+                            onChange={(v) => setCondJoin(v as 'and' | 'or')}
+                            options={[
+                              { value: 'and', label: '且' },
+                              { value: 'or', label: '或' },
+                            ]}
+                          />
+                        </div>
+                      )}
                     </div>
-                    <div className="relative">
-                      <select
-                        value={metricAgg}
-                        onChange={(e) => setMetricAgg(e.target.value)}
-                        className={cn(INPUT, 'w-[132px] appearance-none pr-8')}
-                      >
-                        <option value="avg">平均值 avg</option>
-                        <option value="max">最大值 max</option>
-                        <option value="sum">求和 sum</option>
-                      </select>
-                      <ChevronDown
-                        size={13}
-                        className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8f959e]"
-                      />
-                    </div>
-                  </div>
-                </Field>
+                  </Field>
+
+                  <Field label="聚合方式" required>
+                    <Dropdown
+                      value={metricAgg}
+                      width="w-[160px]"
+                      onChange={setMetricAgg}
+                      options={[
+                        { value: 'avg', label: '平均值' },
+                        { value: 'max', label: '最大值' },
+                        { value: 'sum', label: '求和' },
+                      ]}
+                    />
+                  </Field>
+                </>
               ) : (
                 <Field
-                  label="PromQL"
+                  label="指标表达式"
                   required
-                  hint="必须返回单个标量或向量；可用 $namespace / $service 引用当前服务"
+                  tag={<NewTag code="F-CUSTOM" compact />}
+                  hint={
+                    exprError === 'empty' ? (
+                      <span className="text-[#f53f3f]">请输入指标表达式</span>
+                    ) : exprError === 'noCompare' ? (
+                      <span className="text-[#f53f3f]">
+                        表达式未包含比较条件，请写成「指标 &gt; 阈值」的形式
+                      </span>
+                    ) : (
+                      '例如：显存占用超过 85% 时扩容 —— avg(gpu.memory.used{namespace="$namespace"}) / avg(gpu.memory.total{namespace="$namespace"}) > 0.85'
+                    )
+                  }
                 >
-                  <textarea
-                    value={customQuery}
-                    onChange={(e) => setCustomQuery(e.target.value)}
-                    placeholder={'avg(DCGM_FI_DEV_GPU_UTIL{namespace="$namespace"})'}
-                    className="h-[64px] w-[596px] resize-none rounded-[2px] border border-[#d9dce3] bg-white px-2.5 py-1.5 font-mono text-[12px] text-[#1f2329] outline-none placeholder:text-[#c9cdd4] focus:border-[#1668ff]"
-                  />
+                  <div className="w-[596px]">
+                    <div className="relative">
+                      <input
+                        value={customQuery}
+                        onChange={(e) => {
+                          setCustomQuery(e.target.value)
+                          setSuggestOpen(true)
+                          setExprError(null)
+                        }}
+                        onFocus={() => setSuggestOpen(true)}
+                        onBlur={() => window.setTimeout(() => setSuggestOpen(false), 150)}
+                        placeholder='avg(gpu.memory.used{namespace="$namespace"})'
+                        className={cn(INPUT, 'w-full pr-8 font-mono', exprError && 'border-[#f53f3f]')}
+                      />
+                      {customQuery && (
+                        <button
+                          onClick={() => setCustomQuery('')}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-[#c9cdd4] hover:text-[#8f959e]"
+                        >
+                          <CircleX size={14} />
+                        </button>
+                      )}
+                      {suggestOpen && suggestions.length > 0 && (
+                        <div className="absolute left-0 right-0 top-[34px] z-20 max-h-[220px] overflow-y-auto rounded-[2px] border border-[#e5e6eb] bg-white shadow-[0_4px_16px_rgba(0,0,0,0.08)]">
+                          {suggestions.map((m) => (
+                            <button
+                              key={m.name}
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => {
+                                const idx = customQuery.search(/[a-zA-Z0-9_.]*$/)
+                                setCustomQuery(customQuery.slice(0, idx) + m.name)
+                                setSuggestOpen(false)
+                              }}
+                              className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-[#f7f8fa]"
+                            >
+                              <span className="font-mono text-[12px] text-[#1f2329]">{m.name}</span>
+                              <span className="shrink-0 text-[11px] text-[#8f959e]">{m.desc}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </Field>
               )}
 
@@ -1024,7 +1445,7 @@ export function CreateInferenceService({ onBack }: { onBack: () => void }) {
                 hint={
                   <span className="flex items-center gap-1">
                     <InfoDot />
-                    缩容时最少保留的模型副本数
+                    服务空闲时仍保留的最小副本数，确保始终有实例可用，避免请求到达时等待冷启动
                   </span>
                 }
               >
@@ -1045,7 +1466,7 @@ export function CreateInferenceService({ onBack }: { onBack: () => void }) {
                   {(metricMinReplicas === '' || Number(metricMinReplicas) < 1) && (
                     <div className="flex items-center gap-1 text-[11px] text-[#f53f3f]">
                       <TriangleAlert size={11} />
-                      最小模型副本数不能为 0（GPU 冷启动需数分钟，至少保留 1 个副本）
+                      最小模型副本数不能为 0（算力资源冷启动需数分钟，至少保留 1 个副本）
                     </div>
                   )}
                 </div>
@@ -1068,7 +1489,7 @@ export function CreateInferenceService({ onBack }: { onBack: () => void }) {
                   ) : (
                     <span className="flex items-center gap-1">
                       <InfoDot />
-                      扩容时最多允许的模型副本数
+                      负载高峰时允许扩展到的最多副本数，用于应对流量尖峰，同时限制算力占用上限
                     </span>
                   )
                 }
@@ -1094,7 +1515,7 @@ export function CreateInferenceService({ onBack }: { onBack: () => void }) {
                 hint={
                   <span className="flex items-center gap-1">
                     <InfoDot />
-                    指标持续低于缩容阈值达到该时长后，才收窄副本上限
+                    指标回落后继续观察的时长，确认负载确实下降而非短暂波动后再缩容，避免频繁伸缩
                   </span>
                 }
               >
@@ -1105,43 +1526,6 @@ export function CreateInferenceService({ onBack }: { onBack: () => void }) {
                     className={cn(INPUT, 'w-[596px]')}
                   />
                   <span className="text-[12px] text-[#1f2329]">秒</span>
-                </div>
-              </Field>
-
-              <Field label="扩容阈值" required>
-                <div className="flex items-center gap-3 h-8 text-[12px] text-[#1f2329]">
-                  当指标 ≥
-                  <input
-                    type="number"
-                    value={upThreshold}
-                    onChange={(e) => setScaleUpTh(e.target.value)}
-                    className={cn(INPUT, 'w-[160px]')}
-                  />
-                  {thresholdUnit && <span className="text-[#646a73]">{thresholdUnit}</span>}
-                </div>
-              </Field>
-
-              <Field
-                label="缩容阈值"
-                required
-                hint={
-                  thresholdInvalid ? (
-                    <span className="flex items-center gap-1 text-[#f53f3f]">
-                      <TriangleAlert size={11} />
-                      扩容阈值必须大于缩容阈值（当前 {upThreshold} ≤ {downThreshold}）：相等会来回震荡，倒置会让两个条件同时成立
-                    </span>
-                  ) : undefined
-                }
-              >
-                <div className="flex items-center gap-3 h-8 text-[12px] text-[#1f2329]">
-                  当指标 ≤
-                  <input
-                    type="number"
-                    value={downThreshold}
-                    onChange={(e) => setScaleDownTh(e.target.value)}
-                    className={cn(INPUT, 'w-[160px]')}
-                  />
-                  {thresholdUnit && <span className="text-[#646a73]">{thresholdUnit}</span>}
                 </div>
               </Field>
 
@@ -1159,10 +1543,10 @@ export function CreateInferenceService({ onBack }: { onBack: () => void }) {
           取消
         </button>
         <button
-          onClick={onBack}
+          onClick={handleSubmit}
           className="h-8 px-4 rounded-[2px] bg-[#1668ff] text-[12px] text-white hover:bg-[#3c7eff]"
         >
-          创建
+          {mode === 'edit' ? '确定' : '创建'}
         </button>
       </div>
     </div>

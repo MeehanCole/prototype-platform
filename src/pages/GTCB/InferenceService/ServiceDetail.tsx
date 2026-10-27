@@ -18,9 +18,14 @@ import {
   Trash2,
 } from 'lucide-react'
 import { InfoDot, StatusBadge } from './_shared'
+import { NewTag } from './feature-tags'
 import { cn } from '@/lib/utils'
 
+import type { ElasticDetail } from './index'
+
 export interface DetailService {
+  /** 弹性配置 */
+  elastic: ElasticDetail
   id: string
   name: string
   status: 'off' | 'running'
@@ -411,10 +416,21 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 }
 
 /** 详情分区: 标题 + 内容, 底部浅分割线 */
-function Section({ title, children }: { title: string; children: ReactNode }) {
+function Section({
+  title,
+  tag,
+  children,
+}: {
+  title: string
+  tag?: ReactNode
+  children: ReactNode
+}) {
   return (
     <section className="mt-1 pb-3 border-b border-[#f0f1f3]">
-      <h3 className="text-[13px] font-semibold text-[#1f2329] leading-8">{title}</h3>
+      <h3 className="flex items-center gap-2 text-[13px] font-semibold text-[#1f2329] leading-8">
+        {title}
+        {tag}
+      </h3>
       <div className="space-y-0.5">{children}</div>
     </section>
   )
@@ -437,10 +453,12 @@ const SPEC_COLS = [
 export function ServiceDetail({
   svc,
   onBack,
+  onEdit,
   initialTab,
 }: {
   svc: DetailService
   onBack: () => void
+  onEdit?: () => void
   initialTab?: string
 }) {
   const [tab, setTab] = useState(initialTab ?? '基本信息')
@@ -501,7 +519,10 @@ export function ServiceDetail({
               {running ? <Square size={11} /> : <Play size={11} />}
               {running ? '停止' : '启动'}
             </button>
-            <button className="h-7 px-3 rounded-[2px] border border-[#d9dce3] bg-white text-[12px] text-[#1f2329] flex items-center gap-1 hover:border-[#1668ff] hover:text-[#1668ff]">
+            <button
+              onClick={onEdit}
+              className="h-7 px-3 rounded-[2px] border border-[#d9dce3] bg-white text-[12px] text-[#1f2329] flex items-center gap-1 hover:border-[#1668ff] hover:text-[#1668ff]"
+            >
               <Pencil size={11} />
               编辑
             </button>
@@ -577,9 +598,62 @@ export function ServiceDetail({
               <Row label="TP并行">{svc.tensorParallel}</Row>
             </Section>
 
-            <Section title="弹性伸缩">
-              <Row label="弹性模式">{svc.elasticMode}</Row>
-              <Row label="模型副本">{svc.modelReplicas}</Row>
+            <Section
+              title="弹性伸缩"
+              tag={svc.elastic.mode === '指标模式' ? <NewTag code="F-DETAIL" /> : undefined}
+            >
+              <Row label="弹性模式">{svc.elastic.mode}</Row>
+
+
+              {svc.elastic.mode === '指标模式' && (
+                <>
+                  <Row label="指标来源">{svc.elastic.source}</Row>
+                  {svc.elastic.source === '内置指标' ? (
+                    <>
+                      <Row label="伸缩条件">
+                        <div className="flex flex-wrap items-center gap-1.5 py-0.5">
+                          {svc.elastic.conditions?.map((c, i) => (
+                            <span key={c.text} className="inline-flex items-center gap-1.5">
+                              {i > 0 && (
+                                <span className="inline-flex h-4 items-center rounded-[2px] border border-[#b9d4ff] bg-[#eef4ff] px-1 text-[10px] font-medium text-[#1668ff]">
+                                  {svc.elastic.join === 'and' ? '且' : '或'}
+                                </span>
+                              )}
+                              <span className="inline-flex h-5 items-center rounded-[2px] border border-[#e5e6eb] bg-[#f7f8fa] px-1.5 text-[12px] text-[#1f2329]">
+                                {c.text}
+                              </span>
+                            </span>
+                          ))}
+                        </div>
+                      </Row>
+                      <Row label="聚合方式">{svc.elastic.agg}</Row>
+                    </>
+                  ) : (
+                    <>
+                      <Row label="指标表达式">
+                        <code className="break-all rounded-[2px] bg-[#f7f8fa] px-1.5 py-0.5 font-mono text-[11px]">
+                          {svc.elastic.expr}
+                        </code>
+                      </Row>
+                    </>
+                  )}
+                  <Row label="最小模型副本数">{svc.elastic.minReplicas}</Row>
+                  <Row label="最大模型副本数">{svc.elastic.maxReplicas}</Row>
+                  <Row label="缩容检测窗口">{svc.elastic.shrinkWindow}</Row>
+                </>
+              )}
+
+              {svc.elastic.mode === 'Serverless 模式' && (
+                <>
+                  <Row label="最小模型副本数">{svc.elastic.minReplicas}</Row>
+                  <Row label="最大模型副本数">{svc.elastic.maxReplicas}</Row>
+                  <Row label="缩容检测窗口">{svc.elastic.shrinkWindow}</Row>
+                  <Row label="目标请求数">{svc.elastic.targetRequests}</Row>
+                  <Row label="最大请求数">{svc.elastic.maxRequests}</Row>
+                </>
+              )}
+
+              {svc.elastic.mode === '常规模式' && <Row label="模型副本数">{svc.elastic.replicas}</Row>}
             </Section>
 
             <section className="mt-1 pb-4">

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, createContext, useContext } from "react";
 import type { ReactNode, CSSProperties, ReactElement } from "react";
 import { createPortal } from "react-dom";
+import { FeatureBadge } from "@/lib/feature-tags/core";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import mermaid from "mermaid";
@@ -292,59 +293,16 @@ const FEATURE_DOCS: Record<string, string> = {
 const DocContext = createContext<{ openDoc: (code: string) => void; showFeat: boolean }>({ openDoc: () => {}, showFeat: false });
 
 function NewTag({ code }: { code: string }) {
-  const hostRef = useRef<HTMLButtonElement | null>(null);
   const { openDoc, showFeat } = useContext(DocContext);
-  const [tip, setTip] = useState<{ top: number; left: number; above: boolean; show: boolean }>({ top: 0, left: 0, above: true, show: false });
   const f = FEATURE_LABELS[code];
-  if (!showFeat) return null;
-  if (!f) return null;
-  const hasDoc = !!FEATURE_DOCS[code];
-  const showTip = () => {
-    const el = hostRef.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    const TIP_W = 208;
-    const above = r.top > 120;
-    let left = r.left + r.width / 2 - TIP_W / 2;
-    if (left < 8) left = 8;
-    const vw = window.innerWidth;
-    if (left + TIP_W > vw - 8) left = vw - 8 - TIP_W;
-    setTip({ top: above ? r.top - 6 : r.bottom + 6, left, above, show: true });
-  };
-  const hideTip = () => setTip((p) => ({ ...p, show: false }));
+  if (!showFeat || !f) return null;
   return (
-    <>
-      <button
-        ref={hostRef}
-        type="button"
-        onMouseEnter={showTip}
-        onMouseLeave={hideTip}
-        onFocus={showTip}
-        onBlur={hideTip}
-        onClick={hasDoc ? (e) => { e.stopPropagation(); openDoc(code); } : undefined}
-        title={hasDoc ? "查看 PRD 详细说明" : `${f.title}`}
-        className={`inline-flex items-center gap-0.5 h-4 px-1 rounded-full bg-background/95 ring-1 text-[9px] transition-colors z-10 whitespace-nowrap font-medium shadow-sm ${hasDoc ? "ring-primary/40 text-primary hover:bg-primary/10 hover:ring-primary/60 cursor-pointer" : "ring-border text-muted-foreground hover:bg-accent cursor-help"}`}
-      >
-        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-          <polyline points="14 2 14 8 20 8" />
-          <line x1="9" y1="13" x2="15" y2="13" />
-          <line x1="9" y1="17" x2="13" y2="17" />
-        </svg>
-        说明
-      </button>
-      {tip.show && createPortal(
-        <div
-          style={{ position: "fixed", top: tip.top, left: tip.left, zIndex: 99999, transform: tip.above ? "translateY(-100%)" : "translateY(0)" }}
-          className="w-52 rounded-md bg-foreground px-3 py-2 text-[11px] text-background shadow-xl ring-1 ring-black/10 pointer-events-none leading-snug"
-        >
-          <span className="font-semibold block mb-0.5">{code} {f.title}</span>
-          <span className="text-background/85">{f.desc}</span>
-          {hasDoc && <span className="block mt-1 text-background/60 text-[10px]">点击查看完整 PRD</span>}
-        </div>,
-        document.body,
-      )}
-    </>
+    <FeatureBadge
+      type={f.type === "A" ? "新增" : "变更"}
+      label={f.title}
+      lines={[f.desc]}
+      onClick={() => openDoc(code)}
+    />
   );
 }
 

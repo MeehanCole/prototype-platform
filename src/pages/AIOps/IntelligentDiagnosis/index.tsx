@@ -11,7 +11,7 @@ import { ToolManagementPage } from './ToolManagement'
 import { SkillManagementPage } from './SkillManagement'
 import { ConfigManagementPage } from './ConfigManagement'
 import { AlertCenterPage } from './AlertCenter'
-import { DocProvider, DocPanel } from './feature-tags'
+import { DocPanel, DocProvider, FEATURES } from './feature-tags'
 
 export default function IntelligentDiagnosisApp({ __showFeat = false }: { __showFeat?: boolean }) {
   const [activePage, setActivePage] = useState('model')
@@ -35,7 +35,12 @@ export default function IntelligentDiagnosisApp({ __showFeat = false }: { __show
   }
 
   return (
-    <DocProvider showFeat={__showFeat} onOpenDoc={setDocCode}>
+    <DocProvider
+      showFeat={__showFeat}
+      features={FEATURES}
+      accent="hsl(243 75% 59%)"
+      onOpenDoc={setDocCode}
+    >
       <PlatformShell activePage={activePage} onPageChange={setActivePage}>
         <FloatingChatButton />
         {renderPage()}

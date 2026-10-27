@@ -5,80 +5,74 @@
 import type { ComponentType, ReactNode } from 'react'
 import {
   Activity,
+  Archive,
   BarChart3,
   Bell,
+  BookOpen,
   Box,
   ChevronDown,
-  ChevronRight,
   Cloud,
-  Cog,
-  Copy,
-  Database,
   Disc,
   Globe,
   HardDrive,
+  Layers,
   LayoutDashboard,
+  Key,
   LayoutGrid,
-  LayoutList,
-  Lock,
-  MonitorPlay,
-  MousePointer2,
+  LogOut,
+  Package,
   PanelLeftClose,
+  Percent,
   Server,
   Sparkles,
+  Tag,
   Workflow,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const BLUE = '#1668ff'
 
-interface NavItem {
-  label: string
-  icon?: ComponentType<{ size?: number | string; className?: string }>
-  active?: boolean
-  chevron?: 'down' | 'right'
-  indent?: boolean
-}
+type NavRow =
+  | { type: 'section'; label: string }
+  | { type: 'group'; label: string }
+  | {
+      type: 'item'
+      label: string
+      icon?: ComponentType<{ size?: number | string; className?: string }>
+      depth?: 0 | 1
+      active?: boolean
+      chevron?: 'up' | 'down'
+    }
 
-interface NavSection {
-  label: string
-  items: NavItem[]
-}
+const NAV: NavRow[] = [
+  { type: 'section', label: '算力平台' },
+  { type: 'item', label: '快速入门', icon: BookOpen },
+  { type: 'item', label: '总览', icon: LayoutDashboard },
 
-const NAV: NavSection[] = [
-  {
-    label: '算力平台',
-    items: [
-      { label: '快速入门', icon: LayoutList },
-      { label: '总览', icon: LayoutDashboard },
-      { label: '弹性算力', icon: Cog, chevron: 'down' },
-      { label: '容器实例', icon: Box, indent: true },
-      { label: '主机实例', icon: Server, indent: true },
-      { label: '裸金属实例', icon: Database, indent: true },
-      { label: '模型服务', icon: Cog, chevron: 'down' },
-      { label: '模型广场', icon: Sparkles, indent: true },
-      { label: '私有模型', icon: Lock, indent: true },
-      { label: '推理服务', icon: Cog, indent: true, active: true },
-      { label: '在线服务', icon: MonitorPlay, indent: true },
-      { label: '模型体验', icon: MousePointer2, indent: true },
-      { label: 'API 管理', icon: Cloud, indent: true, chevron: 'right' },
-      { label: '模型链路分析', icon: Workflow, indent: true },
-    ],
-  },
-  {
-    label: '基础资源',
-    items: [
-      { label: '存储管理', icon: HardDrive },
-      { label: '镜像管理', icon: Disc },
-    ],
-  },
-  {
-    label: '算力评测',
-    items: [
-      { label: '算力评估', icon: BarChart3 },
-      { label: '性能评估', icon: Activity },
-    ],
-  },
+  { type: 'group', label: '弹性算力' },
+  { type: 'item', label: '容器实例', icon: LayoutGrid },
+  { type: 'item', label: '主机实例', icon: Server },
+  { type: 'item', label: '裸金属实例', icon: Cloud },
+
+  { type: 'group', label: '模型服务' },
+  { type: 'item', label: '模型广场', icon: Box },
+  { type: 'item', label: '模型仓库', icon: Archive },
+  { type: 'item', label: '推理服务', icon: Package, chevron: 'up' },
+  { type: 'item', label: '推理实例', icon: Layers, depth: 1, active: true },
+  { type: 'item', label: '在线服务', icon: Tag, depth: 1 },
+  { type: 'item', label: '模型体验', icon: Sparkles },
+  { type: 'item', label: 'API 管理', icon: Cloud, chevron: 'up' },
+  { type: 'item', label: 'API Key', icon: Key, depth: 1 },
+  { type: 'item', label: '用量统计', icon: BarChart3, depth: 1 },
+  { type: 'item', label: '模型链路分析', icon: Workflow },
+
+  { type: 'group', label: '基础资源' },
+  { type: 'item', label: '存储管理', icon: HardDrive },
+  { type: 'item', label: '镜像管理', icon: Disc },
+
+  { type: 'group', label: '算力评测' },
+  { type: 'item', label: '算力评估', icon: Percent },
+  { type: 'item', label: '性能评估', icon: Activity },
 ]
 
 /** 顶栏 */
@@ -126,46 +120,63 @@ export function TopBar() {
 /** 左侧导航 */
 export function SideNav() {
   return (
-    <aside className="w-[166px] shrink-0 border-r border-[#e5e6eb] bg-white flex flex-col">
+    <aside className="w-[176px] shrink-0 border-r border-[#e5e6eb] bg-white flex flex-col">
       {/* 项目/空间选择 */}
       <div className="px-2 pt-2 shrink-0">
-        <button className="w-full flex items-center gap-1.5 rounded-[2px] border border-[#d9dce3] bg-[#f7f8fa] px-2 py-1.5 text-[12px] text-[#1f2329] hover:border-[#1668ff]">
+        <button className="w-full flex items-center gap-1.5 rounded-[2px] bg-[#eef4ff] px-2 py-1.5 text-[12px] text-[#1668ff] hover:bg-[#e1ecff]">
           <span className="truncate">host--- 测试...</span>
-          <Copy size={12} className="ml-auto shrink-0 text-[#8f959e]" />
+          <LogOut size={12} className="ml-auto shrink-0 text-[#1668ff]" />
         </button>
       </div>
 
-      <nav className="flex-1 overflow-y-auto py-1">
-        {NAV.map((section) => (
-          <div key={section.label} className="mb-1">
-            <div className="px-3 pt-2 pb-1 text-[11px] text-[#8f959e]">{section.label}</div>
-            {section.items.map((item) => {
-              const Icon = item.icon
-              return (
-                <button
-                  key={item.label}
-                  className={cn(
-                    'w-full flex items-center gap-1.5 h-7 text-[13px] transition-colors',
-                    item.indent ? 'pl-5 pr-2' : 'px-3',
-                    item.active
-                      ? 'bg-[#eef4ff] text-[#1668ff] font-medium'
-                      : 'text-[#1f2329] hover:bg-[#f7f8fa]',
-                  )}
-                >
-                  {Icon && (
-                    <Icon
-                      size={13}
-                      className={cn('shrink-0', item.active ? 'text-[#1668ff]' : 'text-[#646a73]')}
-                    />
-                  )}
-                  <span className="truncate">{item.label}</span>
-                  {item.chevron === 'down' && <ChevronDown size={12} className="ml-auto shrink-0 text-[#8f959e]" />}
-                  {item.chevron === 'right' && <ChevronRight size={12} className="ml-auto shrink-0 text-[#8f959e]" />}
-                </button>
-              )
-            })}
-          </div>
-        ))}
+      <nav className="flex-1 overflow-y-auto pb-2">
+        {NAV.map((row, i) => {
+          if (row.type === 'section') {
+            return (
+              <div
+                key={`s-${i}`}
+                className="mt-2 h-8 flex items-center px-3 bg-[#f7f8fa] text-[14px] font-semibold text-[#1f2329]"
+              >
+                {row.label}
+              </div>
+            )
+          }
+          if (row.type === 'group') {
+            return (
+              <div key={`g-${i}`} className="px-3 pt-3 pb-1 text-[11px] text-[#8f959e]">
+                {row.label}
+              </div>
+            )
+          }
+          const Icon = row.icon
+          return (
+            <div key={`i-${i}`} className="px-2">
+              <button
+                className={cn(
+                  'w-full flex items-center gap-2 h-8 rounded-[2px] text-[13px] transition-colors',
+                  row.depth === 1 ? 'pl-6 pr-2' : 'px-2',
+                  row.active
+                    ? 'bg-[#eef4ff] text-[#1668ff] font-medium'
+                    : 'text-[#1f2329] hover:bg-[#f7f8fa]',
+                )}
+              >
+                {Icon && (
+                  <Icon
+                    size={14}
+                    className={cn('shrink-0', row.active ? 'text-[#1668ff]' : 'text-[#646a73]')}
+                  />
+                )}
+                <span className="truncate">{row.label}</span>
+                {row.chevron === 'up' && (
+                  <ChevronDown size={13} className="ml-auto shrink-0 rotate-180 text-[#8f959e]" />
+                )}
+                {row.chevron === 'down' && (
+                  <ChevronDown size={13} className="ml-auto shrink-0 text-[#8f959e]" />
+                )}
+              </button>
+            </div>
+          )
+        })}
       </nav>
 
       <div className="shrink-0 h-8 border-t border-[#e5e6eb] flex items-center px-3">

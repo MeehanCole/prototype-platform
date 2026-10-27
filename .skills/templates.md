@@ -367,3 +367,197 @@ export default function V2Page() {
   )
 }
 ```
+
+---
+
+## 10. feature-tags.tsx 模板（变更点模型）
+
+> 规范见 [agent-rules.md D3](./agent-rules.md)。文件放在页面目录下，与 `prd.md` 同级。
+> 通用件（pick / DocProvider / NewTag / DocPanel）可直接复制；业务只改 `FEATURES`。
+
+### 10.1 配置结构
+
+```ts
+export interface FeatureDoc {
+  type: '新增' | '变更'
+  title: string
+  changes: string[]                              // 2~4 条，只写「变了什么」
+  rules?: { rule: string; message?: string }[]   // 本次新引入的校验
+  scope?: string                                 // 生效条件
+  prdRef?: string                                // PRD 章节号
+  doc?: string                                   // pick(prdRaw, 起点, 终点)
+}
+
+export const FEATURES: Record<string, FeatureDoc> = {
+  'F-CARD': {
+    type: '变更',
+    title: '卡片新增「指标模式」取值，模型副本改显区间',
+    changes: [
+      '「弹性模式」字段新增取值「指标模式」',
+      '该模式下「模型副本」显示区间（如 1–4）',
+    ],
+    prdRef: 'PRD 4.1',
+    doc: pick(prdRaw, '| 弹性模式展示 |', '| 状态 |'),
+  },
+  'F-MULTI': {
+    type: '新增',
+    title: '内置指标支持多条件组合',
+    changes: [
+      '伸缩条件支持 1~3 条，每条「指标 + ≥ + 阈值」',
+      '2 条及以上出现「且 / 或」条件关系',
+    ],
+    rules: [
+      { rule: '伸缩条件 1 ~ 3 条', message: '达到 3 条后不再显示「添加条件」' },
+      { rule: '条件关系必填（2 条及以上时）', message: '默认「且」' },
+    ],
+    prdRef: 'PRD 4.2.1',
+    doc: pick(prdRaw, '**指标来源：内置指标**', '**指标来源：自定义表达式**'),
+  },
+}
+```
+
+### 10.2 PRD 片段抽取
+
+```ts
+/** 起点行开始，终点行结束；未命中终点时按下一个 **/## 标题截断 */
+function pick(raw: string, startMarker: string, endMarker?: string): string {
+  const lines = raw.split('\n')
+  let start = -1
+  let end = lines.length
+  for (let i = 0; i < lines.length; i++) {
+    if (start === -1) {
+      if (lines[i].includes(startMarker)) start = i
+      continue
+    }
+    if (endMarker && lines[i].includes(endMarker)) {
+      end = i
+      break
+    }
+  }
+  if (start !== -1 && end === lines.length) {
+    for (let i = start + 1; i < lines.length; i++) {
+      if (lines[i].startsWith('**') || lines[i].startsWith('##')) {
+        end = i
+        break
+      }
+    }
+  }
+  if (start === -1) return ''
+  return lines.slice(start, end).join('\n').trim()
+}
+```
+
+> 锚点必须全库唯一。抽整节是反模式——会把无关内容带进抽屉。
+
+### 10.3 页面根接入
+
+```tsx
+import { DocPanel, DocProvider } from './feature-tags'
+
+export default function Page({ __showFeat = false }: { __showFeat?: boolean }) {
+  const [docCode, setDocCode] = useState<string | null>(null)
+  return (
+    <DocProvider showFeat={__showFeat} onOpenDoc={setDocCode}>
+      <PageBody />
+      <DocPanel code={docCode} onClose={() => setDocCode(null)} />
+    </DocProvider>
+  )
+}
+
+// showFeat 由宿主 PageView 通过 __showFeat 传入，无需自己做开关
+```
+
+### 10.4 批注落点（两种尺寸）
+
+```tsx
+// ① 表单行：绝对定位在行尾，不占布局
+<Field label="弹性模式" required tag={<NewTag code="F-METRIC" compact />}>
+
+// ② 按钮/标题旁：行内胶囊
+<Section title="弹性伸缩" tag={<NewTag code="F-DETAIL" />}>
+<button>+ 添加条件</button>
+<NewTag code="F-MULTI" />
+
+// ③ 条件显示：仅特定模式出批注
+tag={svc.elastic.mode === '指标模式' ? <NewTag code="F-DETAIL" /> : undefined}
+
+// ④ 卡片字段右缘：紧凑徽标（「说明」）
+<span className="absolute right-0 top-[3px]"><NewTag code="F-CARD" compact /></span>
+```
+
+### 10.5 Field 组件支持 tag 的写法
+
+```tsx
+function Field({ label, required, tag, children, ...rest }: {
+  label: string; required?: boolean; tag?: ReactNode; children: ReactNode
+}) {
+  return (
+    <div className="relative flex items-start gap-3">
+      <span className="shrink-0 whitespace-nowrap text-right text-[12px]">{label}
+        {required && <span className="text-[#f53f3f]"> *</span>}
+      </span>
+      {tag && <div className="absolute right-0 top-1 z-10">{tag}</div>}
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
+  )
+}
+```
+
+### 10.6 抽屉结构（自上而下）
+
+```
+本次改动       changes 列表
+校验规则       rules 表格（规则 / 触发时提示）
+生效条件       scope（灰底块，可选）
+PRD 原文       doc + prdRef 标签
+```
+
+### 10.7 批注标记视觉规范（固定，禁止页面内自定义）
+
+标记组件**只能**从公共模块引入，页面不得复制实现或改写样式：
+
+```tsx
+import { NewTag } from '@/lib/feature-tags/core'
+```
+
+| 项 | 紧凑版 `compact` | 标准版（默认） |
+|---|---|---|
+| 用途 | 卡片字段、表单行尾、表格单元格 | 分区标题、页面标题、按钮旁 |
+| 高度 | 16px | 18px |
+| 圆角 | 3px | 3px |
+| 底色 | 主题色实心 | 主题色实心 |
+| 文字 | 「说明」9px / medium / 白色 | `新增|变更` 9px + 1px 白色分隔线 + 「说明」10px semibold / 白色 |
+| 边框 | 1px 同色 | 1px 同色 |
+| 阴影 | `shadow-sm` | `shadow-sm` |
+| 悬停 | `scale(1.05)` | `scale(1.03)` |
+| 光标 | pointer | pointer |
+| 图标 | **不使用任何图标**（早期文档图标版已废弃） | 不使用 |
+
+**主题色**：`--feat-accent`，默认 `#1668ff`；由 `DocProvider` 的 `accent` 属性注入，页面不要单独指定颜色。
+
+**显示条件**：`showFeat` 关闭时组件直接返回 `null`，不得渲染占位元素。
+
+**铁律**
+
+1. 不新增图标、不加动画、不改字号与内边距
+2. 不在页面里再写一份 `function NewTag(...)`
+3. 需要调整视觉时，改 `src/lib/feature-tags/core.tsx` 并同步本节
+4. 保留自有 DocPanel 的老页面（如 `CloudAPI/Console`、`UnifiedPortal/TenantPortal`，因需渲染 Mermaid）可以保留自己的 NewTag 包装，但**必须用 `<FeatureBadge>` 渲染标记**，不得自己写按钮 UI：
+
+```tsx
+import { FeatureBadge } from '@/lib/feature-tags/core'
+
+function NewTag({ code }: { code: string }) {
+  const { openDoc, showFeat } = useContext(DocContext)
+  const f = FEATURE_LABELS[code]
+  if (!showFeat || !f) return null
+  return (
+    <FeatureBadge
+      type={f.type === 'A' ? '新增' : '变更'}
+      label={f.title}
+      lines={[f.desc]}
+      onClick={() => openDoc(code)}
+    />
+  )
+}
+```

@@ -4,9 +4,10 @@
  */
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Info, Pencil, Play, Plus, Search, Settings, Square, Trash2 } from 'lucide-react'
+import { Info, Pencil, Play, Plus, Search, Settings, Square, Trash2, X } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { AppShell, StatusBadge } from './_shared'
+import { DocPanel, DocProvider, FEATURES, NewTag } from './feature-tags'
 import { CreateInferenceService } from './CreateInferenceService'
 import { ServiceDetail } from './ServiceDetail'
 import type { DetailService } from './ServiceDetail'
@@ -14,6 +15,29 @@ import { cn } from '@/lib/utils'
 
 type Status = 'off' | 'running'
 type TabKey = 'internal' | 'external'
+
+/** 弹性配置（详情页展示用） */
+export interface ElasticDetail {
+  mode: '常规模式' | 'Serverless 模式' | '指标模式'
+  /** 指标模式: 指标来源 */
+  source?: '内置指标' | '自定义 PromQL'
+  /** 指标模式(内置): 条件列表 + 连接关系 */
+  conditions?: { text: string }[]
+  join?: 'and' | 'or'
+  agg?: string
+  /** 指标模式(自定义): 表达式 */
+  expr?: string
+  /** 常规模式: 固定副本数 */
+  replicas?: string
+  /** 自动扩缩模式: 副本下限/上限 */
+  minReplicas?: string
+  maxReplicas?: string
+  /** Serverless 参数 */
+  targetRequests?: string
+  maxRequests?: string
+  /** 窗口 */
+  shrinkWindow?: string
+}
 
 interface InferenceService {
   id: string
@@ -48,7 +72,7 @@ const SERVICES: InferenceService[] = [
     pool: 'nv-h100-gpu（nv-zhanghu-ces...',
     deployMode: '简易模式',
     tensorParallel: 'TP 1',
-    elasticMode: '常驻模式',
+    elasticMode: '常规模式',
     modelReplicas: '1',
     spec: 'Nvidia H100.vGPU（1631M）*1,CPU 4核...',
     network: '无',
@@ -67,7 +91,7 @@ const SERVICES: InferenceService[] = [
     pool: 'nv-h100-gpu（nv-zhanghu-ces...',
     deployMode: '分布式并行',
     tensorParallel: 'TP 2',
-    elasticMode: '常驻模式',
+    elasticMode: '常规模式',
     modelReplicas: '1',
     spec: 'Nvidia H100（81559Mi）*2,CPU...',
     network: '无',
@@ -86,8 +110,8 @@ const SERVICES: InferenceService[] = [
     pool: 'nv-h100-gpu（nv-zhanghu-ces...',
     deployMode: '简易模式',
     tensorParallel: 'TP 1',
-    elasticMode: '常驻模式',
-    modelReplicas: '1',
+    elasticMode: 'Serverless 模式',
+    modelReplicas: '1–5',
     spec: 'Nvidia H100.vGPU（65247M）*1,...',
     network: '无',
     priority: '低',
@@ -105,9 +129,47 @@ const SERVICES: InferenceService[] = [
     pool: 'nv-h100-gpu（nv-zhanghu-ces...',
     deployMode: '简易模式',
     tensorParallel: 'TP 1',
-    elasticMode: '常驻模式',
+    elasticMode: '常规模式',
     modelReplicas: '1',
     spec: 'Nvidia H100.vGPU（1631M）*1,...',
+    network: '无',
+    priority: '低',
+    creator: 'admin',
+  },
+  {
+    id: 'svc-5',
+    name: 'qwen3-指标弹性',
+    status: 'running',
+    servingId: 'serving-kx7m2dq',
+    replicas: '3/3',
+    model: '官方 Qwen3.5-35B-A3B',
+    modelBranch: '-',
+    framework: 'vLLM',
+    pool: 'nv-h100-gpu（nv-zhanghu-ceshi）',
+    deployMode: '简易模式',
+    tensorParallel: 'TP 1',
+    elasticMode: '指标模式',
+    modelReplicas: '1–4',
+    spec: 'Nvidia H100（81559Mi）*1,CPU 32核...',
+    network: '无',
+    priority: '低',
+    creator: 'admin',
+  },
+  {
+    id: 'svc-6',
+    name: 'deepseek-自定义弹性',
+    status: 'running',
+    servingId: 'serving-mn4pt8zv',
+    replicas: '2/2',
+    model: '官方 DeepSeek-V2-Lite',
+    modelBranch: '-',
+    framework: 'vLLM',
+    pool: 'nv-h100-gpu（nv-zhanghu-ceshi）',
+    deployMode: '分布式并行',
+    tensorParallel: 'TP 2',
+    elasticMode: '指标模式',
+    modelReplicas: '1–6',
+    spec: 'Nvidia H100（81559Mi）*2,CPU 64核...',
     network: '无',
     priority: '低',
     creator: 'admin',
@@ -172,8 +234,42 @@ function fieldsOf(s: InferenceService): Field[] {
   ]
 }
 
+/** 各服务的弹性配置（详情页展示） */
+const ELASTIC_OF: Record<string, ElasticDetail> = {
+  'svc-1': { mode: '常规模式', replicas: '1' },
+  'svc-2': { mode: '常规模式', replicas: '1' },
+  'svc-3': {
+    mode: 'Serverless 模式',
+    minReplicas: '1',
+    maxReplicas: '5',
+    shrinkWindow: '600 秒',
+    targetRequests: '10.0',
+    maxRequests: '20.0',
+  },
+  'svc-4': { mode: '常规模式', replicas: '1' },
+  'svc-5': {
+    mode: '指标模式',
+    source: '内置指标',
+    conditions: [{ text: 'GPU 利用率 ≥ 80 %' }, { text: '显存使用率 ≥ 85 %' }],
+    join: 'and',
+    agg: '平均值',
+    minReplicas: '1',
+    maxReplicas: '4',
+    shrinkWindow: '600 秒',
+  },
+  'svc-6': {
+    mode: '指标模式',
+    source: '自定义 PromQL',
+    expr:
+      'avg(gpu.memory.used{namespace="$namespace"}) / avg(gpu.memory.total{namespace="$namespace"}) > 0.85',
+    minReplicas: '1',
+    maxReplicas: '6',
+    shrinkWindow: '300 秒',
+  },
+}
+
 /** 列表数据 -> 详情页数据 */
-function toDetail(svc: InferenceService): DetailService {
+function toDetail(svc: InferenceService, elasticOverride?: ElasticDetail): DetailService {
   const isVgpu = svc.spec.includes('vGPU')
   const isDual = svc.spec.includes('*2')
   return {
@@ -194,6 +290,7 @@ function toDetail(svc: InferenceService): DetailService {
     modelName: svc.model.replace(/^官方\s*/, ''),
     modelBranch: svc.modelBranch,
     modelVersion: 'v2',
+    elastic: elasticOverride ?? ELASTIC_OF[svc.id] ?? { mode: '常规模式', replicas: svc.modelReplicas },
     spec: {
       model: '英伟达 H100',
       virt: isVgpu ? 'vGPU' : '整卡',
@@ -211,7 +308,19 @@ function toDetail(svc: InferenceService): DetailService {
 }
 
 /** 单张服务卡片 */
-function ServiceCard({ svc, onOpen }: { svc: InferenceService; onOpen: () => void }) {
+function ServiceCard({
+  svc,
+  onOpen,
+  onEdit,
+  onToggle,
+  onDelete,
+}: {
+  svc: InferenceService
+  onOpen: () => void
+  onEdit: () => void
+  onToggle: () => void
+  onDelete: () => void
+}) {
   const running = svc.status === 'running'
   return (
     <div
@@ -229,10 +338,21 @@ function ServiceCard({ svc, onOpen }: { svc: InferenceService; onOpen: () => voi
       {/* 字段区: 2 列 × 7 行 */}
       <div className="px-3 py-2 grid grid-cols-2 gap-x-2 gap-y-[5px]">
         {fieldsOf(svc).map((f) => (
-          <div key={f.label} className="min-w-0 flex items-start gap-1">
+          <div
+            key={f.label}
+            className={cn(
+              'relative min-w-0 flex items-start gap-1',
+              f.label === '弹性模式' && 'pr-4',
+            )}
+          >
             <span className="text-[12px] text-[#8f959e] whitespace-nowrap shrink-0">
               {f.label}:
             </span>
+            {f.label === '弹性模式' && (
+              <span className="absolute right-0 top-[3px]">
+                <NewTag code="F-CARD" compact />
+              </span>
+            )}
             {f.info && <Info size={11} className="mt-[3px] shrink-0 text-[#8f959e]" />}
             <span className="text-[12px] text-[#1f2329] truncate">{f.value}</span>
           </div>
@@ -249,23 +369,73 @@ function ServiceCard({ svc, onOpen }: { svc: InferenceService; onOpen: () => voi
         )}
         <div className="ml-auto flex items-center gap-3 text-[12px] text-[#646a73]">
           {running ? (
-            <button className="flex items-center gap-1 hover:text-[#1668ff]">
+            <button onClick={onToggle} className="flex items-center gap-1 hover:text-[#1668ff]">
               <Square size={11} />
               停止
             </button>
           ) : (
-            <button className="flex items-center gap-1 hover:text-[#1668ff]">
+            <button onClick={onToggle} className="flex items-center gap-1 hover:text-[#1668ff]">
               <Play size={11} />
               启动
             </button>
           )}
-          <button className="flex items-center gap-1 hover:text-[#1668ff]">
+          <button onClick={onEdit} className="flex items-center gap-1 hover:text-[#1668ff]">
             <Pencil size={11} />
             编辑
           </button>
-          <button className="flex items-center gap-1 hover:text-[#f53f3f]">
+          <button onClick={onDelete} className="flex items-center gap-1 hover:text-[#f53f3f]">
             <Trash2 size={11} />
             删除
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** 删除确认弹窗 */
+function DeleteDialog({
+  svc,
+  onCancel,
+  onConfirm,
+}: {
+  svc: InferenceService
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(0,0,0,0.45)]">
+      <div className="w-[600px] rounded-[4px] bg-white shadow-[0_12px_32px_rgba(0,0,0,0.18)]">
+        <div className="flex h-12 items-center justify-between px-6">
+          <h3 className="text-[16px] font-medium text-[#1f2329]">删除</h3>
+          <button onClick={onCancel} className="text-[#8f959e] hover:text-[#1f2329]">
+            <X size={16} />
+          </button>
+        </div>
+        <div className="border-t border-[#e5e6eb]" />
+
+        <div className="flex items-start gap-3 px-6 py-7">
+          <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#fa8c16] text-[12px] font-bold leading-none text-white">
+            !
+          </span>
+          <p className="text-[14px] leading-6 text-[#1f2329]">
+            是否确定删除内部推理服务 <span className="text-[#1668ff]">{svc.name}({svc.servingId})</span>？
+          </p>
+        </div>
+
+        <div className="border-t border-[#e5e6eb]" />
+        <div className="flex items-center justify-end gap-3 px-6 py-4">
+          <button
+            onClick={onCancel}
+            className="h-8 rounded-[2px] border border-[#d9dce3] bg-white px-5 text-[12px] text-[#1f2329] hover:border-[#1668ff] hover:text-[#1668ff]"
+          >
+            取 消
+          </button>
+          <button
+            onClick={onConfirm}
+            className="h-8 rounded-[2px] bg-[#1668ff] px-5 text-[12px] text-white hover:bg-[#3c7eff]"
+          >
+            确 定
           </button>
         </div>
       </div>
@@ -302,29 +472,48 @@ function Pagination({ total }: { total: number }) {
   )
 }
 
-export default function InferenceServicePage() {
+export default function InferenceServicePage({ __showFeat = false }: { __showFeat?: boolean }) {
+  const [docCode, setDocCode] = useState<string | null>(null)
+  return (
+    <DocProvider showFeat={__showFeat} features={FEATURES} onOpenDoc={setDocCode}>
+      <PageBody />
+      <DocPanel code={docCode} onClose={() => setDocCode(null)} />
+    </DocProvider>
+  )
+}
+
+function PageBody() {
   const [searchParams] = useSearchParams()
   const initialView = searchParams.get('view')
-  const [view, setView] = useState<'list' | 'create' | 'detail'>(
-    initialView === 'create' ? 'create' : initialView === 'detail' ? 'detail' : 'list',
+  const [view, setView] = useState<'list' | 'create' | 'detail' | 'edit'>(
+    initialView === 'create' ? 'create' : initialView === 'detail' ? 'detail' : initialView === 'edit' ? 'edit' : 'list',
   )
+  const [services, setServices] = useState<InferenceService[]>(SERVICES)
+  const [elastics, setElastics] = useState<Record<string, ElasticDetail>>(ELASTIC_OF)
   const [selectedId, setSelectedId] = useState(searchParams.get('id') ?? SERVICES[0].id)
   const [tab, setTab] = useState<TabKey>('internal')
   const [keyword, setKeyword] = useState('')
+  const [editFrom, setEditFrom] = useState<'list' | 'detail'>('list')
+  const [deleteTarget, setDeleteTarget] = useState<InferenceService | null>(null)
 
   const list = useMemo(() => {
     if (tab === 'external') return []
     const kw = keyword.trim().toLowerCase()
-    return kw ? SERVICES.filter((s) => s.name.toLowerCase().includes(kw)) : SERVICES
-  }, [tab, keyword])
+    return kw ? services.filter((s) => s.name.toLowerCase().includes(kw)) : services
+  }, [tab, keyword, services])
 
   if (view === 'detail') {
-    const selected = SERVICES.find((s) => s.id === selectedId) ?? SERVICES[0]
+    const selected = services.find((s) => s.id === selectedId) ?? services[0]
+    if (!selected) return <AppShell>{null}</AppShell>
     return (
       <AppShell>
         <ServiceDetail
-          svc={toDetail(selected)}
+          svc={toDetail(selected, elastics[selected.id])}
           onBack={() => setView('list')}
+          onEdit={() => {
+            setEditFrom('detail')
+            setView('edit')
+          }}
           initialTab={
             { monitor: '资源监控', containers: '容器组', logs: '日志' }[
               searchParams.get('tab') ?? ''
@@ -338,7 +527,74 @@ export default function InferenceServicePage() {
   if (view === 'create') {
     return (
       <AppShell>
-        <CreateInferenceService onBack={() => setView('list')} />
+        <CreateInferenceService
+          onBack={() => setView('list')}
+          onSubmit={(p) => {
+            const id = `svc-${Date.now()}`
+            const min = p.elastic.minReplicas ?? p.elastic.replicas ?? '1'
+            setServices((prev) => [
+              ...prev,
+              {
+                id,
+                name: p.name,
+                status: 'running',
+                servingId: `serving-${Math.random().toString(36).slice(2, 9)}`,
+                replicas: `${min}/${min}`,
+                model: p.model,
+                modelBranch: '-',
+                framework: p.framework,
+                pool: p.pool,
+                deployMode: p.deployMode,
+                tensorParallel: p.deployMode === '分布式并行' ? 'TP 2' : 'TP 1',
+                elasticMode: p.elasticMode,
+                modelReplicas: p.modelReplicas,
+                spec: p.spec,
+                network: '无',
+                priority: p.priority,
+                creator: 'admin',
+              },
+            ])
+            setElastics((prev) => ({ ...prev, [id]: p.elastic }))
+            setView('list')
+          }}
+        />
+      </AppShell>
+    )
+  }
+
+  if (view === 'edit') {
+    const target = services.find((s) => s.id === selectedId) ?? services[0]
+    if (!target) return <AppShell>{null}</AppShell>
+    return (
+      <AppShell>
+        <CreateInferenceService
+          mode="edit"
+          initial={{ service: target, elastic: elastics[target.id] }}
+          onBack={() => setView(editFrom)}
+          onSubmit={(p) => {
+            setServices((prev) =>
+              prev.map((s) =>
+                s.id === target.id
+                  ? {
+                      ...s,
+                      name: p.name,
+                      model: p.model,
+                      framework: p.framework,
+                      pool: p.pool,
+                      deployMode: p.deployMode,
+                      tensorParallel: p.deployMode === '分布式并行' ? 'TP 2' : 'TP 1',
+                      priority: p.priority,
+                      elasticMode: p.elasticMode,
+                      modelReplicas: p.modelReplicas,
+                      spec: p.spec,
+                    }
+                  : s,
+              ),
+            )
+            setElastics((prev) => ({ ...prev, [target.id]: p.elastic }))
+            setView(editFrom)
+          }}
+        />
       </AppShell>
     )
   }
@@ -416,6 +672,22 @@ export default function InferenceServicePage() {
                   setSelectedId(svc.id)
                   setView('detail')
                 }}
+                onEdit={() => {
+                  setSelectedId(svc.id)
+                  setEditFrom('list')
+                  setView('edit')
+                }}
+                onToggle={() =>
+                  setServices((prev) =>
+                    prev.map((it) => {
+                      if (it.id !== svc.id) return it
+                      if (it.status === 'running') return { ...it, status: 'off', replicas: '0/0' }
+                      const min = elastics[it.id]?.minReplicas ?? elastics[it.id]?.replicas ?? '1'
+                      return { ...it, status: 'running', replicas: `${min}/${min}` }
+                    }),
+                  )
+                }
+                onDelete={() => setDeleteTarget(svc)}
               />
             ))}
           </div>
@@ -428,6 +700,23 @@ export default function InferenceServicePage() {
         <div className="shrink-0 h-12 px-4 border-t border-[#f0f1f3] flex items-center justify-end">
           <Pagination total={list.length} />
         </div>
+
+        {deleteTarget && (
+          <DeleteDialog
+            svc={deleteTarget}
+            onCancel={() => setDeleteTarget(null)}
+            onConfirm={() => {
+              const id = deleteTarget.id
+              setServices((prev) => prev.filter((it) => it.id !== id))
+              setElastics((prev) => {
+                const next = { ...prev }
+                delete next[id]
+                return next
+              })
+              setDeleteTarget(null)
+            }}
+          />
+        )}
       </div>
     </AppShell>
   )
