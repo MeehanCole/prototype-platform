@@ -1,0 +1,11 @@
+{
+  "title": "在线服务",
+  "module": "在线服务优化",
+  "source": "screenshot",
+  "status": "draft",
+  "updatedAt": "2026-11-04",
+  "tags": [],
+  "versions": ["v1", "v2"],
+  "defaultVersion": "v2",
+  "versionSummary": "v2：策略名称→服务名称、模型名称→调用模型名、后端服务类型→后端推理类型（内部/外部推理实例）、后端服务实例→后端推理实例"
+}

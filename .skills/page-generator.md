@@ -565,7 +565,16 @@ PRD 中每个功能需求必须用 `**FR-X` 标记段落起始：
 
 ## 7. PRD 内嵌代码（Mode C 多版本必做）
 
-版本文件必须包含以下代码结构：
+> ⚠️ **最新规范说明（必读）**：
+> 下方 7.1–7.8 为早期单文件内联写法（保留仅供参考）。**新页面与 v1/v2 多版本改造请统一使用共享组件库 `@/lib/feature-tags/core` + 页面级 `feature-tags.tsx`**，禁止在页面或 `_versions/v2.tsx` 中重复手写 `DocPanel` / `NewTag` / `extractSection`：
+> 1. 在页面目录创建 `feature-tags.tsx`，从 `@/lib/feature-tags/core` 导入 `pick` 并重导出 `DocPanel, DocProvider, NewTag`（标准模板见 [`templates.md` §10](./templates.md) 与 [`agent-rules.md` D3](./agent-rules.md)）。
+> 2. 在 `_versions/v2.tsx` 中直接 `import { DocPanel, DocProvider, NewTag } from '../feature-tags'`。
+> 3. 挂载胶囊按钮时使用 `<NewTag code="F-01" />`（注意属性名为 `code` 而非 `id`）。
+> 4. 若从单版本还原页升级为 `v1`/`v2` 双版本，请遵循 [`design-workflow.md` §C4.5](./design-workflow.md) 的完整升级与跨页 `?v=` 参数透传规范。
+
+*(以下为旧版内联结构归档)*
+
+版本文件包含以下代码结构：
 
 ### 7.1 头部导入
 ```tsx

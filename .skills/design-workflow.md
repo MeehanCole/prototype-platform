@@ -196,6 +196,31 @@
 - `_versions/v1.tsx`（保留旧版本，可 A/B 对比）
 - `_versions/v2.tsx`（改造后的新版本）
 
+#### C4.5 单版本还原升级为多版本（v1/v2 常见演进路径）
+实际项目中，常常先按**单版本（模式 B）**完成现有界面还原与多轮细节校准（只有 `index.tsx` + `prd.md`），待基线确认后再启动改造讨论并升级为双版本对比。标准升级步骤如下：
+
+1. **冻结 v1 基线**：将已确认的 `index.tsx` 完整移入 `_versions/v1.tsx`（修正相对导入路径，如 `./feature-tags` → `../feature-tags`），**严禁在 v1 中混入新方案改动**。
+2. **创建 v2 方案**：复制生成 `_versions/v2.tsx`，实施改造方案并通过 `<NewTag code="F-01" />` 挂载功能点胶囊。
+3. **重写入口 `index.tsx`**：改为一行重导出默认版本：
+   ```tsx
+   export { default } from './_versions/v2'
+   ```
+4. **拆分版本 PRD**：
+   - `prd_v1.md`：记录现有已实现基线（供 PageView 切换到 `v1` 时在右侧 PRD 抽屉展示）
+   - `prd_v2.md`：记录本次优化方案完整 PRD（含 `**FR-1`、`**FR-2` 段落标记，供 `feature-tags.tsx` 的 `pick()` 提取）
+   - `prd.md`：保留主 PRD 或与 `prd_v2.md` 同步
+5. **更新 `meta.json`**：开启宿主顶栏版本切换下拉（自动启用「变更」Tab）：
+   ```json
+   {
+     "versions": ["v1", "v2"],
+     "defaultVersion": "v2"
+   }
+   ```
+6. **跨页面联动保持同版本（`?v=` 参数透传，必做）**：
+   - 当一组页面存在上下游跳转（如「列表 ↔ 创建/编辑 ↔ 详情」）且均升级为 `v1`/`v2` 时，**跳转链接必须显式携带当前版本参数 `?v=v1` 或 `?v=v2`**，防止用户在 `v1` 列表点击「创建」或「详情」后跳回默认的 `v2` 页面造成认知错乱：
+     - `v1.tsx` 内部跳转统一追加 `v=v1`（如 `navigate('/<Project>/<page>?v=v1')`、`navigate(\`/<Project>/<detail>?id=\${id}&v=v1\`)`）
+     - `v2.tsx` 内部跳转统一追加 `v=v2`（如 `navigate('/<Project>/<page>?v=v2')`、`navigate(\`/<Project>/<detail>?id=\${id}&v=v2\`)`）
+
 #### C5 完整 PRD + 功能点内嵌（Mode C 核心步骤）
 
 **5.1 生成 PRD**
@@ -221,15 +246,12 @@
 ...
 ```
 
-**5.3 代码内嵌**（硬约束）
-在 `v2.tsx` 中：
-- `import prdV2Raw from '../prd_v2.md?raw'`
-- `extractSection` 函数按 FR 段落提取
-- `FEATURE_DOCS` 映射表（key 与 `FEATURE_LABELS` 1:1）
-- `DocPanel` 组件（用 `createPortal` 渲染到 `document.body`）
-- 功能点标注为胶囊形「说明」按钮
-  - 蓝色可点击 → 弹出 DocPanel 展示完整 PRD
-  - 灰色仅 tooltip → 无 PRD 详情
+**5.3 代码内嵌**（硬约束 — 统一使用 `@/lib/feature-tags/core`）
+- 在页面目录下维护 `feature-tags.tsx`：从 `@/lib/feature-tags/core` 导入 `pick` 并重导出 `DocPanel, DocProvider, NewTag`，使用 `pick(prdRaw, '**FR-1 ...')` 构建 `FEATURES` 字典（参见 [`agent-rules.md` D3](./agent-rules.md) 与 [`templates.md` §10](./templates.md)）
+- 在 `_versions/v2.tsx` 中：
+  - `import { DocPanel, DocProvider, NewTag } from '../feature-tags'`
+  - 根组件外层包裹 `<DocProvider showFeat={showFeat} onOpenDoc={setActiveDoc}>` 与 `<DocPanel code={activeDoc} onClose={() => setActiveDoc(null)} />`
+  - 在改动位置旁放置 `<NewTag code="F-01" />`（注意属性名为 `code` 而非 `id`）
 
 **5.4 测试验收 Changelog**
 生成 `_workflow/c5_v1_vs_v2_changelog.md`，结构：

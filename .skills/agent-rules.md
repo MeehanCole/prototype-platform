@@ -354,6 +354,7 @@ Mode A/B/C 是完整工作流（非日常高频），关键节点都有**人工�
 - A5/B5 PRD → 人工确认
 - C3 改造方案 → 人工确认
 - C5 PRD → 人工确认
+- **Mode C（混合模式）**：多版本 A/B 对比、单版本还原升级为多版本（[design-workflow.md §C4.5](./design-workflow.md)）、跨页面 `?v=` 版本保持，均按 Mode C 流程执行
 
 详见 [design-workflow.md](./design-workflow.md)
 
