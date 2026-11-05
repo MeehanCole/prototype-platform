@@ -481,40 +481,22 @@ function ServiceCard({ row }: { row: ServiceRow }) {
             const isBlueGreen = row.route === '蓝绿发布'
             const isActiveBg = isBlueGreen && (ins.weight ?? 0) > 0
             return (
-              <div
-                key={ins.label}
-                className={`flex items-center gap-2 ${
-                  isBlueGreen
-                    ? `rounded-[6px] px-2.5 py-1.5 border ${
-                        isActiveBg
-                          ? 'border-[#b7eb8f] bg-[#f6ffed]/70'
-                          : 'border-[#f0f0f0] bg-[#fafafa]'
-                      }`
-                    : ''
-                }`}
-              >
+              <div key={ins.label} className="flex items-center gap-2">
                 <span
                   className={`w-[8px] h-[8px] rounded-full shrink-0 ${
                     ins.running ? 'bg-[#52C18E]' : 'bg-[#F82709]'
                   }`}
                 />
-                <span className={`${isBlueGreen ? 'max-w-[140px]' : 'w-[140px]'} shrink-0 truncate text-[13px] text-[#333]`}>
+                <span className="w-[140px] shrink-0 truncate text-[13px] text-[#333]">
                   {ins.label}
                 </span>
                 {ins.model && <span className="shrink-0 text-[12px] text-[#999]">({ins.model})</span>}
                 {isBlueGreen ? (
                   <span
-                    className={`ml-auto inline-flex items-center gap-1.5 shrink-0 rounded-[10px] px-2 py-[1px] text-[12px] leading-[18px] font-medium ${
-                      isActiveBg
-                        ? 'bg-[#e6f4ea] text-[#16a34a]'
-                        : 'bg-[#f0f1f3] text-[#8c8c8c]'
+                    className={`ml-auto shrink-0 text-[12px] ${
+                      isActiveBg ? 'text-[#166EFF] font-medium' : 'text-[#999]'
                     }`}
                   >
-                    <span
-                      className={`h-[6px] w-[6px] rounded-full ${
-                        isActiveBg ? 'bg-[#16a34a]' : 'bg-[#bfbfbf]'
-                      }`}
-                    />
                     {isActiveBg ? '当前生效' : '待命'}
                   </span>
                 ) : (

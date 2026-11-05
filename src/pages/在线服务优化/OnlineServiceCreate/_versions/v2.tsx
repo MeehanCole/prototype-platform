@@ -535,6 +535,11 @@ function RouteCard({
   const dropdownOptions: RouteStrategyType[] =
     category === 'routine' ? ['按权重分发'] : ['金丝雀发布', '蓝绿发布']
 
+  const grayInstances =
+    instances.length >= 2
+      ? instances.slice(0, 2)
+      : [instances[0] || '待选择实例 1', instances[1] || '待选择实例 2']
+
   return (
     <div className="w-[617px] rounded-[4px] border border-[#e4e6eb] p-[20px]">
       {/* 卡片顶栏：原版 327px 下拉框（常规路由展示「按权重分发」；灰度发布单选「金丝雀发布 / 蓝绿发布」） */}
@@ -647,7 +652,7 @@ function RouteCard({
           {activeStrategy === '金丝雀发布' && (
             <>
               <span className="flex flex-col gap-[10px]">
-                {instances.map((name, idx) => {
+                {grayInstances.map((name, idx) => {
                   const isFirst = idx === 0
                   const isSecond = idx === 1
                   const val = isFirst ? baselineWeight : isSecond ? canaryWeight : 0
@@ -657,7 +662,7 @@ function RouteCard({
                     else if (isSecond) setCanaryWeight(clamped)
                   }
                   return (
-                    <div key={name} className="flex items-center">
+                    <div key={`${name}-${idx}`} className="flex items-center">
                       <span className="w-[240px] shrink-0 text-left text-[15px] text-[#333] truncate pr-2" title={name}>
                         {name}
                       </span>
@@ -714,11 +719,11 @@ function RouteCard({
           {activeStrategy === '蓝绿发布' && (
             <>
               <span className="flex flex-col gap-[10px]">
-                {instances.map((name, idx) => {
+                {grayInstances.map((name, idx) => {
                   const isActive = idx === blueGreenActiveIdx
                   return (
                     <div
-                      key={name}
+                      key={`${name}-${idx}`}
                       className={`flex h-[40px] w-[420px] cursor-pointer items-center rounded-[4px] border px-3 ${
                         isActive ? 'border-[#166EFF] bg-[#f0f6ff]' : 'border-[#e4e6eb] bg-white hover:border-[#b6c6e3]'
                       }`}
@@ -829,13 +834,6 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
   useEffect(() => {
     if (instances.length >= 2 && !routeOn) setRouteOn(true)
   }, [instances.length, routeOn])
-
-  // 灰度发布仅支持恰好 2 个后端推理实例：实例数非 2 时自动回退为「常规路由策略」
-  useEffect(() => {
-    if (instances.length !== 2 && routeCategory === 'grayscale') {
-      setRouteCategory('routine')
-    }
-  }, [instances.length, routeCategory])
 
   const handleInstancesChange = (next: string[], currentBackend: 'internal' | 'external' = backend) => {
     setInstances(next)
@@ -1070,14 +1068,11 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
                           onChange={() => setRouteCategory('routine')}
                         />
                         <div className="flex items-center gap-[8px]">
-                          <div className={instances.length !== 2 ? 'opacity-50' : ''}>
-                            <Radio
-                              checked={routeCategory === 'grayscale'}
-                              label="灰度发布策略"
-                              disabled={instances.length !== 2}
-                              onChange={() => setRouteCategory('grayscale')}
-                            />
-                          </div>
+                          <Radio
+                            checked={routeCategory === 'grayscale'}
+                            label="灰度发布策略"
+                            onChange={() => setRouteCategory('grayscale')}
+                          />
                           {instances.length !== 2 && (
                             <span className="text-[13px] text-[#8c8c8c]">（灰度发布需选择 2 个后端推理实例）</span>
                           )}
