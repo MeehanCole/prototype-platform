@@ -377,7 +377,7 @@ function RouteCard({
       {/* 顶部：场景并列切换（常规路由 vs 灰度发布下拉） + 删除 */}
       <div className="flex items-center justify-between pb-4 border-b border-[#f0f0f0]">
         <div className="flex items-center gap-3">
-          <span className="text-[14px] font-semibold text-[#1f2329]">路由模式</span>
+          <span className="text-[14px] font-semibold text-[#1f2329]">流量分发模式</span>
 
           {/* 并列切换：常规路由 vs 灰度发布 */}
           <div className="inline-flex items-center rounded border border-[#d9d9d9] bg-[#f5f5f5] p-0.5 text-[13px]">
@@ -457,9 +457,9 @@ function RouteCard({
 
         <button
           onClick={onDelete}
-          aria-label="删除路由策略"
+          aria-label="删除流量分发策略"
           className="cursor-pointer text-[#999] hover:text-[#F5222D] p-1 transition-colors"
-          title="删除路由策略"
+          title="删除流量分发策略"
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" aria-hidden>
             <path d="M2.5 4h11M6.5 2h3M4 4l.7 9a1 1 0 0 0 1 .9h4.6a1 1 0 0 0 1-.9L12 4M6.5 7v4M9.5 7v4" />
@@ -517,7 +517,7 @@ function RouteCard({
                 {weightSum === 100 ? '（配置有效）' : '（必须等于 100%）'}
               </span>
             </div>
-            <span className="mt-2 block text-[13px] text-[#8c8c8c]">此为终态策略，不可再添加后续路由策略。</span>
+            <span className="mt-2 block text-[13px] text-[#8c8c8c]">此为终态策略，创建后不可再叠加后续流量分发策略。</span>
           </div>
         </div>
       )}
@@ -531,13 +531,13 @@ function RouteCard({
           <div className="ml-[24px] flex-1 flex flex-col gap-3">
             {instances.length < 2 && (
               <div className="rounded bg-[#FFFBE6] border border-[#FFE58F] px-3 py-2 text-[13px] text-[#D46B08]">
-                提示：金丝雀发布建议在上方「后端推理实例」中选择至少 2 个实例分别作为基线与灰度实例。
+                提示：金丝雀发布建议在上方「后端推理实例」中选择至少 2 个实例分别作为基线（线上主版本）与金丝雀（灰度新版本）。
               </div>
             )}
 
             {/* 快捷比例 */}
             <div className="flex items-center justify-between pb-1">
-              <span className="text-[13px] text-[#595959]">快捷比例（灰度实例）：</span>
+              <span className="text-[13px] text-[#595959]">快捷比例（金丝雀实例）：</span>
               <div className="flex items-center gap-1.5">
                 {[5, 10, 20, 50, 100].map((preset) => (
                   <button
@@ -583,13 +583,13 @@ function RouteCard({
                             : 'bg-[#f5f5f5] text-[#8c8c8c] border-[#d9d9d9]'
                         }`}
                       >
-                        {isBaseline ? '基线' : isCanary ? '灰度' : `实例 ${idx + 1}`}
+                        {isBaseline ? '基线' : isCanary ? '金丝雀' : `实例 ${idx + 1}`}
                       </span>
                       <span className="w-[220px] truncate text-[14px] text-[#333] font-medium" title={name}>
                         {name}
                       </span>
                       <span className="text-[12px] text-[#8c8c8c]">
-                        {isBaseline ? '(当前主版本)' : isCanary ? '(灰度新版本)' : ''}
+                        {isBaseline ? '(线上主版本·基线)' : isCanary ? '(灰度新版本·候选)' : ''}
                       </span>
                     </div>
 
@@ -632,12 +632,12 @@ function RouteCard({
               </div>
               <div className="mt-2 flex justify-between text-[12px]">
                 <span className="text-[#1677FF] font-medium">基线流量：{baselineWeight}%</span>
-                <span className="text-[#D46B08] font-medium">灰度流量：{canaryWeight}%</span>
+                <span className="text-[#D46B08] font-medium">金丝雀流量：{canaryWeight}%</span>
               </div>
             </div>
 
             <div className="text-[12px] text-[#8c8c8c]">
-              💡 联动互补：调节灰度实例百分比时，基线实例将自动补足剩余流量（100% - X%），支持阶梯放量至 100%。
+              💡 联动互补：调节金丝雀实例百分比时，基线实例将自动补足剩余流量（100% - X%），支持阶梯放量至 100%。
             </div>
           </div>
         </div>
@@ -652,7 +652,7 @@ function RouteCard({
           <div className="ml-[24px] flex-1 flex flex-col gap-3">
             {instances.length < 2 && (
               <div className="rounded bg-[#FFFBE6] border border-[#FFE58F] px-3 py-2 text-[13px] text-[#D46B08]">
-                提示：蓝绿发布需要在上方「后端推理实例」中选择至少 2 个实例分别作为主、备实例。
+                提示：蓝绿发布需要在上方「后端推理实例」中选择至少 2 个实例分别作为主（当前生效）与备（热备待命）。
               </div>
             )}
 
@@ -679,7 +679,7 @@ function RouteCard({
                 const isGreen = idx === 1
                 const isActive = idx === blueGreenActiveIdx
                 const currentWeight = isActive ? 100 : 0
-                const groupName = isBlue ? '蓝组' : isGreen ? '绿组' : `分组 ${idx + 1}`
+                const groupName = isBlue ? '主' : isGreen ? '备' : `实例 ${idx + 1}`
 
                 return (
                   <div
@@ -708,7 +708,7 @@ function RouteCard({
                           isActive ? 'text-[#389E0D]' : 'text-[#8c8c8c]'
                         }`}
                       >
-                        {isActive ? '● 当前生效 (100% 流量)' : '○ 待命热备 (0% 流量)'}
+                        {isActive ? '● 主实例生效 (100% 流量)' : '○ 备实例热备 (0% 流量)'}
                       </span>
                     </div>
 
@@ -986,7 +986,7 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
 
                 {/* 路由策略 */}
                 <div className="flex items-start">
-                  <FieldLabel text="路由策略" />
+                  <FieldLabel text="流量分发策略" />
                   <NewTag compact code="F-06" />
                   <span className="ml-[53px] flex-1">
                     {routeCards.length === 0 ? (
@@ -994,7 +994,7 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
                         onClick={() => setRouteCards([Date.now()])}
                         className="text-[14px] text-[#166EFF] cursor-pointer"
                       >
-                        +添加路由策略
+                        +添加流量分发策略
                       </a>
                     ) : (
                       <span className="flex flex-col gap-[16px]">
