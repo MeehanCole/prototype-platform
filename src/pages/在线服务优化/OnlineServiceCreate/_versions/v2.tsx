@@ -311,19 +311,22 @@ function PlazaModelSelect({
 
 type RouteStrategyType = '按权重分发' | '金丝雀发布' | '蓝绿发布'
 
-/* 流量分发策略卡片（按权重分发 / 金丝雀发布 / 蓝绿发布） */
+/* 流量分发策略卡片（常规路由：按权重分发 / 灰度发布：金丝雀发布、蓝绿发布） */
 function RouteCard({
-  onDelete,
+  category,
   instances,
   initialWeights,
   initialMode = '按权重分发',
 }: {
-  onDelete: () => void
+  category: 'routine' | 'grayscale'
   instances: string[]
   initialWeights?: Record<string, string>
   initialMode?: RouteStrategyType
 }) {
-  const [strategy, setStrategy] = useState<RouteStrategyType>(initialMode)
+  const [grayStrategy, setGrayStrategy] = useState<'金丝雀发布' | '蓝绿发布'>(
+    initialMode === '蓝绿发布' ? '蓝绿发布' : '金丝雀发布',
+  )
+  const activeStrategy: RouteStrategyType = category === 'routine' ? '按权重分发' : grayStrategy
 
   // 1. 按权重分发 state
   const [weights, setWeights] = useState<Record<string, string>>(() => {
@@ -357,122 +360,60 @@ function RouteCard({
     return 0
   })
 
-  const [modeOpen, setModeOpen] = useState(false)
-  const [grayOpen, setGrayOpen] = useState(false)
-  const modeRef = useRef<HTMLSpanElement>(null)
-  const grayRef = useRef<HTMLSpanElement>(null)
-  useOutsideClose(modeRef, () => setModeOpen(false))
-  useOutsideClose(grayRef, () => setGrayOpen(false))
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const dropdownRef = useRef<HTMLSpanElement>(null)
+  useOutsideClose(dropdownRef, () => setDropdownOpen(false))
 
-  const isGrayscale = strategy === '金丝雀发布' || strategy === '蓝绿发布'
+  const dropdownOptions: RouteStrategyType[] =
+    category === 'routine' ? ['按权重分发'] : ['金丝雀发布', '蓝绿发布']
 
   return (
     <div className="w-[617px] rounded-[4px] border border-[#e4e6eb] p-[20px]">
-      {/* 卡片顶栏：左侧选「常规路由 / 灰度发布」，选灰度时右侧并列选「金丝雀发布 / 蓝绿发布」 */}
+      {/* 卡片顶栏：原版 327px 下拉框（常规路由展示「按权重分发」；灰度发布单选「金丝雀发布 / 蓝绿发布」） */}
       <div className="flex items-start">
-        <div className="flex items-center gap-[12px]">
-          {/* 第一个原版下拉框：常规路由 vs 灰度发布 */}
-          <span ref={modeRef} className="relative inline-block w-[250px]">
-            <span
-              onClick={() => setModeOpen((o) => !o)}
-              className={`h-[40px] flex items-center justify-between rounded border px-3 text-[15px] cursor-pointer ${
-                modeOpen ? 'border-[#166EFF] text-[#333]' : 'border-[#d9d9d9] text-[#333]'
-              }`}
+        <span ref={dropdownRef} className="relative inline-block w-[327px]">
+          <span
+            onClick={() => setDropdownOpen((o) => !o)}
+            className={`h-[40px] flex items-center justify-between rounded border px-3 text-[15px] cursor-pointer ${
+              dropdownOpen ? 'border-[#166EFF] text-[#333]' : 'border-[#d9d9d9] text-[#333]'
+            }`}
+          >
+            {activeStrategy}
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 12 12"
+              fill="none"
+              aria-hidden
+              className={`transition-transform ${dropdownOpen ? 'rotate-180' : ''}`}
             >
-              {isGrayscale ? '灰度发布' : '常规路由（按权重分发）'}
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 12 12"
-                fill="none"
-                aria-hidden
-                className={`transition-transform ${modeOpen ? 'rotate-180' : ''}`}
-              >
-                <path d="m2.5 4.5 3.5 3.5 3.5-3.5" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </span>
-            {modeOpen && (
-              <span className="absolute left-0 top-[47px] z-30 w-full rounded-[4px] border border-[#e4e6eb] bg-white shadow-[0_4px_16px_rgba(0,0,0,0.08)]">
-                <span className="absolute -top-[5px] left-[70px] h-[10px] w-[10px] rotate-45 border-l border-t border-[#e4e6eb] bg-white" />
-                <span className="block py-[4px]">
-                  <span
-                    onClick={() => {
-                      setStrategy('按权重分发')
-                      setModeOpen(false)
-                    }}
-                    className={`flex h-[41px] items-center px-[26px] cursor-pointer ${
-                      !isGrayscale ? 'bg-[#f5f7fa] text-[#166EFF]' : 'text-[#333] hover:bg-[#f5f7fa]'
-                    }`}
-                  >
-                    <span className="text-[15px]">常规路由（按权重分发）</span>
-                  </span>
-                  <span
-                    onClick={() => {
-                      if (!isGrayscale) setStrategy('金丝雀发布')
-                      setModeOpen(false)
-                    }}
-                    className={`flex h-[41px] items-center px-[26px] cursor-pointer ${
-                      isGrayscale ? 'bg-[#f5f7fa] text-[#166EFF]' : 'text-[#333] hover:bg-[#f5f7fa]'
-                    }`}
-                  >
-                    <span className="text-[15px]">灰度发布</span>
-                  </span>
-                </span>
-              </span>
-            )}
+              <path d="m2.5 4.5 3.5 3.5 3.5-3.5" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </span>
-
-          {/* 第二个原版下拉框（仅选「灰度发布」时并列显示）：金丝雀发布 / 蓝绿发布 */}
-          {isGrayscale && (
-            <span ref={grayRef} className="relative inline-block w-[250px]">
-              <span
-                onClick={() => setGrayOpen((o) => !o)}
-                className={`h-[40px] flex items-center justify-between rounded border px-3 text-[15px] cursor-pointer ${
-                  grayOpen ? 'border-[#166EFF] text-[#333]' : 'border-[#d9d9d9] text-[#333]'
-                }`}
-              >
-                {strategy}
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 12 12"
-                  fill="none"
-                  aria-hidden
-                  className={`transition-transform ${grayOpen ? 'rotate-180' : ''}`}
-                >
-                  <path d="m2.5 4.5 3.5 3.5 3.5-3.5" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </span>
-              {grayOpen && (
-                <span className="absolute left-0 top-[47px] z-30 w-full rounded-[4px] border border-[#e4e6eb] bg-white shadow-[0_4px_16px_rgba(0,0,0,0.08)]">
-                  <span className="absolute -top-[5px] left-[70px] h-[10px] w-[10px] rotate-45 border-l border-t border-[#e4e6eb] bg-white" />
-                  <span className="block py-[4px]">
-                    {(['金丝雀发布', '蓝绿发布'] as const).map((item) => (
-                      <span
-                        key={item}
-                        onClick={() => {
-                          setStrategy(item)
-                          setGrayOpen(false)
-                        }}
-                        className={`flex h-[41px] items-center px-[26px] cursor-pointer ${
-                          strategy === item ? 'bg-[#f5f7fa] text-[#166EFF]' : 'text-[#333] hover:bg-[#f5f7fa]'
-                        }`}
-                      >
-                        <span className="text-[15px]">{item}</span>
-                      </span>
-                    ))}
+          {dropdownOpen && (
+            <span className="absolute left-0 top-[47px] z-30 w-full rounded-[4px] border border-[#e4e6eb] bg-white shadow-[0_4px_16px_rgba(0,0,0,0.08)]">
+              <span className="absolute -top-[5px] left-[70px] h-[10px] w-[10px] rotate-45 border-l border-t border-[#e4e6eb] bg-white" />
+              <span className="block py-[4px]">
+                {dropdownOptions.map((item) => (
+                  <span
+                    key={item}
+                    onClick={() => {
+                      if (item === '金丝雀发布' || item === '蓝绿发布') {
+                        setGrayStrategy(item)
+                      }
+                      setDropdownOpen(false)
+                    }}
+                    className={`flex h-[41px] items-center px-[26px] cursor-pointer ${
+                      activeStrategy === item ? 'bg-[#f5f7fa] text-[#166EFF]' : 'text-[#333] hover:bg-[#f5f7fa]'
+                    }`}
+                  >
+                    <span className="text-[15px]">{item}</span>
                   </span>
-                </span>
-              )}
+                ))}
+              </span>
             </span>
           )}
-        </div>
-
-        <button onClick={onDelete} aria-label="删除流量分发策略" className="ml-auto mt-[11px] cursor-pointer">
-          <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="#F5222D" strokeWidth="1.2" strokeLinecap="round" aria-hidden>
-            <path d="M2.5 4h11M6.5 2h3M4 4l.7 9a1 1 0 0 0 1 .9h4.6a1 1 0 0 0 1-.9L12 4M6.5 7v4M9.5 7v4" />
-          </svg>
-        </button>
+        </span>
       </div>
 
       {/* 下方统一「权重配置」区域：100% 沿用原版左右结构与 Stepper 输入框 */}
@@ -486,7 +427,7 @@ function RouteCard({
           ) : (
             <>
               {/* 1. 常规路由（按权重分发） */}
-              {strategy === '按权重分发' && (
+              {activeStrategy === '按权重分发' && (
                 <>
                   <span className="flex flex-col gap-[10px]">
                     {instances.map((name) => (
@@ -537,12 +478,11 @@ function RouteCard({
                     </svg>
                     权重之和：{weightSum}%（必须等于100%）
                   </span>
-                  <span className="mt-[10px] block text-[15px] text-[#E6A23C]">此为终态策略，不可再添加后续路由策略。</span>
                 </>
               )}
 
               {/* 2. 灰度发布 · 金丝雀发布（同构 Stepper 输入框 + 基线/金丝雀自动互补） */}
-              {strategy === '金丝雀发布' && (
+              {activeStrategy === '金丝雀发布' && (
                 <>
                   <span className="flex flex-col gap-[10px]">
                     {instances.map((name, idx) => {
@@ -638,12 +578,11 @@ function RouteCard({
                       基线与金丝雀权重自动互补（权重之和：100%）
                     </span>
                   )}
-                  <span className="mt-[10px] block text-[15px] text-[#E6A23C]">此为终态策略，不可再添加后续路由策略。</span>
                 </>
               )}
 
               {/* 3. 灰度发布 · 蓝绿发布（同构输入框 + 100% / 0% 切换） */}
-              {strategy === '蓝绿发布' && (
+              {activeStrategy === '蓝绿发布' && (
                 <>
                   <span className="flex flex-col gap-[10px]">
                     {instances.map((name, idx) => {
@@ -725,7 +664,6 @@ function RouteCard({
                       主备实例权重锁定为 100% 与 0%，可一键整切流量
                     </span>
                   )}
-                  <span className="mt-[10px] block text-[15px] text-[#E6A23C]">此为终态策略，不可再添加后续路由策略。</span>
                 </>
               )}
             </>
@@ -776,7 +714,10 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
   const [modelTouched, setModelTouched] = useState<boolean>(isEdit)
   const [cacheOn, setCacheOn] = useState(src ? src.cacheOn : false)
   const [cacheTime] = useState(src?.cacheTime || '60')
-  const [routeCards, setRouteCards] = useState<number[]>(isEdit && src ? [Date.now()] : [])
+  const [routeOn, setRouteOn] = useState<boolean>(isEdit && !!src?.routeMode)
+  const [routeCategory, setRouteCategory] = useState<'routine' | 'grayscale'>(
+    src && (src.routeMode === '金丝雀发布' || src.routeMode === '蓝绿发布') ? 'grayscale' : 'routine',
+  )
   const [rpmOn, setRpmOn] = useState(src ? src.rpmOn : false)
 
   const handleInstancesChange = (next: string[], currentBackend: 'internal' | 'external' = backend) => {
@@ -981,32 +922,44 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
                   </div>
                 )}
 
-                {/* 路由策略 */}
-                <div className="flex items-start">
-                  <FieldLabel text="流量分发策略" />
-                  <NewTag compact code="F-06" />
-                  <span className="ml-[53px] flex-1">
-                    {routeCards.length === 0 ? (
-                      <a
-                        onClick={() => setRouteCards([Date.now()])}
-                        className="text-[14px] text-[#166EFF] cursor-pointer"
-                      >
-                        +添加流量分发策略
-                      </a>
-                    ) : (
-                      <span className="flex flex-col gap-[16px]">
-                        {routeCards.map((id) => (
-                          <RouteCard
-                            key={id}
-                            instances={instances}
-                            initialMode={src ? (src.routeMode as any) : undefined}
-                            initialWeights={src ? Object.fromEntries(src.instances.map((i) => [i.label, String(i.weight ?? 0)])) : undefined}
-                            onDelete={() => setRouteCards((c) => c.filter((k) => k !== id))}
-                          />
-                        ))}
+                {/* 流量分发策略 */}
+                <div className="flex flex-col">
+                  <div className="flex items-center">
+                    <FieldLabel text="流量分发策略" />
+                    <span className="ml-[53px] flex items-center">
+                      <Toggle on={routeOn} onClick={() => setRouteOn((v) => !v)} />
+                      <span className="ml-3 text-[14px] text-[#8c8c8c]">
+                        开启后可对已选后端推理实例配置常规路由（按权重分发）或灰度发布（金丝雀 / 蓝绿）策略
                       </span>
-                    )}
-                  </span>
+                    </span>
+                    <NewTag compact code="F-06" />
+                  </div>
+
+                  {routeOn && (
+                    <div className="ml-[201px] mt-[18px] flex flex-col gap-[16px]">
+                      <div className="flex items-center gap-[46px]">
+                        <Radio
+                          checked={routeCategory === 'routine'}
+                          label="常规路由"
+                          onChange={() => setRouteCategory('routine')}
+                        />
+                        <Radio
+                          checked={routeCategory === 'grayscale'}
+                          label="灰度发布"
+                          onChange={() => setRouteCategory('grayscale')}
+                        />
+                      </div>
+
+                      <RouteCard
+                        category={routeCategory}
+                        instances={instances}
+                        initialMode={src ? (src.routeMode as any) : undefined}
+                        initialWeights={
+                          src ? Object.fromEntries(src.instances.map((i) => [i.label, String(i.weight ?? 0)])) : undefined
+                        }
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
 
