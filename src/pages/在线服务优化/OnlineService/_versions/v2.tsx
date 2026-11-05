@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { DocPanel, DocProvider, FEATURES, NewTag } from '../feature-tags'
 import { PlatformHeader, SideNav } from '../_shared'
@@ -187,36 +187,192 @@ function SelectBox({
   )
 }
 
-function SearchCard() {
+type FilterField = '服务名称' | '调用模型名' | '发布类型'
+const FILTER_FIELDS: FilterField[] = ['服务名称', '调用模型名', '发布类型']
+const MODEL_OPTIONS = [
+  'qwen-max',
+  'qwen-plus',
+  'QwQ-32B',
+  'Qwen2.5-72B-Instruct',
+  'Qwen3-32B',
+  'DeepSeek-R1-Distill-Qwen-32B',
+]
+const PUBLISH_TYPE_OPTIONS: ServiceRow['publishType'][] = ['私有发布', '公开发布']
+
+function DropdownSelect({
+  value,
+  options,
+  placeholder,
+  widthClass,
+  textClass = 'text-[14.5px]',
+  onChange,
+}: {
+  value: string
+  options: string[]
+  placeholder: string
+  widthClass: string
+  textClass?: string
+  onChange: (v: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [open])
+  const selected = options.includes(value)
   return (
-    <div className="h-[75px] shrink-0 rounded-lg border border-[#e5e5e5] bg-white flex items-center pl-[17px] pr-6">
-      <div className="flex items-center">
-        <span className="text-[15.5px] font-semibold text-[#1f2329] inline-flex items-center gap-1.5">
-          服务名称
-          <NewTag code="F-01" compact />
-        </span>
+    <div ref={ref} className={`relative inline-block ${widthClass}`}>
+      <span
+        onClick={() => setOpen((o) => !o)}
+        className={`h-[36px] inline-flex items-center justify-between rounded border border-[#d9d9d9] bg-white px-3 ${textClass} ${
+          selected ? 'text-[#333]' : 'text-[#bfbfbf]'
+        } cursor-pointer`}
+      >
+        {selected ? value : placeholder}
+        <svg width={12} height={12} viewBox="0 0 10 10" fill="none" aria-hidden>
+          <path d="m2 3.5 3 3 3-3" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </span>
+      {open && (
+        <div className="absolute left-0 top-[41px] z-30 w-full rounded-[4px] border border-[#e4e6eb] bg-white shadow-[0_4px_16px_rgba(0,0,0,0.08)]">
+          <div className="block py-[4px]">
+            {options.map((opt) => (
+              <div
+                key={opt}
+                onClick={() => {
+                  onChange(opt)
+                  setOpen(false)
+                }}
+                className={`flex h-[36px] items-center cursor-pointer px-[14px] text-[14px] ${
+                  opt === value ? 'bg-[#f5f7fa] text-[#166EFF]' : 'text-[#333] hover:bg-[#f5f7fa]'
+                }`}
+              >
+                {opt}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FilterSelect({ value, onChange }: { value: FilterField; onChange: (f: FilterField) => void }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [open])
+  return (
+    <div ref={ref} className="relative inline-block shrink-0">
+      <span
+        onClick={() => setOpen((o) => !o)}
+        className="h-[36px] inline-flex items-center justify-between gap-[10px] rounded-l border border-r-0 border-[#d9d9d9] bg-white pl-3 pr-2 text-[14.5px] text-[#333] cursor-pointer"
+      >
+        {value}
+        <svg width={10} height={10} viewBox="0 0 10 10" fill="none" aria-hidden>
+          <path d="m2 3.5 3 3 3-3" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </span>
+      {open && (
+        <div className="absolute left-0 top-[41px] z-30 w-[132px] rounded-[4px] border border-[#e4e6eb] bg-white shadow-[0_4px_16px_rgba(0,0,0,0.08)]">
+          <div className="block py-[4px]">
+            {FILTER_FIELDS.map((f) => (
+              <div
+                key={f}
+                onClick={() => {
+                  onChange(f)
+                  setOpen(false)
+                }}
+                className={`flex h-[36px] items-center cursor-pointer px-[14px] text-[14px] ${
+                  f === value ? 'bg-[#f5f7fa] text-[#166EFF]' : 'text-[#333] hover:bg-[#f5f7fa]'
+                }`}
+              >
+                {f}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ListToolbar({
+  filterField,
+  setFilterField,
+  keyword,
+  setKeyword,
+  modelValue,
+  setModelValue,
+  publishTypeValue,
+  setPublishTypeValue,
+  onQuery,
+  onReset,
+}: {
+  filterField: FilterField
+  setFilterField: (f: FilterField) => void
+  keyword: string
+  setKeyword: (v: string) => void
+  modelValue: string
+  setModelValue: (v: string) => void
+  publishTypeValue: string
+  setPublishTypeValue: (v: string) => void
+  onQuery: () => void
+  onReset: () => void
+}) {
+  return (
+    <div className="flex items-center pl-3 pr-3 flex-1 min-w-0">
+      <FilterSelect value={filterField} onChange={setFilterField} />
+      {filterField === '服务名称' && (
         <input
+          value={keyword}
+          onChange={(e) => setKeyword(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && onQuery()}
           placeholder="请输入服务名称"
-          className="ml-[39px] h-[36px] w-[224px] rounded border border-[#d9d9d9] px-3 text-[14.5px] placeholder:text-[#bfbfbf] outline-none focus:border-[#166EFF]"
+          className="h-[36px] w-[280px] rounded-r border border-l-0 border-[#d9d9d9] px-3 text-[14.5px] text-[#333] placeholder:text-[#bfbfbf] outline-none focus:border-[#166EFF]"
         />
-      </div>
-      <div className="ml-6 flex items-center">
-        <span className="text-[15.5px] font-semibold text-[#1f2329] inline-flex items-center gap-1.5">
-          调用模型名
-          <NewTag code="F-02" compact />
-        </span>
-        <SelectBox text="请选择调用模型名" widthClass="ml-[39px] w-[246px]" textClass="text-[14.5px]" chevron={12} />
-      </div>
-      <div className="ml-6 flex items-center">
-        <span className="text-[15.5px] font-semibold text-[#1f2329]">发布类型</span>
-        <SelectBox text="请选择发布类型" widthClass="ml-[39px] w-[224px]" textClass="text-[14.5px]" chevron={12} />
-      </div>
-      <div className="ml-6 flex items-center gap-[14px]">
-        <button className="h-[36px] w-[68px] rounded bg-[#166EFF] text-[14.5px] text-white cursor-pointer">查询</button>
-        <button className="h-[36px] w-[68px] rounded border border-[#d9d9d9] bg-white text-[14.5px] text-[#333] cursor-pointer">
-          重置
-        </button>
-      </div>
+      )}
+      {filterField === '调用模型名' && (
+        <DropdownSelect
+          value={modelValue}
+          options={MODEL_OPTIONS}
+          placeholder="请选择调用模型名"
+          widthClass="w-[280px]"
+          onChange={setModelValue}
+        />
+      )}
+      {filterField === '发布类型' && (
+        <DropdownSelect
+          value={publishTypeValue}
+          options={PUBLISH_TYPE_OPTIONS}
+          placeholder="请选择发布类型"
+          widthClass="w-[280px]"
+          onChange={setPublishTypeValue}
+        />
+      )}
+      <button
+        onClick={onQuery}
+        className="ml-[14px] h-[36px] w-[68px] rounded bg-[#166EFF] text-[14.5px] text-white cursor-pointer"
+      >
+        查询
+      </button>
+      <button
+        onClick={onReset}
+        className="ml-[14px] h-[36px] w-[68px] rounded border border-[#d9d9d9] bg-white text-[14.5px] text-[#333] cursor-pointer"
+      >
+        重置
+      </button>
     </div>
   )
 }
@@ -449,13 +605,43 @@ function TableCard() {
   const navigate = useNavigate()
   const [view, setView] = useState<'card' | 'list'>('card')
 
+  // 真实过滤状态（布局1：组合筛选器直接置于顶栏）
+  const [filterField, setFilterField] = useState<FilterField>('服务名称')
+  const [keyword, setKeyword] = useState('')
+  const [modelValue, setModelValue] = useState('')
+  const [publishTypeValue, setPublishTypeValue] = useState('')
+
+  const filteredRows = useMemo(() => {
+    const kw = keyword.trim().toLowerCase()
+    const mv = modelValue.trim()
+    const pt = publishTypeValue.trim()
+    if (!kw && !mv && !pt) return SERVICE_ROWS
+    return SERVICE_ROWS.filter((row) => {
+      if (filterField === '服务名称' && kw) return row.name.toLowerCase().includes(kw)
+      if (filterField === '调用模型名' && mv) return row.model === mv
+      if (filterField === '发布类型' && pt) return row.publishType === pt
+      return true
+    })
+  }, [filterField, keyword, modelValue, publishTypeValue])
+
+  const handleQuery = () => {
+    // 查询动作：过滤已通过 filteredRows 实时生效，这里保持受控
+  }
+  const handleReset = () => {
+    setKeyword('')
+    setModelValue('')
+    setPublishTypeValue('')
+  }
+
+  const rows = filteredRows
+
   return (
     <div className="flex-1 min-h-0 rounded-lg border border-[#e8e8e8] bg-white flex flex-col">
-      {/* Toolbar: create + view toggle + refresh */}
-      <div className="h-[70px] shrink-0 flex items-center pl-[18px] pr-[24px]">
+      {/* Toolbar: 创建 + 组合筛选器(布局1：左创建/中筛选/右视图切换) + 卡片列表切换 */}
+      <div className="h-[70px] shrink-0 flex items-center gap-[18px] pl-[18px] pr-[24px] border-b border-[#f0f0f0]">
         <button
           onClick={() => navigate('/在线服务优化/onlineservicecreate?v=v2')}
-          className="h-[35px] pl-[18px] pr-[20px] flex items-center gap-[6px] rounded bg-[#166EFF] text-[15px] text-white cursor-pointer"
+          className="h-[35px] shrink-0 pl-[18px] pr-[20px] flex items-center gap-[6px] rounded bg-[#166EFF] text-[15px] text-white cursor-pointer"
         >
           <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden>
             <circle cx="11" cy="11" r="8" />
@@ -464,7 +650,20 @@ function TableCard() {
           创建在线服务
         </button>
 
-        <div className="ml-auto flex items-center gap-2">
+        <ListToolbar
+          filterField={filterField}
+          setFilterField={setFilterField}
+          keyword={keyword}
+          setKeyword={setKeyword}
+          modelValue={modelValue}
+          setModelValue={setModelValue}
+          publishTypeValue={publishTypeValue}
+          setPublishTypeValue={setPublishTypeValue}
+          onQuery={handleQuery}
+          onReset={handleReset}
+        />
+
+        <div className="ml-auto shrink-0 flex items-center gap-2">
           <div className="flex items-center rounded border border-[#d9d9d9] overflow-hidden">
             <button
               onClick={() => setView('card')}
@@ -492,22 +691,13 @@ function TableCard() {
               列表
             </button>
           </div>
-          <button
-            className="w-[51px] h-[34px] flex items-center justify-center rounded border border-[#d9d9d9] bg-white cursor-pointer"
-            aria-label="刷新"
-          >
-            <svg width="18" height="18" viewBox="0 0 21 21" fill="none" stroke="#666" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M16.5 10.5a6 6 0 1 1-1.8-4.3" />
-              <path d="M16.5 3.5v3.3h-3.3" />
-            </svg>
-          </button>
         </div>
       </div>
 
       {view === 'card' ? (
         <div className="flex-1 min-h-0 overflow-auto px-4 pb-4">
           <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-4">
-            {SERVICE_ROWS.map((row) => (
+            {rows.map((row) => (
               <ServiceCard key={row.name} row={row} />
             ))}
           </div>
@@ -531,7 +721,7 @@ function TableCard() {
                 </div>
               </div>
 
-              {SERVICE_ROWS.map((row) => (
+              {rows.map((row) => (
                 <div key={row.name} className="shrink-0 border-b border-[#f6f6f6] flex items-center py-[8px] pl-[31px] pr-[18px]">
                   <div className={`w-full ${GRID_COLS} items-center text-[15px]`}>
                     <div>
@@ -614,7 +804,7 @@ function TableCard() {
 
           {/* Pagination */}
           <div className="shrink-0 border-t border-[#f6f6f6] h-[78px] flex items-start pt-[12px] justify-end pl-[18px] pr-[28px]">
-            <span className="h-[36px] flex items-center text-[14.5px] text-[#656565] mr-5">共 {SERVICE_ROWS.length} 条</span>
+            <span className="h-[36px] flex items-center text-[14.5px] text-[#656565] mr-5">共 {rows.length} 条</span>
             <SelectBox text="10条/页" widthClass="w-[143px]" textClass="text-[14.5px]" />
             <div className="ml-[19px] flex items-center gap-[10px]">
               <button className="w-[35px] h-[35px] flex items-center justify-center rounded bg-[#EEEEEE] cursor-pointer" aria-label="上一页">
@@ -658,10 +848,7 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
                 管理对外提供访问的 API 接口，配置流量分发策略、安全限流及端点状态。
               </p>
             </div>
-            <div className="mt-[22px]">
-              <SearchCard />
-            </div>
-            <div className="mt-[23px] flex-1 min-h-0 flex flex-col">
+            <div className="flex-1 min-h-0 flex flex-col">
               <TableCard />
             </div>
           </main>
