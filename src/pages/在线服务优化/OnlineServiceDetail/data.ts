@@ -7,9 +7,11 @@ export type Instance = {
 export type ServiceDetail = {
   name: string
   model: string
+  associatedModel?: string
   published: boolean
   createdAt: string
   publishType: string
+  routeOn?: boolean
   routeMode: string
   instances: Instance[]
   cacheOn: boolean
@@ -24,7 +26,7 @@ export type ServiceDetail = {
 }
 
 /* 在线服务 mock 数据（列表 / 详情 / 编辑 三页共享）
-   覆盖列表页全部 6 条策略，保证任意一行点「编辑」都有数据回填 */
+   覆盖列表页全部 6 条策略，保证任意一行点「编辑」或「详情」数据完全一致 */
 export const DETAILS: Record<string, ServiceDetail> = {
   测试外部2: {
     name: '测试外部2',
@@ -32,6 +34,7 @@ export const DETAILS: Record<string, ServiceDetail> = {
     published: true,
     createdAt: '2026-11-02 14:22:02',
     publishType: '私有发布',
+    routeOn: false,
     routeMode: '按权重分发',
     instances: [{ label: '阿里不完整路径', running: true, weight: 100 }],
     cacheOn: false,
@@ -39,8 +42,8 @@ export const DETAILS: Record<string, ServiceDetail> = {
     fallbackOn: false,
     fallbackType: '内部推理服务',
     fallbackModels: [],
-    rpmOn: false,
-    rpm: '',
+    rpmOn: true,
+    rpm: '5000',
     backendType: '外部推理服务',
     timeout: '180秒',
   },
@@ -50,6 +53,7 @@ export const DETAILS: Record<string, ServiceDetail> = {
     published: true,
     createdAt: '2026-11-01 10:18:42',
     publishType: '私有发布',
+    routeOn: true,
     routeMode: '金丝雀发布',
     instances: [
       { label: '百炼基线服务', running: true, weight: 90, role: '基线' },
@@ -71,6 +75,7 @@ export const DETAILS: Record<string, ServiceDetail> = {
     published: false,
     createdAt: '2026-10-30 16:42:11',
     publishType: '私有发布',
+    routeOn: true,
     routeMode: '蓝绿发布',
     instances: [
       { label: 'kt服务-蓝组', running: true, weight: 100, role: '主' },
@@ -92,6 +97,7 @@ export const DETAILS: Record<string, ServiceDetail> = {
     published: false,
     createdAt: '2026-11-02 13:35:24',
     publishType: '私有发布',
+    routeOn: true,
     routeMode: '按权重分发',
     instances: [
       { label: 'demo-18080', running: true, weight: 20 },
@@ -102,9 +108,9 @@ export const DETAILS: Record<string, ServiceDetail> = {
     cacheTime: '100秒',
     fallbackOn: true,
     fallbackType: '内部推理服务',
-    fallbackModels: ['DeepSeek-R1-Distill-Qwen-32B'],
-    rpmOn: false,
-    rpm: '',
+    fallbackModels: ['vllm验证'],
+    rpmOn: true,
+    rpm: '2000',
     backendType: '外部推理服务',
     timeout: '180秒',
   },
@@ -114,8 +120,9 @@ export const DETAILS: Record<string, ServiceDetail> = {
     published: false,
     createdAt: '2026-10-29 09:27:03',
     publishType: '私有发布',
+    routeOn: false,
     routeMode: '按权重分发',
-    instances: [{ label: 'test', running: true, weight: 100 }],
+    instances: [{ label: 'test', running: false, weight: 100 }],
     cacheOn: true,
     cacheTime: '60秒',
     fallbackOn: false,
@@ -132,15 +139,16 @@ export const DETAILS: Record<string, ServiceDetail> = {
     published: false,
     createdAt: '2026-10-28 11:05:37',
     publishType: '私有发布',
+    routeOn: false,
     routeMode: '按权重分发',
     instances: [{ label: 'test', running: true, weight: 100 }],
-    cacheOn: false,
-    cacheTime: '60秒',
+    cacheOn: true,
+    cacheTime: '300秒',
     fallbackOn: false,
     fallbackType: '内部推理服务',
     fallbackModels: [],
-    rpmOn: false,
-    rpm: '',
+    rpmOn: true,
+    rpm: '1000',
     backendType: '内部推理服务',
     timeout: '180秒',
   },

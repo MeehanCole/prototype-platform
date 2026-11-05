@@ -31,27 +31,29 @@ function EmptyIllustration() {
   )
 }
 
-const CURL_DOC = [
-  'curl -X POST "http://kgateway.10.4.13.17.nip.io/uat/compatible-mode/v1/chat/completions" -k \\',
-  '-H "Content-Type: application/json" \\',
-  '-H "Authorization: Bearer $API_KEY" \\',
-  "-d '{",
-  '        "model": "qwen2.5-72b-instruct",',
-  '        "messages": [',
-  '            {',
-  '                "role": "system",',
-  '                "content": "你是一个AI智能聊天机器人"',
-  '            },',
-  '            {',
-  '            "role": "user",',
-  '            "content": "你好"',
-  '            }',
-  '        ],',
-  '        "temperature": 0.7,',
-  '        "top_p": 0.7,',
-  '        "max_tokens": 50',
-  "    }'",
-]
+function buildCurlDoc(modelName: string) {
+  return [
+    'curl -X POST "http://kgateway.10.4.13.17.nip.io/uat/compatible-mode/v1/chat/completions" -k \\',
+    '-H "Content-Type: application/json" \\',
+    '-H "Authorization: Bearer $API_KEY" \\',
+    "-d '{",
+    `        "model": "${modelName}",`,
+    '        "messages": [',
+    '            {',
+    '                "role": "system",',
+    '                "content": "你是一个AI智能聊天机器人"',
+    '            },',
+    '            {',
+    '            "role": "user",',
+    '            "content": "你好"',
+    '            }',
+    '        ],',
+    '        "temperature": 0.7,',
+    '        "top_p": 0.7,',
+    '        "max_tokens": 50',
+    "    }'",
+  ]
+}
 
 export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
   const [docCode, setDocCode] = useState<string | null>(null)
@@ -63,18 +65,11 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
   const [tab, setTab] = useState<'config' | 'usage' | 'api'>(initTab)
   const [docLang, setDocLang] = useState('curl')
   const [docEnv, setDocEnv] = useState('Linux/MacOS')
-  const [instances, setInstances] = useState(d.instances)
+  const [instances] = useState(d.instances)
+  const routeOn = d.routeOn ?? true
   const routeMode = d.routeMode || '按权重分发'
-
-  const handleSwitchBlueGreen = () => {
-    setInstances((prev) => {
-      if (prev.length < 2) return prev
-      const [a, b] = prev
-      const newA = { ...a, role: (a.role === '主' ? '备' : '主') as '主' | '备', weight: a.role === '主' ? 0 : 100 }
-      const newB = { ...b, role: (b.role === '主' ? '备' : '主') as '主' | '备', weight: b.role === '主' ? 0 : 100 }
-      return [newA, newB]
-    })
-  }
+  const isGrayscale = routeOn && (routeMode === '金丝雀发布' || routeMode === '蓝绿发布')
+  const curlLines = buildCurlDoc(d.model)
 
   const row = 'flex items-start'
   const label = 'w-[180px] shrink-0 text-[15px] text-[#333] pt-[2px] flex items-center'
@@ -85,6 +80,13 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
       : d.backendType === '外部推理服务'
         ? '外部推理实例'
         : d.backendType
+
+  const fallbackTypeV2 =
+    d.fallbackType === '内部推理服务'
+      ? '内部推理实例'
+      : d.fallbackType === '外部推理服务'
+        ? '外部推理实例'
+        : d.fallbackType
 
   return (
     <DocProvider showFeat={__showFeat} features={FEATURES} onOpenDoc={setDocCode}>
@@ -104,46 +106,99 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
                   <path d="M19 12H5M11 18l-6-6 6-6" />
                 </svg>
               </button>
-              <span className="ml-[16px] text-[16px] text-[#1f2329]">{d.name}</span>
+              <span className="ml-[16px] text-[16px] text-[#1f2329]">在线服务详情</span>
             </div>
 
             <div className="px-[24px] py-[20px]">
-              {/* 状态摘要卡 */}
+              {/* 顶部概览 + 基础信息卡 */}
               <div className="rounded-[4px] border border-[#e8e8e8] px-[24px] py-[20px]">
-                <div className="flex items-center">
-                  <span className="text-[15px] text-[#333]">状态：</span>
-                  <span
-                    className={`ml-2 inline-flex h-[26px] items-center rounded px-[10px] text-[14px] text-white ${
-                      d.published ? 'bg-[#67C23A]' : 'bg-[#909399]'
-                    }`}
-                  >
-                    {d.published ? '已发布' : '未发布'}
-                  </span>
-                  <span className="ml-auto text-[15px] text-[#333]">
-                    创建时间：<span className="ml-2">{d.createdAt}</span>
-                  </span>
+                {/* 第一行：服务名称 + 状态 */}
+                <div className="flex items-center justify-between pb-[20px] border-b border-[#f0f0f0]">
+                  <div className="flex items-center gap-[12px]">
+                    <span className="text-[18px] font-semibold text-[#1f2329]">{d.name}</span>
+                    <span
+                      className={`inline-flex h-[26px] items-center rounded px-[10px] text-[13px] text-white ${
+                        d.published ? 'bg-[#67C23A]' : 'bg-[#909399]'
+                      }`}
+                    >
+                      {d.published ? '已发布' : '未发布'}
+                    </span>
+                    <NewTag code="F-01" />
+                  </div>
                 </div>
-                <div className="mt-[20px] flex items-center gap-[16px]">
+
+                {/* 第二行：基础属性 3 列网格（对齐创建页基本信息字段） */}
+                <div className="pt-[20px] grid grid-cols-3 gap-x-[40px] gap-y-[18px]">
+                  <div className="flex items-center gap-2">
+                    <span className="w-[112px] shrink-0 text-[14px] text-[#8c8c8c]">调用模型名</span>
+                    <span className="text-[14px] text-[#1f2329]">{d.model}</span>
+                    <NewTag code="F-02" />
+                  </div>
+                  <div className="flex items-center">
+                    <span className="w-[112px] shrink-0 text-[14px] text-[#8c8c8c]">发布类型</span>
+                    <span
+                      className={`inline-flex h-[24px] items-center rounded px-[8px] text-[12px] ${
+                        d.publishType === '公开发布'
+                          ? 'bg-[#EEF5FF] text-[#166EFF] border border-[#D4E4FF]'
+                          : 'bg-[#F0F9EB] text-[#67C23A] border border-[#E1F3D8]'
+                      }`}
+                    >
+                      {d.publishType}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-[112px] shrink-0 text-[14px] text-[#8c8c8c]">后端推理类型</span>
+                    <span className="inline-flex h-[24px] items-center rounded bg-[#F5F7FA] border border-[#E4E7ED] px-[8px] text-[12px] text-[#606266]">
+                      {backendTypeV2}
+                    </span>
+                    <NewTag code="F-03" />
+                  </div>
+                  <div className="flex items-start">
+                    <span className="w-[112px] shrink-0 text-[14px] text-[#8c8c8c] leading-[24px]">后端推理实例</span>
+                    <div className="flex flex-wrap items-center gap-x-[12px] gap-y-[6px]">
+                      {d.instances.map((ins, i) => (
+                        <div key={i} className="inline-flex items-center gap-[6px]">
+                          <span className={`inline-block h-[10px] w-[10px] rounded-full ${ins.running ? 'bg-[#67C23A]' : 'bg-[#F56C6C]'}`} />
+                          <span className="text-[14px] text-[#1f2329]">{ins.label}</span>
+                        </div>
+                      ))}
+                      <NewTag code="F-04" />
+                    </div>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="w-[112px] shrink-0 text-[14px] text-[#8c8c8c]">创建时间</span>
+                    <span className="text-[14px] text-[#1f2329]">{d.createdAt}</span>
+                  </div>
+                  {d.publishType === '公开发布' && backendTypeV2 === '内部推理实例' && (
+                    <div className="flex items-center">
+                      <span className="w-[112px] shrink-0 text-[14px] text-[#8c8c8c]">关联模型</span>
+                      <span className="text-[14px] text-[#1f2329]">{d.associatedModel || d.model}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* 操作按钮：左下角 */}
+                <div className="mt-[24px] flex items-center gap-[12px]">
                   {d.published ? (
-                    <button className="h-[38px] px-[22px] rounded border border-[#d9d9d9] bg-white text-[15px] text-[#333] cursor-pointer">
+                    <button className="h-[36px] px-[20px] rounded border border-[#d9d9d9] bg-white text-[14px] text-[#333] hover:border-[#166EFF] hover:text-[#166EFF] cursor-pointer">
                       停止发布
                     </button>
                   ) : (
-                    <button className="h-[38px] px-[22px] rounded border border-[#d9d9d9] bg-white text-[15px] text-[#333] cursor-pointer">
+                    <button className="h-[36px] px-[20px] rounded border border-[#d9d9d9] bg-white text-[14px] text-[#333] hover:border-[#166EFF] hover:text-[#166EFF] cursor-pointer">
                       发布
                     </button>
                   )}
                   <button
                     onClick={() => navigate(`/在线服务优化/onlineservicecreate?name=${encodeURIComponent(d.name)}&v=v2`)}
-                    className="h-[38px] px-[22px] rounded border border-[#d9d9d9] bg-white text-[15px] text-[#333] cursor-pointer"
+                    className="h-[36px] px-[20px] rounded border border-[#d9d9d9] bg-white text-[14px] text-[#333] hover:border-[#166EFF] hover:text-[#166EFF] cursor-pointer"
                   >
                     编辑
                   </button>
-                  <button className="h-[38px] px-[22px] rounded border border-[#d9d9d9] bg-white text-[15px] text-[#333] cursor-pointer">
+                  <button className="h-[36px] px-[20px] rounded border border-[#d9d9d9] bg-white text-[14px] text-[#333] hover:border-[#F5222D] hover:text-[#F5222D] cursor-pointer">
                     删除
                   </button>
                   <button
-                    className="h-[38px] w-[52px] rounded border border-[#d9d9d9] bg-white flex items-center justify-center cursor-pointer"
+                    className="h-[36px] w-[44px] rounded border border-[#d9d9d9] bg-white flex items-center justify-center hover:border-[#166EFF] cursor-pointer"
                     aria-label="刷新"
                   >
                     <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#666" strokeWidth="1.5" strokeLinecap="round" aria-hidden>
@@ -153,6 +208,7 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
                   </button>
                 </div>
               </div>
+
 
               {/* Tab bar */}
               <div className="mt-[20px] rounded-[4px] bg-[#F5F7FB] flex items-stretch">
@@ -175,170 +231,9 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
                 ))}
               </div>
 
-              {/* 服务配置 */}
+              {/* 服务配置（纯策略配置，基础信息已上移到顶部概览框，严格对齐创建/编辑页字段名与联动规则） */}
               {tab === 'config' && (
                 <div className="rounded-b-[4px] border border-t-0 border-[#e8e8e8] px-[50px] py-[30px]">
-                  {/* 基本信息 */}
-                  <div className="text-[16px] font-semibold text-[#1f2329]">基本信息</div>
-                  <div className="mt-[24px] flex flex-col gap-[24px]">
-                    <div className={row}>
-                      <span className={label}>
-                        服务名称
-                        <NewTag code="F-01" />
-                      </span>
-                      <span className="text-[15px] text-[#333]">{d.name}</span>
-                    </div>
-                    <div className={row}>
-                      <span className={label}>
-                        调用模型名
-                        <NewTag code="F-02" />
-                      </span>
-                      <span className="text-[15px] text-[#333]">{d.model}</span>
-                    </div>
-                    <div className={row}>
-                      <span className={label}>发布类型</span>
-                      <span className="inline-flex h-[26px] items-center rounded bg-[#F0F9EB] px-[9px] text-[14px] text-[#67C23A]">
-                        {d.publishType}
-                      </span>
-                    </div>
-                    <div className={row}>
-                      <span className={label}>
-                        后端推理类型
-                        <NewTag code="F-03" />
-                      </span>
-                      <span className="inline-flex h-[26px] items-center rounded bg-[#EAF3FF] px-[9px] text-[14px] text-[#166EFF]">
-                        {backendTypeV2}
-                      </span>
-                    </div>
-                    <div className={row}>
-                      <span className={label}>
-                        后端推理实例
-                        <NewTag code="F-04" />
-                      </span>
-                      <div className="flex flex-wrap items-center gap-[12px]">
-                        {d.instances.map((ins) => (
-                          <span key={ins.label} className="inline-flex items-center gap-[6px] text-[15px] text-[#333]">
-                            <span>{ins.label}</span>
-                            <span className="inline-flex h-[22px] items-center rounded bg-[#67C23A] px-[8px] text-[12px] text-white">
-                              正常
-                            </span>
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="my-[30px] h-px bg-[#f0f0f0]" />
-
-                  {/* 路由策略 */}
-                  <div className="flex items-center gap-[12px]">
-                    <span className="text-[16px] font-semibold text-[#1f2329]">路由策略</span>
-                    <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded text-[12px] font-medium border ${
-                        routeMode === '金丝雀发布'
-                          ? 'bg-purple-50 text-purple-700 border-purple-200'
-                          : routeMode === '蓝绿发布'
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            : 'bg-blue-50 text-blue-700 border-blue-200'
-                      }`}
-                    >
-                      {routeMode}
-                    </span>
-                    <NewTag code="F-05" />
-                  </div>
-
-                  <div className="mt-[20px] mb-[30px] flex flex-col gap-[20px]">
-                    <div className={row}>
-                      <span className={label}>策略说明</span>
-                      <div className="flex items-center gap-3">
-                        <span className="text-[15px] font-medium text-[#1f2329]">{routeMode}</span>
-                        {routeMode === '金丝雀发布' && (
-                          <span className="text-[13px] text-[#8c8c8c]">（基线承载主要流量，金丝雀逐步验证新模型）</span>
-                        )}
-                        {routeMode === '蓝绿发布' && (
-                          <span className="text-[13px] text-[#8c8c8c]">（主版本 100% 承载线上流量，备版本随时热备与一键无损切换）</span>
-                        )}
-                        {routeMode === '按权重分发' && (
-                          <span className="text-[13px] text-[#8c8c8c]">（多实例按设定百分比负载均衡分发流量）</span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className={row}>
-                      <span className={label}>实例流量分配</span>
-                      <div className="flex-1">
-                        <div className="flex flex-wrap gap-[20px]">
-                          {instances.map((ins) => (
-                            <div key={ins.label} className="w-[320px] rounded-[6px] border border-[#e7e7e7] bg-[#fafbfc] p-[16px] shadow-sm">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-[8px] min-w-0">
-                                  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#166EFF" strokeWidth="1.5" aria-hidden className="shrink-0">
-                                    <path d="m10 3 7 3.5L10 10 3 6.5Z" />
-                                    <path d="m3 10.5 7 3.5 7-3.5" />
-                                    <path d="m3 14 7 3.5 7-3.5" />
-                                  </svg>
-                                  <span className="text-[14px] font-medium text-[#1f2329] truncate" title={ins.label}>
-                                    {ins.label}
-                                  </span>
-                                </div>
-                                {ins.role && (
-                                  <span
-                                    className={`inline-flex px-2 py-0.5 rounded text-[11px] font-medium shrink-0 ${
-                                      ins.role === '金丝雀'
-                                        ? 'bg-purple-100 text-purple-700'
-                                        : ins.role === '基线'
-                                          ? 'bg-blue-100 text-blue-700'
-                                          : ins.role === '主'
-                                            ? 'bg-emerald-100 text-emerald-700'
-                                            : 'bg-zinc-100 text-zinc-600'
-                                    }`}
-                                  >
-                                    {ins.role}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="mt-3 flex items-center justify-between text-[13px] text-[#666]">
-                                <span>
-                                  流量权重：<strong className="text-[15px] text-[#1f2329]">{ins.weight ?? 0}%</strong>
-                                </span>
-                                <span className={`inline-flex items-center gap-1 text-[12px] ${(ins.weight ?? 0) > 0 ? 'text-emerald-600' : 'text-[#8c8c8c]'}`}>
-                                  <span className={`w-2 h-2 rounded-full ${(ins.weight ?? 0) > 0 ? 'bg-emerald-500' : 'bg-gray-300'}`} />
-                                  {(ins.weight ?? 0) > 0 ? '服务中' : '热备中'}
-                                </span>
-                              </div>
-                              <div className="mt-2 h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
-                                <div
-                                  className={`h-full transition-all duration-300 ${
-                                    ins.role === '金丝雀' ? 'bg-purple-500' : ins.role === '主' ? 'bg-emerald-500' : 'bg-[#166EFF]'
-                                  }`}
-                                  style={{ width: `${ins.weight ?? 0}%` }}
-                                />
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-
-                        {routeMode === '蓝绿发布' && (
-                          <div className="mt-4 flex items-center gap-3">
-                            <button
-                              type="button"
-                              onClick={handleSwitchBlueGreen}
-                              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-[4px] bg-[#166EFF] text-white text-[13px] font-medium hover:bg-[#1258cc] transition-colors cursor-pointer shadow-sm"
-                            >
-                              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M1 4h14M12 1l3 3-3 3M15 12H1M4 9l-3 3 3 3" />
-                              </svg>
-                              一键主备切换
-                            </button>
-                            <span className="text-[12px] text-[#8c8c8c]">点击后将毫秒级倒换主备版本流量（100% ↔ 0%）</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="my-[30px] h-px bg-[#f0f0f0]" />
-
                   {/* 缓存加速 */}
                   <div className="text-[16px] font-semibold text-[#1f2329]">缓存加速</div>
                   <div className="mt-[24px] flex flex-col gap-[24px]">
@@ -356,8 +251,127 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
 
                   <div className="my-[30px] h-px bg-[#f0f0f0]" />
 
-                  {/* 模型Fallback（仅常规路由展示，灰度发布无模型Fallback） */}
-                  {routeMode !== '金丝雀发布' && routeMode !== '蓝绿发布' && (
+                  {/* 流量分发策略 */}
+                  <div className="flex items-center gap-[12px]">
+                    <span className="text-[16px] font-semibold text-[#1f2329]">流量分发策略</span>
+                    <NewTag code="F-05" />
+                  </div>
+
+                  <div className="mt-[24px] flex flex-col gap-[24px]">
+                    <div className={row}>
+                      <span className={label}>是否开启</span>
+                      <span className="text-[15px] text-[#333]">{routeOn ? '是' : '否'}</span>
+                    </div>
+
+                    {routeOn && (
+                      <>
+                        <div className={row}>
+                          <span className={label}>策略类型</span>
+                          <span className="text-[15px] text-[#333]">
+                            {isGrayscale ? '灰度发布策略' : '常规路由策略'}
+                          </span>
+                        </div>
+
+                        <div className={row}>
+                          <span className={label}>分发方式</span>
+                          <span className="text-[15px] text-[#333]">{routeMode}</span>
+                        </div>
+
+                        <div className={row}>
+                          <span className={label}>权重配置</span>
+                          <div className="flex-1">
+                            {routeMode === '蓝绿发布' ? (
+                              <div className="flex flex-col gap-[10px]">
+                                {instances.map((ins, idx) => {
+                                  const isActive = (ins.weight ?? (idx === 0 ? 100 : 0)) > 0
+                                  return (
+                                    <div
+                                      key={ins.label}
+                                      className={`flex h-[40px] w-[420px] items-center rounded-[4px] border px-3 ${
+                                        isActive
+                                          ? 'border-[#166EFF] bg-[#f0f6ff]'
+                                          : 'border-[#e4e6eb] bg-white'
+                                      }`}
+                                    >
+                                      <svg
+                                        width="16"
+                                        height="16"
+                                        viewBox="0 0 20 20"
+                                        fill="none"
+                                        stroke={isActive ? '#166EFF' : '#666'}
+                                        strokeWidth="1.5"
+                                        aria-hidden
+                                        className="shrink-0"
+                                      >
+                                        <path d="m10 3 7 3.5L10 10 3 6.5Z" />
+                                        <path d="m3 10.5 7 3.5 7-3.5" />
+                                        <path d="m3 14 7 3.5 7-3.5" />
+                                      </svg>
+                                      <span
+                                        className={`ml-2 flex-1 text-left text-[15px] truncate pr-2 ${
+                                          isActive ? 'text-[#166EFF] font-medium' : 'text-[#333]'
+                                        }`}
+                                        title={ins.label}
+                                      >
+                                        {ins.label}
+                                      </span>
+                                      <span
+                                        className={`shrink-0 rounded-[10px] px-2 py-[1px] text-[12px] leading-[18px] ${
+                                          isActive
+                                            ? 'bg-[#e6f4ea] text-[#16a34a]'
+                                            : 'bg-[#f2f3f5] text-[#8c8c8c]'
+                                        }`}
+                                      >
+                                        {isActive ? '当前生效 (100%)' : '待命 (0%)'}
+                                      </span>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            ) : (
+                              <div className="flex flex-wrap gap-[20px]">
+                                {instances.map((ins) => (
+                                  <div
+                                    key={ins.label}
+                                    className="w-[320px] rounded-[4px] border border-[#e7e7e7] px-[24px] py-[18px]"
+                                  >
+                                    <div className="flex items-center gap-[10px] min-w-0">
+                                      <svg
+                                        width="18"
+                                        height="18"
+                                        viewBox="0 0 20 20"
+                                        fill="none"
+                                        stroke="#1f2329"
+                                        strokeWidth="1.4"
+                                        aria-hidden
+                                        className="shrink-0"
+                                      >
+                                        <path d="m10 3 7 3.5L10 10 3 6.5Z" />
+                                        <path d="m3 10.5 7 3.5 7-3.5" />
+                                        <path d="m3 14 7 3.5 7-3.5" />
+                                      </svg>
+                                      <span className="text-[15px] text-[#333] truncate" title={ins.label}>
+                                        {ins.label}
+                                      </span>
+                                    </div>
+                                    <div className="mt-[12px] text-[15px] text-[#333]">
+                                      权重：<span className="ml-2">{ins.weight ?? 0}</span> %
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  <div className="my-[30px] h-px bg-[#f0f0f0]" />
+
+                  {/* 高可用与安全 */}
+                  {/* 模型Fallback（仅常规路由或未开启灰度时展示，灰度发布无模型Fallback） */}
+                  {!isGrayscale && (
                     <>
                       <div className="text-[16px] font-semibold text-[#1f2329]">模型Fallback</div>
                       <div className="mt-[24px] flex flex-col gap-[24px]">
@@ -366,28 +380,15 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
                           <span className="text-[15px] text-[#333]">{d.fallbackOn ? '是' : '否'}</span>
                         </div>
                         {d.fallbackOn && (
-                          <>
-                            <div className={row}>
-                              <span className={label}>备选模型类型</span>
+                          <div className={row}>
+                            <span className={label}>兜底推理实例</span>
+                            <span className="flex items-center gap-[10px]">
                               <span className="inline-flex h-[26px] items-center rounded bg-[#EAF3FF] px-[9px] text-[14px] text-[#166EFF]">
-                                {d.fallbackType === '内部推理服务'
-                                  ? '内部推理实例'
-                                  : d.fallbackType === '外部推理服务'
-                                    ? '外部推理实例'
-                                    : d.fallbackType}
+                                {fallbackTypeV2}
                               </span>
-                            </div>
-                            <div className={row}>
-                              <span className={label}>备选推理实例</span>
-                              <div className="flex flex-wrap items-center gap-[10px]">
-                                {d.fallbackModels.map((m) => (
-                                  <span key={m} className="inline-flex h-[26px] items-center rounded bg-[#F5F7FA] px-[10px] text-[14px] text-[#333]">
-                                    {m}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          </>
+                              <span className="text-[15px] text-[#333]">{d.fallbackModels.join('、')}</span>
+                            </span>
+                          </div>
                         )}
                       </div>
 
@@ -397,20 +398,28 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
 
                   {/* 全局限流 */}
                   <div className="text-[16px] font-semibold text-[#1f2329]">全局限流</div>
-                  <div className="mt-[24px]">
+                  <div className="mt-[24px] flex flex-col gap-[24px]">
                     <div className={row}>
                       <span className={label}>是否开启</span>
                       <span className="text-[15px] text-[#333]">{d.rpmOn ? '是' : '否'}</span>
                     </div>
+                    {d.rpmOn && d.rpm && (
+                      <div className={row}>
+                        <span className={label}>请求频次上限</span>
+                        <span className="text-[15px] text-[#333]">
+                          {d.rpm.includes('RPM') || d.rpm.includes('次') ? d.rpm : `${d.rpm} 次 / 分钟`}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="my-[30px] h-px bg-[#f0f0f0]" />
 
-                  {/* 请求超时 */}
-                  <div className="text-[16px] font-semibold text-[#1f2329]">请求超时</div>
+                  {/* 请求超时时间 */}
+                  <div className="text-[16px] font-semibold text-[#1f2329]">请求超时时间</div>
                   <div className="mt-[24px] pb-[10px]">
                     <div className={row}>
-                      <span className={label}>超时时间</span>
+                      <span className={label}>请求超时时间</span>
                       <span className="text-[15px] text-[#333]">{d.timeout}</span>
                     </div>
                   </div>
@@ -510,7 +519,7 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
                     ))}
                   </div>
                   <div className="mt-[16px] rounded-[4px] bg-[#F6F6F6] px-[24px] py-[18px]">
-                    {CURL_DOC.map((line, i) => (
+                    {curlLines.map((line, i) => (
                       <div key={i} className="h-[25px] text-[14px] leading-[25px] text-[#333] whitespace-pre">
                         {line}
                       </div>

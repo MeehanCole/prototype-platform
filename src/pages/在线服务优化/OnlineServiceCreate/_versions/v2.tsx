@@ -55,12 +55,22 @@ function Radio({
     >
       <span
         className={`inline-flex items-center justify-center w-[15px] h-[15px] rounded-full border ${
-          checked ? 'border-[#166EFF] bg-[#166EFF]' : 'border-[#d9d9d9] bg-white'
+          checked
+            ? 'border-[#166EFF] bg-[#166EFF]'
+            : disabled
+              ? 'border-[#e0e0e0] bg-[#fafafa]'
+              : 'border-[#d9d9d9] bg-white'
         }`}
       >
         {checked && <span className="w-[5px] h-[5px] rounded-full bg-white block" />}
       </span>
-      <span className={`ml-2 text-[15px] ${checked ? 'text-[#166EFF]' : 'text-[#333]'}`}>{label}</span>
+      <span
+        className={`ml-2 text-[15px] ${
+          checked ? 'text-[#166EFF]' : disabled ? 'text-[#bfbfbf]' : 'text-[#333]'
+        }`}
+      >
+        {label}
+      </span>
       {showHint && (
         <span className="relative ml-1.5 group inline-flex">
           <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
@@ -813,7 +823,7 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
   const [modelTouched, setModelTouched] = useState<boolean>(isEdit)
   const [cacheOn, setCacheOn] = useState(src ? src.cacheOn : false)
   const [cacheTime] = useState(src?.cacheTime || '60')
-  const [routeOn, setRouteOn] = useState<boolean>(isEdit && !!src?.routeMode)
+  const [routeOn, setRouteOn] = useState<boolean>(isEdit && (src?.routeOn ?? !!src?.routeMode))
   const [routeCategory, setRouteCategory] = useState<'routine' | 'grayscale'>(
     src && (src.routeMode === '金丝雀发布' || src.routeMode === '蓝绿发布') ? 'grayscale' : 'routine',
   )
@@ -821,9 +831,11 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
   const [fallbackType, setFallbackType] = useState<string>(src?.fallbackType || '内部推理实例')
   const [fallbackModels, setFallbackModels] = useState<string[]>(src ? src.fallbackModels : [])
   const [rpmOn, setRpmOn] = useState(src ? src.rpmOn : false)
+  // 是否处于「灰度发布」路由：流量分发已开启 且 当前选中灰度发布策略
+  // 该标志同时控制两件事：① 底部「模型Fallback」在灰度发布下隐藏  ② 切换至灰度发布时强制关闭已开启的 Fallback
   const isGrayscaleRoute = routeOn && routeCategory === 'grayscale'
 
-  // 灰度发布策略下不支持模型Fallback，切换至灰度发布时自动关闭
+  // 灰度发布策略下不支持模型Fallback：一旦切到灰度发布，自动关闭已开启的 Fallback 开关
   useEffect(() => {
     if (isGrayscaleRoute && fallbackOn) {
       setFallbackOn(false)
@@ -834,6 +846,15 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
   useEffect(() => {
     if (instances.length >= 2 && !routeOn) setRouteOn(true)
   }, [instances.length, routeOn])
+
+  // 灰度发布策略限制：必须恰好选中 2 个后端推理实例。
+  // 实例数 ≠ 2 时：① 灰度发布单选框置灰禁用（Radio 的 disabled） ② 若已处于灰度发布则自动回退为常规路由策略
+  // —— 保留平台原有「灰度发布需 2 实例」的限制策略，不放开；仅处理「切到灰度时取消 Fallback」而非去掉限制
+  useEffect(() => {
+    if (instances.length !== 2 && routeCategory === 'grayscale') {
+      setRouteCategory('routine')
+    }
+  }, [instances.length, routeCategory])
 
   const handleInstancesChange = (next: string[], currentBackend: 'internal' | 'external' = backend) => {
     setInstances(next)
@@ -1071,6 +1092,8 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
                           <Radio
                             checked={routeCategory === 'grayscale'}
                             label="灰度发布策略"
+                            // 限制策略：灰度发布必须恰好 2 个实例，否则置灰禁用
+                            disabled={instances.length !== 2}
                             onChange={() => setRouteCategory('grayscale')}
                           />
                           {instances.length !== 2 && (
@@ -1172,7 +1195,7 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
               </div>
 
               <div className="mt-[23px] flex flex-col gap-[37px]">
-                {/* 模型Fallback（常规路由策略及单实例支持，灰度发布策略下无模型Fallback） */}
+                {/* 模型Fallback（常规路由策略及单实例支持；灰度发布策略下不支持，由 !isGrayscaleRoute 隐藏并自动关闭） */}
                 {!isGrayscaleRoute && (
                   <>
                     <div className="flex items-center">
@@ -1183,6 +1206,7 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
                           开启后，当推理实例不可用时将自动切换至备选模型
                         </span>
                       </span>
+                      <NewTag compact code="F-06" className="ml-2" />
                     </div>
 
                     {/* 模型Fallback 展开区 */}

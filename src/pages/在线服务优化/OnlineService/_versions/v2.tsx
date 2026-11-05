@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { DocPanel, DocProvider, FEATURES } from '../feature-tags'
+import { DocPanel, DocProvider, FEATURES, NewTag } from '../feature-tags'
 import { PlatformHeader, SideNav } from '../_shared'
 
 type Instance = {
@@ -192,6 +192,7 @@ function DropdownSelect({
   placeholder,
   widthClass,
   textClass = 'text-[14.5px]',
+  joined,
   onChange,
 }: {
   value: string
@@ -199,6 +200,7 @@ function DropdownSelect({
   placeholder: string
   widthClass: string
   textClass?: string
+  joined?: boolean
   onChange: (v: string) => void
 }) {
   const [open, setOpen] = useState(false)
@@ -216,7 +218,7 @@ function DropdownSelect({
     <div ref={ref} className={`relative inline-block ${widthClass}`}>
       <span
         onClick={() => setOpen((o) => !o)}
-        className={`h-[36px] inline-flex items-center justify-between rounded border border-[#d9d9d9] bg-white px-3 ${textClass} ${
+        className={`${joined ? 'w-full rounded-r border-l-0' : `${widthClass} rounded`} h-[36px] inline-flex items-center justify-between border border-[#d9d9d9] bg-white px-3 ${textClass} ${
           selected ? 'text-[#333]' : 'text-[#bfbfbf]'
         } cursor-pointer`}
       >
@@ -336,6 +338,7 @@ function ListToolbar({
           options={MODEL_OPTIONS}
           placeholder="请选择调用模型名"
           widthClass="w-[280px]"
+          joined
           onChange={setModelValue}
         />
       )}
@@ -345,6 +348,7 @@ function ListToolbar({
           options={PUBLISH_TYPE_OPTIONS}
           placeholder="请选择发布类型"
           widthClass="w-[280px]"
+          joined
           onChange={setPublishTypeValue}
         />
       )}
@@ -375,6 +379,48 @@ function InstanceHealthTip() {
         <span className="block rounded-[6px] bg-[#262626] px-[12px] py-[9px] text-[12px] text-white leading-[18px]">
           <span className="inline-flex items-center gap-1.5">🟢 运行中</span>
           <span className="mt-1 inline-flex items-center gap-1.5">🔴 异常</span>
+        </span>
+        <span className="mx-auto -mt-[5px] block h-[10px] w-[10px] rotate-45 bg-[#262626]" />
+      </span>
+    </span>
+  )
+}
+
+function MetricTip({
+  successCalls,
+  failedCalls,
+  inputTokens,
+  outputTokens,
+}: {
+  successCalls: string | number
+  failedCalls: string | number
+  inputTokens: string | number
+  outputTokens: string | number
+}) {
+  return (
+    <span className="relative ml-1 inline-flex items-center group">
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 16 16"
+        fill="none"
+        aria-hidden
+        className="text-[#bbb] group-hover:text-[#666] cursor-help transition-colors"
+      >
+        <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.2" />
+        <text x="8" y="11" textAnchor="middle" fontSize="9" fill="currentColor" fontStyle="italic" fontWeight="bold">?</text>
+      </svg>
+      <span className="pointer-events-none absolute bottom-[22px] left-1/2 -translate-x-1/2 hidden w-[236px] group-hover:block z-20">
+        <span className="block rounded-[6px] bg-[#262626] px-3 py-2.5 text-[12px] text-white leading-[18px] shadow-lg">
+          <span className="block text-[#bfbfbf] pb-1.5 mb-1.5 border-b border-white/15">近 24 小时服务监控统计</span>
+          <span className="flex justify-between">
+            <span>调用（成功/失败）</span>
+            <b className="text-white">{successCalls} / {failedCalls}</b>
+          </span>
+          <span className="flex justify-between mt-1">
+            <span>Token 输入/输出</span>
+            <b className="text-white">{inputTokens} / {outputTokens}</b>
+          </span>
         </span>
         <span className="mx-auto -mt-[5px] block h-[10px] w-[10px] rotate-45 bg-[#262626]" />
       </span>
@@ -542,25 +588,30 @@ function ServiceCard({ row }: { row: ServiceRow }) {
         </span>
       </div>
 
-      {/* 底部：详情页「用量统计」核心指标 + 快捷操作 */}
+      {/* 底部：核心监控指标（精简）+ 快捷操作 */}
       <div className="mt-4 flex items-center justify-between border-t border-[#f0f0f0] px-5 py-3">
         <div
           onClick={toUsage}
-          title={`Token输入量：${row.inputTokens} ｜ Token输出量：${row.outputTokens}（点击查看用量统计）`}
-          className="flex items-center gap-3.5 text-[12px] text-[#666] cursor-pointer hover:text-[#166EFF]"
+          title={`Token输入：${row.inputTokens} ｜ Token输出：${row.outputTokens} ｜ 成功：${row.successCalls} 次（点击查看用量统计）`}
+          className="flex items-center gap-2.5 text-[12px] text-[#666] cursor-pointer hover:text-[#166EFF]"
         >
           <span>
-            Token总量 <b className="text-[#333]">{row.totalTokens}</b>
-            <span className="ml-1 text-[11px] text-[#999]">(入{row.inputTokens}/出{row.outputTokens})</span>
+            调用 <b className="text-[#333]">{row.totalCalls}</b>
           </span>
+          <span className="text-[#e5e7eb]">|</span>
           <span>
-            调用总次数 <b className="text-[#333]">{row.totalCalls}</b>
+            失败 <b className={row.failedCalls > 0 ? 'text-[#F5222D]' : 'text-[#333]'}>{row.failedCalls}</b>
           </span>
+          <span className="text-[#e5e7eb]">|</span>
           <span>
-            成功 <b className="text-[#52C41A]">{row.successCalls}</b>
-            {' / '}
-            失败 <b className={row.failedCalls > 0 ? 'text-[#F5222D]' : 'text-[#999]'}>{row.failedCalls}</b>
+            Token <b className="text-[#333]">{row.totalTokens}</b>
           </span>
+          <MetricTip
+            successCalls={row.successCalls}
+            failedCalls={row.failedCalls}
+            inputTokens={row.inputTokens}
+            outputTokens={row.outputTokens}
+          />
         </div>
         <div className="flex shrink-0 items-center gap-3 text-[13px]">
           <a onClick={toEdit} className="text-[#166EFF] cursor-pointer">
@@ -570,13 +621,10 @@ function ServiceCard({ row }: { row: ServiceRow }) {
             onClick={() => {}}
             className="text-[#166EFF] cursor-pointer"
           >
-            {row.published ? '取消发布' : '发布'}
+            {row.published ? '停止发布' : '发布'}
           </a>
           <a onClick={() => {}} className="text-[#F5222D] cursor-pointer">
             删除
-          </a>
-          <a onClick={toDetail} className="text-[#166EFF] cursor-pointer">
-            详情
           </a>
         </div>
       </div>
@@ -739,7 +787,11 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
           {/* Main content */}
           <main className="flex-1 min-w-0 flex flex-col pl-[6px] pr-[29px] pt-4 pb-[9px] overflow-hidden">
             <div className="shrink-0">
-              <h1 className="text-[20px] font-bold text-[#000] leading-[30px]">在线服务</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-[20px] font-bold text-[#000] leading-[30px]">在线服务</h1>
+                {/* 页面统一说明：列表由表格重构为卡片列表、过滤条件优化为顶栏组合筛选器、全链路术语统一 */}
+                <NewTag code="F-01" />
+              </div>
               <p className="text-[13px] text-[#6c6c6c]">
                 管理对外提供访问的 API 接口，配置流量分发策略、安全限流及端点状态。
               </p>
