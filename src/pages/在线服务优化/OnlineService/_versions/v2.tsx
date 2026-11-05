@@ -6,7 +6,13 @@ import { PlatformHeader, SideNav } from '../_shared'
 /* Shared column ratios for header and data rows, measured from the screenshot (fluid fr units) */
 const GRID_COLS = 'grid grid-cols-[274fr_269fr_112fr_124fr_214fr_179fr_157fr_359fr_247fr_304fr_210fr]'
 
-type Instance = { label: string; running: boolean; weight?: number; model?: string }
+type Instance = {
+  label: string
+  running: boolean
+  weight?: number
+  model?: string
+  role?: '基线' | '金丝雀' | '主' | '备'
+}
 type ServiceRow = {
   name: string
   model: string
@@ -24,8 +30,6 @@ type ServiceRow = {
   totalCalls: string
   successCalls: string
   failedCalls: number
-  fallbackOn: boolean
-  fallbackModels: string[]
   rpmOn: boolean
   rpm?: string
 }
@@ -35,7 +39,7 @@ const API_BASE = 'http://kgateway.10.4.13.17.nip.io/uat/compatible-mode/v1/chat/
 const SERVICE_ROWS: ServiceRow[] = [
   {
     name: '测试外部2',
-    model: 'test22',
+    model: 'qwen-max',
     published: true,
     publishType: '私有发布',
     route: '–',
@@ -49,21 +53,22 @@ const SERVICE_ROWS: ServiceRow[] = [
     totalCalls: '8,240',
     successCalls: '8,228',
     failedCalls: 12,
-    fallbackOn: false,
-    fallbackModels: [],
     rpmOn: true,
     rpm: '5000 RPM',
   },
   {
     name: '测试外部服务',
-    model: 'test',
+    model: 'qwen-plus',
     published: true,
     publishType: '私有发布',
-    route: '–',
+    route: '金丝雀发布',
     cacheOn: true,
     cacheTime: '120秒',
     backend: '外部推理实例',
-    instances: [{ label: '阿里百炼服务', running: true, weight: 100, model: 'qwen-plus' }],
+    instances: [
+      { label: '百炼基线服务', running: true, weight: 90, model: 'qwen-plus', role: '基线' },
+      { label: '百炼灰度服务', running: true, weight: 10, model: 'qwen-plus', role: '金丝雀' },
+    ],
     apiUrl: API_BASE,
     totalTokens: '426.8k',
     inputTokens: '268.4k',
@@ -71,19 +76,20 @@ const SERVICE_ROWS: ServiceRow[] = [
     totalCalls: '1,520',
     successCalls: '1,520',
     failedCalls: 0,
-    fallbackOn: false,
-    fallbackModels: [],
     rpmOn: false,
   },
   {
     name: 'gge',
-    model: 'de',
+    model: 'QwQ-32B',
     published: false,
     publishType: '私有发布',
-    route: '–',
+    route: '蓝绿发布',
     cacheOn: false,
     backend: '内部推理实例',
-    instances: [{ label: 'kt服务', running: true, weight: 100, model: 'QwQ-32B' }],
+    instances: [
+      { label: 'kt服务-蓝组', running: true, weight: 100, model: 'QwQ-32B', role: '主' },
+      { label: 'kt服务-绿组', running: true, weight: 0, model: 'QwQ-32B', role: '备' },
+    ],
     apiUrl: API_BASE,
     totalTokens: '89.2k',
     inputTokens: '54.0k',
@@ -91,13 +97,11 @@ const SERVICE_ROWS: ServiceRow[] = [
     totalCalls: '320',
     successCalls: '318',
     failedCalls: 2,
-    fallbackOn: true,
-    fallbackModels: ['Qwen2.5-72B'],
     rpmOn: false,
   },
   {
     name: '测试外部',
-    model: 'test',
+    model: 'Qwen2.5-72B-Instruct',
     published: false,
     publishType: '私有发布',
     route: '按权重分发',
@@ -105,9 +109,9 @@ const SERVICE_ROWS: ServiceRow[] = [
     cacheTime: '100秒',
     backend: '外部推理实例',
     instances: [
-      { label: 'demo-18080', running: true, weight: 20, model: 'Qwen2.5-72B' },
-      { label: 'demo-18081', running: true, weight: 30, model: 'Qwen2.5-72B' },
-      { label: 'demo-18082', running: true, weight: 50, model: 'Qwen2.5-72B' },
+      { label: 'demo-18080', running: true, weight: 20, model: 'Qwen2.5-72B-Instruct' },
+      { label: 'demo-18081', running: true, weight: 30, model: 'Qwen2.5-72B-Instruct' },
+      { label: 'demo-18082', running: true, weight: 50, model: 'Qwen2.5-72B-Instruct' },
     ],
     apiUrl: API_BASE,
     totalTokens: '3,640.0k',
@@ -116,14 +120,12 @@ const SERVICE_ROWS: ServiceRow[] = [
     totalCalls: '12,850',
     successCalls: '12,815',
     failedCalls: 35,
-    fallbackOn: true,
-    fallbackModels: ['vllm验证'],
     rpmOn: true,
     rpm: '2000 RPM',
   },
   {
     name: '验证缓存设置',
-    model: '放入',
+    model: 'Qwen3-32B',
     published: false,
     publishType: '私有发布',
     route: '–',
@@ -138,20 +140,18 @@ const SERVICE_ROWS: ServiceRow[] = [
     totalCalls: '640',
     successCalls: '592',
     failedCalls: 48,
-    fallbackOn: false,
-    fallbackModels: [],
     rpmOn: false,
   },
   {
     name: '1个服务',
-    model: 'aa',
+    model: 'DeepSeek-R1-Distill-Qwen-32B',
     published: false,
     publishType: '私有发布',
     route: '–',
     cacheOn: true,
     cacheTime: '300秒',
     backend: '内部推理实例',
-    instances: [{ label: 'test', running: true, weight: 100, model: 'Qwen3-32B' }],
+    instances: [{ label: 'test', running: true, weight: 100, model: 'DeepSeek-R1-Distill-Qwen-32B' }],
     apiUrl: API_BASE,
     totalTokens: '24.6k',
     inputTokens: '15.1k',
@@ -159,8 +159,6 @@ const SERVICE_ROWS: ServiceRow[] = [
     totalCalls: '95',
     successCalls: '95',
     failedCalls: 0,
-    fallbackOn: false,
-    fallbackModels: [],
     rpmOn: true,
     rpm: '1000 RPM',
   },
@@ -228,7 +226,7 @@ const HEADERS: { label: string; featCode?: string }[] = [
   { label: '调用模型名', featCode: 'F-02' },
   { label: '状态' },
   { label: '发布类型' },
-  { label: '路由策略' },
+  { label: '路由策略', featCode: 'F-05' },
   { label: '缓存加速' },
   { label: '后端推理类型', featCode: 'F-03' },
   { label: '后端推理实例', featCode: 'F-04' },
@@ -286,9 +284,12 @@ function ServiceCard({ row }: { row: ServiceRow }) {
 
   return (
     <div className="flex flex-col rounded-[8px] border border-[#e6e8eb] bg-white transition-shadow hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)]">
-      {/* 头部：状态 + 发布范围 */}
-      <div className="flex items-center justify-between px-5 pt-4">
-        <div className="flex items-center gap-2">
+      {/* 头部：左侧服务名称 + 右侧状态与发布范围 */}
+      <div className="flex items-center justify-between gap-3 px-5 pt-4">
+        <a onClick={toDetail} className="truncate text-[17px] font-semibold text-[#1f2329] cursor-pointer hover:text-[#166EFF]">
+          {row.name}
+        </a>
+        <div className="flex shrink-0 items-center gap-2">
           <span
             className={`inline-flex h-[24px] items-center rounded px-[9px] text-[13px] text-white ${
               row.published ? 'bg-[#67C23A]' : 'bg-[#909399]'
@@ -304,13 +305,6 @@ function ServiceCard({ row }: { row: ServiceRow }) {
             {row.publishType === '公开发布' ? '模型广场' : '私有发布'}
           </span>
         </div>
-      </div>
-
-      {/* 服务名称 */}
-      <div className="px-5 mt-3">
-        <a onClick={toDetail} className="text-[17px] font-semibold text-[#1f2329] cursor-pointer hover:text-[#166EFF]">
-          {row.name}
-        </a>
       </div>
 
       {/* 调用模型名 + 复制 */}
@@ -344,7 +338,7 @@ function ServiceCard({ row }: { row: ServiceRow }) {
       </div>
 
       {/* 后端推理实例 + 权重 + 健康 */}
-      <div className="px-5 mt-4">
+      <div className="px-5 mt-4 flex-1">
         <div className="mb-2 flex items-center gap-2 text-[13px] text-[#8c8c8c]">
           <span className="text-[#333] font-medium">{row.backend}</span>
           <span>·</span>
@@ -362,6 +356,21 @@ function ServiceCard({ row }: { row: ServiceRow }) {
                 }`}
               />
               <span className="w-[140px] shrink-0 truncate text-[13px] text-[#333]">{ins.label}</span>
+              {ins.role && (
+                <span
+                  className={`shrink-0 rounded px-1.5 py-0.2 text-[11px] font-medium leading-none ${
+                    ins.role === '金丝雀'
+                      ? 'bg-[#FFF7E6] text-[#FA8C16] border border-[#FFD591]'
+                      : ins.role === '基线'
+                      ? 'bg-[#E6F4FF] text-[#1677FF] border border-[#91CAFF]'
+                      : ins.role === '主'
+                      ? 'bg-[#F6FFED] text-[#52C41A] border border-[#B7EB8F]'
+                      : 'bg-[#F5F5F5] text-[#8C8C8C] border border-[#D9D9D9]'
+                  }`}
+                >
+                  {ins.role}
+                </span>
+              )}
               {ins.model && <span className="shrink-0 text-[12px] text-[#999]">({ins.model})</span>}
               {ins.weight != null && (
                 <>
@@ -384,13 +393,6 @@ function ServiceCard({ row }: { row: ServiceRow }) {
           }`}
         >
           ⚡ 缓存{row.cacheOn ? ` ${row.cacheTime}` : '未开启'}
-        </span>
-        <span
-          className={`inline-flex items-center rounded px-2 py-1 text-[12px] ${
-            row.fallbackOn ? 'bg-[#E6F4FF] text-[#1677ff]' : 'bg-[#f5f5f5] text-[#999]'
-          }`}
-        >
-          🛡 Fallback{row.fallbackOn ? `: ${row.fallbackModels.join(',')}` : '未开启'}
         </span>
         <span
           className={`inline-flex items-center rounded px-2 py-1 text-[12px] ${
@@ -435,7 +437,7 @@ function ServiceCard({ row }: { row: ServiceRow }) {
             删除
           </a>
           <a onClick={toDetail} className="text-[#166EFF] cursor-pointer">
-            详情 →
+            详情
           </a>
         </div>
       </div>
@@ -560,7 +562,7 @@ function TableCard() {
                     <div className={row.route === '–' ? 'text-[#949494]' : 'text-[#333]'}>{row.route}</div>
                     <div className="text-[#333]">{row.cacheOn ? `已开启${row.cacheTime ? `（${row.cacheTime}）` : ''}` : '未开启'}</div>
                     <div className="text-[#333]">{row.backend}</div>
-                    <div className="flex flex-col">
+                    <div className="flex flex-col py-1">
                       {row.instances.map((ins) => (
                         <div key={ins.label} className="h-[29px] flex items-center gap-1.5">
                           <span
@@ -569,6 +571,24 @@ function TableCard() {
                             }`}
                           />
                           <a className="text-[#166EFF] cursor-pointer">{ins.label}</a>
+                          {ins.role && (
+                            <span
+                              className={`shrink-0 rounded px-1.5 py-0.2 text-[11px] font-medium leading-none ${
+                                ins.role === '金丝雀'
+                                  ? 'bg-[#FFF7E6] text-[#FA8C16] border border-[#FFD591]'
+                                  : ins.role === '基线'
+                                  ? 'bg-[#E6F4FF] text-[#1677FF] border border-[#91CAFF]'
+                                  : ins.role === '主'
+                                  ? 'bg-[#F6FFED] text-[#52C41A] border border-[#B7EB8F]'
+                                  : 'bg-[#F5F5F5] text-[#8C8C8C] border border-[#D9D9D9]'
+                              }`}
+                            >
+                              {ins.role}
+                            </span>
+                          )}
+                          {ins.weight != null && row.instances.length > 1 && (
+                            <span className="text-[12px] text-[#8c8c8c]">({ins.weight}%)</span>
+                          )}
                         </div>
                       ))}
                     </div>

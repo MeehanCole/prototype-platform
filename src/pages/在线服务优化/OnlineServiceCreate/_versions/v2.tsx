@@ -112,12 +112,12 @@ const INSTANCE_OPTIONS: Record<'internal' | 'external', { label: string; running
   external: [
     { label: '阿里不完整路径', running: true, model: 'qwen-max' },
     { label: '测试服务异常', running: true, model: 'qwen-plus' },
-    { label: '阿里百炼服务', running: true, model: 'qwen-turbo' },
+    { label: '阿里百炼服务', running: true, model: 'qwen-plus' },
     { label: '外部服务', running: true, model: 'deepseek-v3' },
     { label: 'demo-18080', running: true, model: 'Qwen2.5-72B-Instruct' },
     { label: 'demo-18080-model接口', running: true, model: 'Qwen2.5-72B-Instruct' },
-    { label: 'demo-18081', running: true, model: 'Qwen2.5-32B-Instruct' },
-    { label: 'demo-18082', running: true, model: 'Qwen2.5-14B-Instruct' },
+    { label: 'demo-18081', running: true, model: 'Qwen2.5-72B-Instruct' },
+    { label: 'demo-18082', running: true, model: 'Qwen2.5-72B-Instruct' },
   ],
 }
 
@@ -309,234 +309,387 @@ function PlazaModelSelect({
   )
 }
 
-/* Fallback：类型下拉（内部推理实例/外部推理实例） */
-function FallbackTypeSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const [open, setOpen] = useState(false)
-  const val = value === '内部推理服务' ? '内部推理实例' : value === '外部推理服务' ? '外部推理实例' : value
-  const rootRef = useRef<HTMLSpanElement>(null)
-  useOutsideClose(rootRef, () => setOpen(false))
-  return (
-    <span ref={rootRef} className="relative inline-block w-[240px]">
-      <span
-        onClick={() => setOpen((o) => !o)}
-        className={`h-[45px] flex items-center justify-between rounded border px-3 text-[15px] cursor-pointer bg-white ${
-          open ? 'border-[#166EFF]' : 'border-[#d9d9d9]'
-        } text-[#333]`}
-      >
-        {val}
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 12 12"
-          fill="none"
-          aria-hidden
-          className={`transition-transform ${open ? 'rotate-180' : ''}`}
-        >
-          <path d="m2.5 4.5 3.5 3.5 3.5-3.5" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </span>
-      {open && (
-        <span className="absolute left-0 top-full mt-[7px] z-30 w-full rounded-[4px] border border-[#e4e6eb] bg-white shadow-[0_4px_16px_rgba(0,0,0,0.08)]">
-          {['内部推理实例', '外部推理实例'].map((t) => (
-            <span
-              key={t}
-              onClick={() => {
-                onChange(t)
-                setOpen(false)
-              }}
-              className={`flex h-[50px] items-center px-[26px] cursor-pointer hover:bg-[#f5f7fa] ${
-                val === t ? 'bg-[#f5f7fa]' : ''
-              }`}
-            >
-              <span className={`text-[16px] ${val === t ? 'text-[#166EFF]' : 'text-[#333]'}`}>{t}</span>
-            </span>
-          ))}
-        </span>
-      )}
-    </span>
-  )
-}
+type RouteStrategyType = '按权重分发' | '金丝雀发布' | '蓝绿发布'
 
-/* Fallback：推理实例多选下拉（仅运行中的实例） */
-function FallbackServiceSelect({
-  type,
-  picked,
-  onChange,
-}: {
-  type: string
-  picked: string[]
-  onChange: (v: string[]) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const rootRef = useRef<HTMLSpanElement>(null)
-  useOutsideClose(rootRef, () => setOpen(false))
-  const options =
-    type === '内部推理实例' || type === '内部推理服务'
-      ? INSTANCE_OPTIONS.internal
-      : INSTANCE_OPTIONS.external.filter((o) => o.running)
-  return (
-    <span ref={rootRef} className="relative inline-block w-[320px]">
-      <span
-        onClick={() => setOpen((o) => !o)}
-        className={`min-h-[45px] flex items-center flex-wrap gap-[6px] rounded border bg-white px-3 py-[5px] text-[15px] cursor-pointer ${
-          open ? 'border-[#166EFF]' : 'border-[#d9d9d9]'
-        }`}
-      >
-        {picked.length === 0 && <span className="text-[#bfbfbf]">请选择推理实例</span>}
-        {picked.map((v) => (
-          <span
-            key={v}
-            onClick={(e) => {
-              e.stopPropagation()
-              onChange(picked.filter((x) => x !== v))
-            }}
-            className="inline-flex items-center gap-[6px] rounded-[3px] bg-[#f5f5f5] px-[8px] h-[26px] text-[13px] text-[#999]"
-          >
-            {v}
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="#999" strokeWidth="1.3" strokeLinecap="round" aria-hidden className="cursor-pointer hover:stroke-[#666]">
-              <path d="m2 2 6 6M8 2 2 8" />
-            </svg>
-          </span>
-        ))}
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 12 12"
-          fill="none"
-          aria-hidden
-          className={`ml-auto shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
-        >
-          <path d="m2.5 4.5 3.5 3.5 3.5-3.5" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </span>
-      {open && (
-        <span className="absolute left-0 bottom-full mb-[7px] z-30 w-full rounded-[4px] border border-[#e4e6eb] bg-white shadow-[0_4px_16px_rgba(0,0,0,0.08)]">
-          <span className="absolute -bottom-[5px] left-1/2 -ml-[5px] h-[10px] w-[10px] rotate-45 border-r border-b border-[#e4e6eb] bg-white" />
-          <span className="block py-[6px] max-h-[420px] overflow-y-auto">
-            {options.map((opt) => {
-              const selected = picked.includes(opt.label)
-              return (
-                <span
-                  key={opt.label}
-                  onClick={() => onChange(selected ? picked.filter((x) => x !== opt.label) : [...picked, opt.label])}
-                  className={`flex h-[50px] items-center px-[26px] cursor-pointer hover:bg-[#f5f7fa] ${selected ? 'bg-[#f5f7fa]' : ''}`}
-                >
-                  <span className={`text-[16px] ${selected ? 'text-[#166EFF]' : 'text-[#333]'}`}>{opt.label}</span>
-                </span>
-              )
-            })}
-          </span>
-        </span>
-      )}
-    </span>
-  )
-}
-
-/* 路由策略卡片（按权重分发） */
+/* 路由策略卡片（按权重分发 / 金丝雀发布 / 蓝绿发布） */
 function RouteCard({
   onDelete,
   instances,
   initialWeights,
+  initialMode = '按权重分发',
 }: {
   onDelete: () => void
   instances: string[]
   initialWeights?: Record<string, string>
+  initialMode?: RouteStrategyType
 }) {
+  const [strategy, setStrategy] = useState<RouteStrategyType>(initialMode)
   const [open, setOpen] = useState(false)
   const routeRef = useRef<HTMLSpanElement>(null)
   useOutsideClose(routeRef, () => setOpen(false))
-  const [weights, setWeights] = useState<Record<string, string>>(initialWeights || {})
-  const sum = instances.reduce((acc, n) => acc + (Number(weights[n]) || 0), 0)
+
+  // 1. 按权重分发 state
+  const [weights, setWeights] = useState<Record<string, string>>(() => {
+    if (initialWeights && Object.keys(initialWeights).length > 0) return initialWeights
+    const count = instances.length || 1
+    const base = Math.floor(100 / count)
+    const init: Record<string, string> = {}
+    instances.forEach((name, idx) => {
+      init[name] = String(idx === 0 ? 100 - base * (count - 1) : base)
+    })
+    return init
+  })
+
+  const handleEvenWeights = () => {
+    if (instances.length === 0) return
+    const base = Math.floor(100 / instances.length)
+    const init: Record<string, string> = {}
+    instances.forEach((name, idx) => {
+      init[name] = String(idx === 0 ? 100 - base * (instances.length - 1) : base)
+    })
+    setWeights(init)
+  }
+
+  const weightSum = instances.reduce((acc, n) => acc + (Number(weights[n]) || 0), 0)
+
+  // 2. 金丝雀发布 state
+  const [baselineInstance, setBaselineInstance] = useState<string>(instances[0] || '')
+  const [canaryInstance, setCanaryInstance] = useState<string>(instances[1] || instances[0] || '')
+  const [canaryWeight, setCanaryWeight] = useState<number>(10)
+  const baselineWeight = Math.max(0, 100 - canaryWeight)
+
+  // 3. 蓝绿发布 state
+  const [activeInstance, setActiveInstance] = useState<string>(instances[0] || '')
+  const [standbyInstance, setStandbyInstance] = useState<string>(instances[1] || instances[0] || '')
+
+  const handleSwapBlueGreen = () => {
+    const prevActive = activeInstance
+    const prevStandby = standbyInstance
+    setActiveInstance(prevStandby)
+    setStandbyInstance(prevActive)
+  }
+
+  // 当实例选择变化时自动校准
+  useEffect(() => {
+    if (instances.length > 0) {
+      if (!instances.includes(baselineInstance)) setBaselineInstance(instances[0])
+      if (!instances.includes(canaryInstance)) setCanaryInstance(instances[1] || instances[0])
+      if (!instances.includes(activeInstance)) setActiveInstance(instances[0])
+      if (!instances.includes(standbyInstance)) setStandbyInstance(instances[1] || instances[0])
+    }
+  }, [instances])
+
   return (
-    <div className="w-[617px] rounded-[4px] border border-[#e4e6eb] p-[20px]">
-      <div className="flex items-start">
-        <span ref={routeRef} className="relative inline-block w-[327px]">
-          <span
-            onClick={() => setOpen((o) => !o)}
-            className={`h-[40px] flex items-center justify-between rounded border px-3 text-[15px] cursor-pointer ${
-              open ? 'border-[#166EFF] text-[#333]' : 'border-[#d9d9d9] text-[#333]'
-            }`}
-          >
-            按权重分发
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 12 12"
-              fill="none"
-              aria-hidden
-              className={`transition-transform ${open ? 'rotate-180' : ''}`}
+    <div className="w-[660px] rounded-[6px] border border-[#e4e6eb] bg-white p-[20px] shadow-[0_1px_4px_rgba(0,0,0,0.03)]">
+      {/* 顶部：策略类型下拉 + 删除 */}
+      <div className="flex items-center justify-between pb-4 border-b border-[#f0f0f0]">
+        <div className="flex items-center gap-3">
+          <span className="text-[14px] font-semibold text-[#1f2329]">策略模式</span>
+          <span ref={routeRef} className="relative inline-block w-[240px]">
+            <span
+              onClick={() => setOpen((o) => !o)}
+              className={`h-[38px] flex items-center justify-between rounded border px-3 text-[14px] cursor-pointer bg-white transition-colors ${
+                open ? 'border-[#166EFF] text-[#166EFF]' : 'border-[#d9d9d9] text-[#333]'
+              }`}
             >
-              <path d="m2.5 4.5 3.5 3.5 3.5-3.5" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </span>
-          {open && (
-            <span className="absolute left-0 top-[47px] z-30 w-full rounded-[4px] border border-[#e4e6eb] bg-white shadow-[0_4px_16px_rgba(0,0,0,0.08)]">
-              <span className="absolute -top-[5px] left-[70px] h-[10px] w-[10px] rotate-45 border-l border-t border-[#e4e6eb] bg-white" />
-              <span className="block py-[4px]">
-                <span className="flex h-[41px] items-center px-[26px] cursor-pointer bg-[#f5f7fa]">
-                  <span className="text-[16px] text-[#166EFF]">按权重分发</span>
-                </span>
-              </span>
+              <span className="font-medium">{strategy}</span>
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 12 12"
+                fill="none"
+                aria-hidden
+                className={`transition-transform ${open ? 'rotate-180' : ''}`}
+              >
+                <path d="m2.5 4.5 3.5 3.5 3.5-3.5" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </span>
-          )}
-        </span>
-        <button onClick={onDelete} aria-label="删除路由策略" className="ml-auto cursor-pointer">
-          <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="#F5222D" strokeWidth="1.2" strokeLinecap="round" aria-hidden>
+            {open && (
+              <span className="absolute left-0 top-[44px] z-30 w-full rounded-[4px] border border-[#e4e6eb] bg-white shadow-[0_6px_20px_rgba(0,0,0,0.1)] py-1">
+                {(['按权重分发', '金丝雀发布', '蓝绿发布'] as RouteStrategyType[]).map((type) => (
+                  <span
+                    key={type}
+                    onClick={() => {
+                      setStrategy(type)
+                      setOpen(false)
+                    }}
+                    className={`flex h-[38px] items-center justify-between px-3 text-[14px] cursor-pointer hover:bg-[#f5f7fa] ${
+                      strategy === type ? 'bg-[#f0f7ff] text-[#166EFF] font-medium' : 'text-[#333]'
+                    }`}
+                  >
+                    <span>{type}</span>
+                    {strategy === type && (
+                      <span className="text-[12px] text-[#166EFF]">✓</span>
+                    )}
+                  </span>
+                ))}
+              </span>
+            )}
+          </span>
+          <span className="rounded bg-[#f5f6f8] px-2 py-1 text-[12px] text-[#8c8c8c]">
+            {strategy === '按权重分发' && '多实例按百分比分摊流量'}
+            {strategy === '金丝雀发布' && '小流量灰度验证，安全上线'}
+            {strategy === '蓝绿发布' && '主备双组热备，一键瞬时切流'}
+          </span>
+        </div>
+        <button
+          onClick={onDelete}
+          aria-label="删除路由策略"
+          className="cursor-pointer text-[#999] hover:text-[#F5222D] p-1 transition-colors"
+          title="删除路由策略"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" aria-hidden>
             <path d="M2.5 4h11M6.5 2h3M4 4l.7 9a1 1 0 0 0 1 .9h4.6a1 1 0 0 0 1-.9L12 4M6.5 7v4M9.5 7v4" />
           </svg>
         </button>
       </div>
-      <div className="mt-[24px] flex items-start">
-        <span className="w-[148px] shrink-0 text-right text-[16px] font-semibold text-[#1f2329]">权重配置</span>
-        <span className="ml-[32px] flex-1">
-          <span className="flex flex-col gap-[10px]">
-          {instances.map((name) => (
-            <div key={name} className="flex items-center">
-              <span className="w-[240px] shrink-0 text-[15px] text-[#333]">{name}</span>
-              <span className="inline-flex items-stretch h-[40px]">
-                <input
-                  value={weights[name] ?? '0'}
-                  onChange={(e) => setWeights((w) => ({ ...w, [name]: e.target.value.replace(/[^\d]/g, '') }))}
-                  className="w-[120px] h-full rounded-l border border-[#d9d9d9] text-center text-[14px] text-[#333] outline-none"
-                />
-                <span className="w-[26px] border border-l-0 border-[#d9d9d9] rounded-r flex flex-col bg-[#fafafa]">
-                  <button
-                    className="flex-1 flex items-center justify-center cursor-pointer"
-                    aria-label="增加"
-                    onClick={() => setWeights((w) => ({ ...w, [name]: String((Number(w[name]) || 0) + 1) }))}
-                  >
-                    <svg width="9" height="9" viewBox="0 0 10 10" fill="none" aria-hidden>
-                      <path d="M2 6.5 5 3.5 8 6.5" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </button>
-                  <span className="h-px bg-[#d9d9d9] mx-[2px]" />
-                  <button
-                    className="flex-1 flex items-center justify-center cursor-pointer"
-                    aria-label="减少"
-                    onClick={() => setWeights((w) => ({ ...w, [name]: String(Math.max(0, (Number(w[name]) || 0) - 1)) }))}
-                  >
-                    <svg width="9" height="9" viewBox="0 0 10 10" fill="none" aria-hidden>
-                      <path d="m2 3.5 3 3 3-3" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </button>
-                </span>
-              </span>
-              <span className="ml-3 text-[14px] text-[#333]">%</span>
+
+      {/* 实例不足提示 */}
+      {instances.length === 0 && (
+        <div className="py-6 text-center text-[14px] text-[#999]">
+          请先在上方「后端推理实例」中选择至少 1 个实例
+        </div>
+      )}
+
+      {/* 模式 1：按权重分发 */}
+      {instances.length > 0 && strategy === '按权重分发' && (
+        <div className="mt-[20px] flex items-start">
+          <div className="w-[120px] shrink-0 text-right text-[15px] font-medium text-[#1f2329] pt-2">
+            权重配置
+          </div>
+          <div className="ml-[24px] flex-1">
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-[13px] text-[#8c8c8c]">各实例按设定百分比分担请求流量</span>
+              <button
+                type="button"
+                onClick={handleEvenWeights}
+                className="text-[13px] text-[#166EFF] hover:underline cursor-pointer"
+              >
+                均分权重
+              </button>
             </div>
-          ))}
-          </span>
-          <span className="mt-[10px] flex items-center text-[15px] text-[#F5222D]">
-            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" className="mr-1.5" aria-hidden>
-              <circle cx="8" cy="8" r="7" fill="#F5222D" />
-              <text x="8" y="12" textAnchor="middle" fontSize="10" fill="#fff" fontStyle="italic" fontWeight="bold">
-                i
-              </text>
-            </svg>
-            权重之和：{sum}%（必须等于100%）
-          </span>
-          <span className="mt-[10px] block text-[15px] text-[#E6A23C]">此为终态策略，不可再添加后续路由策略。</span>
-        </span>
-      </div>
+            <div className="flex flex-col gap-[10px]">
+              {instances.map((name) => (
+                <div key={name} className="flex items-center justify-between rounded border border-[#f0f0f0] bg-[#fafbfc] px-3 py-2">
+                  <span className="w-[240px] truncate text-[14px] text-[#333] font-medium">{name}</span>
+                  <div className="inline-flex items-center gap-1.5">
+                    <input
+                      value={weights[name] ?? '0'}
+                      onChange={(e) =>
+                        setWeights((w) => ({ ...w, [name]: e.target.value.replace(/[^\d]/g, '') }))
+                      }
+                      className="w-[72px] h-[34px] rounded border border-[#d9d9d9] bg-white text-center text-[14px] text-[#333] outline-none focus:border-[#166EFF]"
+                    />
+                    <span className="text-[14px] text-[#666]">%</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-3 flex items-center justify-between text-[13px]">
+              <span className={`inline-flex items-center gap-1.5 font-medium ${weightSum === 100 ? 'text-[#52C41A]' : 'text-[#F5222D]'}`}>
+                <span>权重之和：{weightSum}%</span>
+                {weightSum === 100 ? '（配置有效）' : '（必须等于 100%）'}
+              </span>
+            </div>
+            <span className="mt-2 block text-[13px] text-[#8c8c8c]">此为终态策略，不可再添加后续路由策略。</span>
+          </div>
+        </div>
+      )}
+
+      {/* 模式 2：金丝雀发布 */}
+      {instances.length > 0 && strategy === '金丝雀发布' && (
+        <div className="mt-[20px] flex flex-col gap-4">
+          {instances.length < 2 && (
+            <div className="rounded bg-[#FFFBE6] border border-[#FFE58F] px-3 py-2 text-[13px] text-[#D46B08]">
+              提示：金丝雀发布建议选择至少 2 个实例分别作为基线与金丝雀。当前已选 1 个实例。
+            </div>
+          )}
+
+          {/* 角色指定 */}
+          <div className="grid grid-cols-2 gap-4">
+            {/* 基线实例 */}
+            <div className="rounded border border-[#e8e8e8] p-3 bg-[#fafbfc]">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[13px] font-semibold text-[#1f2329] flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-[#166EFF]" />
+                  基线实例 (当前主版本)
+                </span>
+                <span className="rounded bg-[#E6F4FF] px-1.5 py-0.5 text-[11px] text-[#1677FF] font-medium">
+                  {baselineWeight}% 流量
+                </span>
+              </div>
+              <select
+                value={baselineInstance}
+                onChange={(e) => setBaselineInstance(e.target.value)}
+                className="w-full h-[36px] rounded border border-[#d9d9d9] bg-white px-2.5 text-[13px] text-[#333] outline-none"
+              >
+                {instances.map((ins) => (
+                  <option key={ins} value={ins}>
+                    {ins}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 金丝雀实例 */}
+            <div className="rounded border border-[#e8e8e8] p-3 bg-[#fafbfc]">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[13px] font-semibold text-[#1f2329] flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-[#FA8C16]" />
+                  金丝雀实例 (灰度新版本)
+                </span>
+                <span className="rounded bg-[#FFF7E6] px-1.5 py-0.5 text-[11px] text-[#FA8C16] font-medium">
+                  {canaryWeight}% 流量
+                </span>
+              </div>
+              <select
+                value={canaryInstance}
+                onChange={(e) => setCanaryInstance(e.target.value)}
+                className="w-full h-[36px] rounded border border-[#d9d9d9] bg-white px-2.5 text-[13px] text-[#333] outline-none"
+              >
+                {instances.map((ins) => (
+                  <option key={ins} value={ins}>
+                    {ins}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* 流量比例配置 */}
+          <div className="rounded border border-[#f0f0f0] p-3 bg-white">
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] font-medium text-[#333]">灰度流量占比</span>
+              <div className="flex items-center gap-2">
+                {[5, 10, 20, 50].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setCanaryWeight(preset)}
+                    className={`h-[26px] px-2.5 rounded text-[12px] border cursor-pointer transition-colors ${
+                      canaryWeight === preset
+                        ? 'bg-[#166EFF] text-white border-[#166EFF]'
+                        : 'bg-white text-[#666] border-[#d9d9d9] hover:border-[#166EFF]'
+                    }`}
+                  >
+                    {preset}%
+                  </button>
+                ))}
+                <div className="ml-2 inline-flex items-center gap-1">
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={canaryWeight}
+                    onChange={(e) => setCanaryWeight(Math.min(100, Math.max(0, Number(e.target.value) || 0)))}
+                    className="w-[56px] h-[28px] rounded border border-[#d9d9d9] text-center text-[13px] text-[#333] outline-none focus:border-[#166EFF]"
+                  />
+                  <span className="text-[13px] text-[#666]">%</span>
+                </div>
+              </div>
+            </div>
+
+            {/* 双色流量分流条 */}
+            <div className="mt-3">
+              <div className="h-[10px] w-full rounded-full bg-[#f0f0f0] overflow-hidden flex">
+                <div className="bg-[#166EFF] h-full transition-all" style={{ width: `${baselineWeight}%` }} />
+                <div className="bg-[#FA8C16] h-full transition-all" style={{ width: `${canaryWeight}%` }} />
+              </div>
+              <div className="mt-1.5 flex justify-between text-[12px] text-[#8c8c8c]">
+                <span>基线: {baselineWeight}%</span>
+                <span>金丝雀: {canaryWeight}%</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="text-[13px] text-[#8c8c8c]">
+            💡 验证金丝雀版本表现良好后，可通过提高金丝雀占比逐步扩大灰度，直至 100% 全量切流。
+          </div>
+        </div>
+      )}
+
+      {/* 模式 3：蓝绿发布 */}
+      {instances.length > 0 && strategy === '蓝绿发布' && (
+        <div className="mt-[20px] flex flex-col gap-4">
+          {instances.length < 2 && (
+            <div className="rounded bg-[#FFFBE6] border border-[#FFE58F] px-3 py-2 text-[13px] text-[#D46B08]">
+              提示：蓝绿发布需要配置主、备两组实例。当前已选 1 个实例。
+            </div>
+          )}
+
+          {/* 主备两组卡片 + 一键切换按钮 */}
+          <div className="flex items-center gap-3">
+            {/* 主组卡片 */}
+            <div className="flex-1 rounded border-2 border-[#52C41A] p-3.5 bg-[#F6FFED]">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[13px] font-semibold text-[#237804] flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#52C41A]" />
+                  主实例 (活跃)
+                </span>
+                <span className="rounded bg-[#52C41A] px-2 py-0.5 text-[11px] text-white font-medium">
+                  100% 流量
+                </span>
+              </div>
+              <select
+                value={activeInstance}
+                onChange={(e) => setActiveInstance(e.target.value)}
+                className="w-full h-[36px] rounded border border-[#b7eb8f] bg-white px-2.5 text-[13px] text-[#333] outline-none"
+              >
+                {instances.map((ins) => (
+                  <option key={ins} value={ins}>
+                    {ins}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 一键主备切换按钮 */}
+            <div className="shrink-0 flex flex-col items-center">
+              <button
+                type="button"
+                onClick={handleSwapBlueGreen}
+                className="h-[38px] px-3 rounded-md bg-[#166EFF] text-white text-[13px] flex items-center gap-1.5 shadow-sm hover:bg-[#1258cc] cursor-pointer transition-all"
+                title="一键调换主备实例角色（秒级无损切流）"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M4 11h9m0 0l-3-3m3 3l-3 3M12 5H3m0 0l3-3M3 5l3 3" />
+                </svg>
+                一键切换
+              </button>
+              <span className="mt-1 text-[11px] text-[#8c8c8c]">秒级切流</span>
+            </div>
+
+            {/* 备组卡片 */}
+            <div className="flex-1 rounded border border-[#d9d9d9] p-3.5 bg-[#fafafa]">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[13px] font-semibold text-[#595959] flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#bfbfbf]" />
+                  备实例 (待命)
+                </span>
+                <span className="rounded bg-[#f0f0f0] px-2 py-0.5 text-[11px] text-[#8c8c8c] font-medium">
+                  0% 流量
+                </span>
+              </div>
+              <select
+                value={standbyInstance}
+                onChange={(e) => setStandbyInstance(e.target.value)}
+                className="w-full h-[36px] rounded border border-[#d9d9d9] bg-white px-2.5 text-[13px] text-[#333] outline-none"
+              >
+                {instances.map((ins) => (
+                  <option key={ins} value={ins}>
+                    {ins}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="text-[13px] text-[#8c8c8c]">
+            💡 蓝绿模式下备用实例保持热备状态；点击「一键切换」可实现瞬时切流，如遇突发异常可再次点击秒级回滚。
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -582,15 +735,6 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
   const [cacheOn, setCacheOn] = useState(src ? src.cacheOn : false)
   const [cacheTime] = useState(src?.cacheTime || '60')
   const [routeCards, setRouteCards] = useState<number[]>(isEdit && src ? [Date.now()] : [])
-  const [fallbackOn, setFallbackOn] = useState(src ? src.fallbackOn : false)
-  const [fallbackType, setFallbackType] = useState(
-    src?.fallbackType === '内部推理服务'
-      ? '内部推理实例'
-      : src?.fallbackType === '外部推理服务'
-        ? '外部推理实例'
-        : src?.fallbackType || '外部推理实例',
-  )
-  const [fallbackModels, setFallbackModels] = useState<string[]>(src ? src.fallbackModels : [])
   const [rpmOn, setRpmOn] = useState(src ? src.rpmOn : false)
 
   const handleInstancesChange = (next: string[], currentBackend: 'internal' | 'external' = backend) => {
@@ -798,6 +942,7 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
                 {/* 路由策略 */}
                 <div className="flex items-start">
                   <FieldLabel text="路由策略" />
+                  <NewTag compact code="F-06" />
                   <span className="ml-[53px] flex-1">
                     {routeCards.length === 0 ? (
                       <a
@@ -812,6 +957,7 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
                           <RouteCard
                             key={id}
                             instances={instances}
+                            initialMode={src ? (src.routeMode as any) : undefined}
                             initialWeights={src ? Object.fromEntries(src.instances.map((i) => [i.label, String(i.weight ?? 0)])) : undefined}
                             onDelete={() => setRouteCards((c) => c.filter((k) => k !== id))}
                           />
@@ -900,45 +1046,6 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
               </div>
 
               <div className="mt-[23px] flex flex-col gap-[37px]">
-                <div className="flex items-center">
-                  <FieldLabel text="模型Fallback" />
-                  <span className="ml-[53px] flex items-center">
-                    <Toggle on={fallbackOn} onClick={() => setFallbackOn((v) => !v)} />
-                    <span className="ml-3 text-[14px] text-[#333]">启动外部大模型兜底（Fallback策略）</span>
-                  </span>
-                </div>
-
-                {/* Fallback 展开区 */}
-                {fallbackOn && (
-                  <div className="flex items-start">
-                    <span className="w-[148px] shrink-0" />
-                    <span className="ml-[53px] flex-1">
-                      <span className="flex items-start text-[14px] text-[#8c8c8c]">
-                        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" className="mr-2 mt-[2px] shrink-0" aria-hidden>
-                          <circle cx="8" cy="8" r="7" fill="#8c8c8c" />
-                          <text x="8" y="12" textAnchor="middle" fontSize="10" fill="#fff" fontStyle="italic" fontWeight="bold">
-                            i
-                          </text>
-                        </svg>
-                        当配置的推理实例全部宕机，请求将自动转发至下方兜底推理实例。降级过程会有延迟。
-                      </span>
-                      <span className="mt-[20px] flex items-start gap-[36px]">
-                        <FallbackTypeSelect value={fallbackType} onChange={setFallbackType} />
-                        <FallbackServiceSelect type={fallbackType} picked={fallbackModels} onChange={setFallbackModels} />
-                      </span>
-                      <span className="mt-[14px] flex items-center text-[14px] text-[#8c8c8c]">
-                        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" className="mr-2" aria-hidden>
-                          <circle cx="8" cy="8" r="7" fill="#8c8c8c" />
-                          <text x="8" y="12" textAnchor="middle" fontSize="10" fill="#fff" fontStyle="italic" fontWeight="bold">
-                            i
-                          </text>
-                        </svg>
-                        仅展示运行中的推理实例
-                      </span>
-                    </span>
-                  </div>
-                )}
-
                 <div className="flex items-center">
                   <FieldLabel text="全局限流" />
                   <span className="ml-[53px] flex items-center">

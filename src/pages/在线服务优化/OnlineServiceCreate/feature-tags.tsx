@@ -20,7 +20,6 @@ export const FEATURES: Record<string, FeatureDoc> = {
     changes: [
       '表单标签由「后端服务类型」改为「后端推理类型」',
       '单选选项由「内部推理服务 / 外部推理服务」改为「内部推理实例 / 外部推理实例」',
-      '下方「模型Fallback」兜底类型下拉同步改为「内部推理实例 / 外部推理实例」',
     ],
     prdRef: 'FR-2',
     doc: pick(prdRaw, '**FR-2 后端推理类型与选项优化**'),
@@ -57,5 +56,17 @@ export const FEATURES: Record<string, FeatureDoc> = {
     ],
     prdRef: 'FR-5',
     doc: pick(prdRaw, '**FR-5 调用模型名统一与自动填充**'),
+  },
+  'F-06': {
+    type: '新增',
+    title: '路由策略支持灰度发布与移除Fallback',
+    changes: [
+      '路由策略卡片支持「按权重分发」「金丝雀发布」「蓝绿发布」三种发布模式',
+      '金丝雀发布支持基线/金丝雀实例指定、快捷比例切换及双色流量进度条',
+      '蓝绿发布支持主/备版本指定及一键主备切换',
+      '下线移除冗余的「模型Fallback」兜底配置',
+    ],
+    prdRef: 'FR-6',
+    doc: pick(prdRaw, '**FR-6 路由策略升级支持灰度发布与移除Fallback**'),
   },
 }

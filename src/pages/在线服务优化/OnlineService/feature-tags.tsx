@@ -47,4 +47,15 @@ export const FEATURES: Record<string, FeatureDoc> = {
     prdRef: 'FR-4',
     doc: pick(prdRaw, '**FR-4 后端推理实例统一**'),
   },
+  'F-05': {
+    type: '新增',
+    title: '路由策略灰度发布与移除Fallback',
+    changes: [
+      '路由策略支持「按权重分发」「金丝雀发布」「蓝绿发布」三种发布模式',
+      '卡片与表格直观展示实例角色（基线/金丝雀/主/备）与流量权重',
+      '下线移除冗余的「模型Fallback」',
+    ],
+    prdRef: 'FR-6',
+    doc: pick(prdRaw, '**FR-6 路由策略升级与灰度发布**'),
+  },
 }

@@ -18,20 +18,20 @@ type ServiceRow = {
 }
 
 const SERVICE_ROWS: ServiceRow[] = [
-  { name: '测试外部2', model: 'test22', published: true, route: '–', cache: '未开启', backend: '外部推理服务', instances: [{ label: '阿里不完整路径' }] },
-  { name: '测试外部服务', model: 'test', published: true, route: '–', cache: '未开启', backend: '外部推理服务', instances: [{ label: '阿里百炼服务' }] },
-  { name: 'gge', model: 'de', published: false, route: '–', cache: '未开启', backend: '内部推理服务', instances: [{ label: 'kt服务', red: true }] },
+  { name: '测试外部2', model: 'qwen-max', published: true, route: '–', cache: '未开启', backend: '外部推理服务', instances: [{ label: '阿里不完整路径' }] },
+  { name: '测试外部服务', model: 'qwen-plus', published: true, route: '–', cache: '未开启', backend: '外部推理服务', instances: [{ label: '阿里百炼服务' }] },
+  { name: 'gge', model: 'QwQ-32B', published: false, route: '–', cache: '未开启', backend: '内部推理服务', instances: [{ label: 'kt服务', red: true }] },
   {
     name: '测试外部',
-    model: 'test',
+    model: 'Qwen2.5-72B-Instruct',
     published: false,
     route: '按权重分发',
     cache: '已开启',
     backend: '外部推理服务',
     instances: [{ label: 'demo-18080' }, { label: 'demo-18081' }, { label: 'demo-18082' }],
   },
-  { name: '验证缓存设置', model: '放入', published: false, route: '–', cache: '已开启', backend: '内部推理服务', instances: [{ label: 'test', red: true }] },
-  { name: '1个服务', model: 'aa', published: false, route: '–', cache: '未开启', backend: '内部推理服务', instances: [{ label: 'test', red: true }] },
+  { name: '验证缓存设置', model: 'Qwen3-32B', published: false, route: '–', cache: '已开启', backend: '内部推理服务', instances: [{ label: 'test', red: true }] },
+  { name: '1个服务', model: 'DeepSeek-R1-Distill-Qwen-32B', published: false, route: '–', cache: '未开启', backend: '内部推理服务', instances: [{ label: 'test', red: true }] },
 ]
 
 function SelectBox({

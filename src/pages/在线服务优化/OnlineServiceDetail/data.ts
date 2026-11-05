@@ -1,4 +1,9 @@
-export type Instance = { label: string; running: boolean; weight?: number }
+export type Instance = {
+  label: string
+  running: boolean
+  weight?: number
+  role?: '基线' | '金丝雀' | '主' | '备'
+}
 export type ServiceDetail = {
   name: string
   model: string
@@ -23,7 +28,7 @@ export type ServiceDetail = {
 export const DETAILS: Record<string, ServiceDetail> = {
   测试外部2: {
     name: '测试外部2',
-    model: 'test22',
+    model: 'qwen-max',
     published: true,
     createdAt: '2026-11-02 14:22:02',
     publishType: '私有发布',
@@ -41,14 +46,17 @@ export const DETAILS: Record<string, ServiceDetail> = {
   },
   测试外部服务: {
     name: '测试外部服务',
-    model: 'test',
+    model: 'qwen-plus',
     published: true,
     createdAt: '2026-11-01 10:18:42',
     publishType: '私有发布',
-    routeMode: '按权重分发',
-    instances: [{ label: '阿里百炼服务', running: true, weight: 100 }],
-    cacheOn: false,
-    cacheTime: '60秒',
+    routeMode: '金丝雀发布',
+    instances: [
+      { label: '百炼基线服务', running: true, weight: 90, role: '基线' },
+      { label: '百炼灰度服务', running: true, weight: 10, role: '金丝雀' },
+    ],
+    cacheOn: true,
+    cacheTime: '120秒',
     fallbackOn: false,
     fallbackType: '内部推理服务',
     fallbackModels: [],
@@ -59,12 +67,15 @@ export const DETAILS: Record<string, ServiceDetail> = {
   },
   gge: {
     name: 'gge',
-    model: 'de',
+    model: 'QwQ-32B',
     published: false,
     createdAt: '2026-10-30 16:42:11',
     publishType: '私有发布',
-    routeMode: '按权重分发',
-    instances: [{ label: 'kt服务', running: true, weight: 100 }],
+    routeMode: '蓝绿发布',
+    instances: [
+      { label: 'kt服务-蓝组', running: true, weight: 100, role: '主' },
+      { label: 'kt服务-绿组', running: true, weight: 0, role: '备' },
+    ],
     cacheOn: false,
     cacheTime: '60秒',
     fallbackOn: false,
@@ -77,7 +88,7 @@ export const DETAILS: Record<string, ServiceDetail> = {
   },
   测试外部: {
     name: '测试外部',
-    model: 'test',
+    model: 'Qwen2.5-72B-Instruct',
     published: false,
     createdAt: '2026-11-02 13:35:24',
     publishType: '私有发布',
@@ -91,7 +102,7 @@ export const DETAILS: Record<string, ServiceDetail> = {
     cacheTime: '100秒',
     fallbackOn: true,
     fallbackType: '内部推理服务',
-    fallbackModels: ['vllm验证'],
+    fallbackModels: ['DeepSeek-R1-Distill-Qwen-32B'],
     rpmOn: false,
     rpm: '',
     backendType: '外部推理服务',
@@ -99,7 +110,7 @@ export const DETAILS: Record<string, ServiceDetail> = {
   },
   验证缓存设置: {
     name: '验证缓存设置',
-    model: '放入',
+    model: 'Qwen3-32B',
     published: false,
     createdAt: '2026-10-29 09:27:03',
     publishType: '私有发布',
@@ -117,7 +128,7 @@ export const DETAILS: Record<string, ServiceDetail> = {
   },
   '1个服务': {
     name: '1个服务',
-    model: 'aa',
+    model: 'DeepSeek-R1-Distill-Qwen-32B',
     published: false,
     createdAt: '2026-10-28 11:05:37',
     publishType: '私有发布',
