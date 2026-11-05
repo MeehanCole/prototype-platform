@@ -104,10 +104,12 @@ function Toggle({ on, onClick }: { on: boolean; onClick?: () => void }) {
 const INSTANCE_OPTIONS: Record<'internal' | 'external', { label: string; running: boolean; model: string; plazaModel?: string }[]> = {
   internal: [
     { label: 'test', running: false, model: 'Qwen3-32B' },
-    { label: 'moe模型hang验证', running: false, model: 'Qwen3.5-35B-A3B', plazaModel: 'Qwen3.5-35B-A3B' },
-    { label: 'moe模型hang验证-副本', running: false, model: 'Qwen3.5-35B-A3B', plazaModel: 'Qwen3.5-35B-A3B' },
-    { label: 'vllm验证', running: false, model: 'DeepSeek-R1-Distill-Qwen-32B' },
-    { label: 'kt服务', running: false, model: 'QwQ-32B' },
+    { label: 'moe模型hang验证', running: true, model: 'Qwen3.5-35B-A3B', plazaModel: 'Qwen3.5-35B-A3B' },
+    { label: 'moe模型hang验证-副本', running: true, model: 'Qwen3.5-35B-A3B', plazaModel: 'Qwen3.5-35B-A3B' },
+    { label: 'vllm验证', running: true, model: 'DeepSeek-R1-Distill-Qwen-32B' },
+    { label: 'kt服务', running: true, model: 'QwQ-32B' },
+    { label: 'kt服务-蓝组', running: true, model: 'QwQ-32B' },
+    { label: 'kt服务-绿组', running: true, model: 'QwQ-32B' },
   ],
   external: [
     { label: '阿里不完整路径', running: true, model: 'qwen-max' },
@@ -118,6 +120,8 @@ const INSTANCE_OPTIONS: Record<'internal' | 'external', { label: string; running
     { label: 'demo-18080-model接口', running: true, model: 'Qwen2.5-72B-Instruct' },
     { label: 'demo-18081', running: true, model: 'Qwen2.5-72B-Instruct' },
     { label: 'demo-18082', running: true, model: 'Qwen2.5-72B-Instruct' },
+    { label: '百炼基线服务', running: true, model: 'qwen-plus' },
+    { label: '百炼灰度服务', running: true, model: 'qwen-plus' },
   ],
 }
 
@@ -198,20 +202,19 @@ function InstanceSelect({
             ) : (
               options.map((opt) => {
                 const selected = values.includes(opt.label)
+                const disabledOpt = !opt.running
                 return (
                   <span
                     key={opt.label}
-                    onClick={() => toggle(opt.label)}
-                    className={`flex h-[41px] items-center justify-between px-[26px] cursor-pointer ${
-                      selected ? 'bg-[#f5f7fa]' : 'hover:bg-[#f5f7fa]'
-                    }`}
+                    onClick={() => !disabledOpt && toggle(opt.label)}
+                    className={`flex h-[41px] items-center justify-between px-[26px] ${disabledOpt ? 'cursor-not-allowed' : 'cursor-pointer'} ${selected ? 'bg-[#f5f7fa]' : disabledOpt ? 'bg-[#fafafa]' : 'hover:bg-[#f5f7fa]'}`}
                   >
                     <span className="flex items-center gap-2">
-                      <span className={`text-[15px] ${selected ? 'text-[#166EFF]' : 'text-[#333]'}`}>{opt.label}</span>
+                      <span className={`text-[15px] ${disabledOpt ? 'text-[#bbb]' : selected ? 'text-[#166EFF]' : 'text-[#333]'}`}>{opt.label}</span>
                       <span className="rounded bg-[#f0f2f5] px-1.5 py-0.5 text-[12px] text-[#666]">模型: {opt.model}</span>
                     </span>
-                    <span className={`text-[14px] ${opt.running ? 'text-[#67C23A]' : 'text-[#999]'}`}>
-                      {opt.running ? '运行中' : '已关机'}
+                    <span className={`text-[14px] ${disabledOpt ? 'text-[#bbb]' : opt.running ? 'text-[#67C23A]' : 'text-[#999]'}`}>
+                      {disabledOpt ? '已关机（不可选）' : '运行中'}
                     </span>
                   </span>
                 )
@@ -328,7 +331,7 @@ function RouteCard({
   )
   const activeStrategy: RouteStrategyType = category === 'routine' ? '按权重分发' : grayStrategy
 
-  // 1. 按权重分发 state
+  // 1. 按权重分发 state（编辑态保留原权重；后续手动增删实例时自动按新数量均分 100%）
   const [weights, setWeights] = useState<Record<string, string>>(() => {
     if (initialWeights && Object.keys(initialWeights).length > 0) return initialWeights
     const count = instances.length || 1
@@ -339,6 +342,21 @@ function RouteCard({
     })
     return init
   })
+
+  const firstWeightsRender = useRef(true)
+  useEffect(() => {
+    if (firstWeightsRender.current) {
+      firstWeightsRender.current = false
+      return
+    }
+    const count = instances.length || 1
+    const base = Math.floor(100 / count)
+    const next: Record<string, string> = {}
+    instances.forEach((name, idx) => {
+      next[name] = String(idx === 0 ? 100 - base * (count - 1) : base)
+    })
+    setWeights(next)
+  }, [instances])
 
   const weightSum = instances.reduce((acc, n) => acc + (Number(weights[n]) || 0), 0)
 
@@ -489,25 +507,23 @@ function RouteCard({
             <>
               <span className="flex flex-col gap-[10px]">
                 {instances.map((name, idx) => {
-                  const isBaseline = idx === 0
-                  const isCanary = idx === 1
-                  const val = isBaseline ? baselineWeight : isCanary ? canaryWeight : 0
-                  const roleText = isBaseline ? '（基线）' : isCanary ? '（金丝雀）' : ''
+                  const isFirst = idx === 0
+                  const isSecond = idx === 1
+                  const val = isFirst ? baselineWeight : isSecond ? canaryWeight : 0
                   const updateVal = (nextVal: number) => {
                     const clamped = Math.min(100, Math.max(0, nextVal))
-                    if (isBaseline) setCanaryWeight(100 - clamped)
-                    else if (isCanary) setCanaryWeight(clamped)
+                    if (isFirst) setCanaryWeight(100 - clamped)
+                    else if (isSecond) setCanaryWeight(clamped)
                   }
                   return (
                     <div key={name} className="flex items-center">
                       <span className="w-[240px] shrink-0 text-left text-[15px] text-[#333] truncate pr-2" title={name}>
                         {name}
-                        {roleText && <span className="text-[13px] text-[#8c8c8c]">{roleText}</span>}
                       </span>
                       <span className="inline-flex items-stretch h-[40px]">
                         <input
                           value={String(val)}
-                          readOnly={!isBaseline && !isCanary}
+                          readOnly={!isFirst && !isSecond}
                           onChange={(e) => updateVal(Number(e.target.value.replace(/[^\d]/g, '')) || 0)}
                           className="w-[120px] h-full rounded-l border border-[#d9d9d9] text-center text-[14px] text-[#333] outline-none"
                         />
@@ -541,46 +557,15 @@ function RouteCard({
                 })}
               </span>
 
-              {/* 金丝雀快捷比例档位 */}
-              <div className="mt-[10px] flex items-center gap-[8px] text-[14px] text-[#8c8c8c]">
-                <span>金丝雀比例：</span>
-                {[5, 10, 20, 50, 100].map((preset) => (
-                  <button
-                    key={preset}
-                    type="button"
-                    onClick={() => setCanaryWeight(preset)}
-                    className={`px-2 py-0.5 rounded border text-[13px] cursor-pointer ${
-                      canaryWeight === preset
-                        ? 'border-[#166EFF] text-[#166EFF] bg-[#e9f2ff]'
-                        : 'border-[#d9d9d9] text-[#333] bg-white hover:border-[#166EFF]'
-                    }`}
-                  >
-                    {preset}%
-                  </button>
-                ))}
-              </div>
-
-              {instances.length < 2 ? (
-                <span className="mt-[10px] flex items-center text-[15px] text-[#F5222D]">
-                  <svg width="15" height="15" viewBox="0 0 16 16" fill="none" className="mr-1.5 shrink-0" aria-hidden>
-                    <circle cx="8" cy="8" r="7" fill="#F5222D" />
-                    <text x="8" y="12" textAnchor="middle" fontSize="10" fill="#fff" fontStyle="italic" fontWeight="bold">
-                      i
-                    </text>
-                  </svg>
-                  金丝雀发布需在上方选择至少 2 个后端推理实例
-                </span>
-              ) : (
-                <span className="mt-[10px] flex items-center text-[15px] text-[#8c8c8c]">
-                  <svg width="15" height="15" viewBox="0 0 16 16" fill="none" className="mr-1.5 shrink-0" aria-hidden>
-                    <circle cx="8" cy="8" r="7" fill="#8c8c8c" />
-                    <text x="8" y="12" textAnchor="middle" fontSize="10" fill="#fff" fontStyle="italic" fontWeight="bold">
-                      i
-                    </text>
-                  </svg>
-                  基线与金丝雀权重自动互补（权重之和：100%）
-                </span>
-              )}
+              <span className="mt-[10px] flex items-center text-[15px] text-[#8c8c8c]">
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="none" className="mr-1.5 shrink-0" aria-hidden>
+                  <circle cx="8" cy="8" r="7" fill="#8c8c8c" />
+                  <text x="8" y="12" textAnchor="middle" fontSize="10" fill="#fff" fontStyle="italic" fontWeight="bold">
+                    i
+                  </text>
+                </svg>
+                两实例权重自动互补（权重之和：100%）
+              </span>
             </>
           )}
 
@@ -593,12 +578,10 @@ function RouteCard({
                   const isStandby = idx === 1
                   const isActive = idx === blueGreenActiveIdx
                   const val = (isPrimary || isStandby) && isActive ? 100 : 0
-                  const roleText = isPrimary ? '（主）' : isStandby ? '（备）' : ''
                   return (
                     <div key={name} className="flex items-center">
                       <span className="w-[240px] shrink-0 text-left text-[15px] text-[#333] truncate pr-2" title={name}>
                         {name}
-                        {roleText && <span className="text-[13px] text-[#8c8c8c]">{roleText}</span>}
                       </span>
                       <span className="inline-flex items-stretch h-[40px]">
                         <input
@@ -636,27 +619,15 @@ function RouteCard({
                 })}
               </span>
 
-              {instances.length < 2 ? (
-                <span className="mt-[10px] flex items-center text-[15px] text-[#F5222D]">
-                  <svg width="15" height="15" viewBox="0 0 16 16" fill="none" className="mr-1.5 shrink-0" aria-hidden>
-                    <circle cx="8" cy="8" r="7" fill="#F5222D" />
-                    <text x="8" y="12" textAnchor="middle" fontSize="10" fill="#fff" fontStyle="italic" fontWeight="bold">
-                      i
-                    </text>
-                  </svg>
-                  蓝绿发布需在上方选择至少 2 个后端推理实例
-                </span>
-              ) : (
-                <span className="mt-[10px] flex items-center text-[15px] text-[#8c8c8c]">
-                  <svg width="15" height="15" viewBox="0 0 16 16" fill="none" className="mr-1.5 shrink-0" aria-hidden>
-                    <circle cx="8" cy="8" r="7" fill="#8c8c8c" />
-                    <text x="8" y="12" textAnchor="middle" fontSize="10" fill="#fff" fontStyle="italic" fontWeight="bold">
-                      i
-                    </text>
-                  </svg>
-                  主备实例权重锁定为 100% 与 0%，可一键整切流量
-                </span>
-              )}
+              <span className="mt-[10px] flex items-center text-[15px] text-[#8c8c8c]">
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="none" className="mr-1.5 shrink-0" aria-hidden>
+                  <circle cx="8" cy="8" r="7" fill="#8c8c8c" />
+                  <text x="8" y="12" textAnchor="middle" fontSize="10" fill="#fff" fontStyle="italic" fontWeight="bold">
+                    i
+                  </text>
+                </svg>
+                两实例权重锁定为 100% 与 0%，可一键整切流量
+              </span>
             </>
           )}
         </span>
@@ -711,6 +682,12 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
   )
   const [rpmOn, setRpmOn] = useState(src ? src.rpmOn : false)
 
+  // 选 ≥ 2 个后端推理实例时，「流量分发策略」升级为必选项：自动开启并锁定（不可关闭）
+  useEffect(() => {
+    if (instances.length >= 2 && !routeOn) setRouteOn(true)
+  }, [instances.length, routeOn])
+
+  // 灰度发布仅支持恰好 2 个后端推理实例：实例数非 2 时自动回退为「常规路由策略」
   useEffect(() => {
     if (instances.length !== 2 && routeCategory === 'grayscale') {
       setRouteCategory('routine')
@@ -922,11 +899,20 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
                 {/* 流量分发策略 */}
                 <div className="flex flex-col">
                   <div className="flex items-center">
-                    <FieldLabel text="流量分发策略" />
+                    <FieldLabel text="流量分发策略" required={instances.length >= 2} />
                     <span className="ml-[53px] flex items-center">
-                      <Toggle on={routeOn} onClick={() => setRouteOn((v) => !v)} />
+                      <Toggle
+                        on={routeOn}
+                        onClick={() => {
+                          // 选 ≥ 2 个实例时为必选项，锁定开启、不可关闭
+                          if (instances.length >= 2) return
+                          setRouteOn((v) => !v)
+                        }}
+                      />
                       <span className="ml-3 text-[14px] text-[#8c8c8c]">
-                        开启后可对已选后端推理实例配置常规路由（按权重分发）或灰度发布（金丝雀 / 蓝绿）策略
+                        {instances.length >= 2
+                          ? '选择多个后端推理实例时，必须配置流量分发策略'
+                          : '开启后可对已选后端推理实例配置常规路由（按权重分发）或灰度发布（金丝雀 / 蓝绿）策略'}
                       </span>
                     </span>
                     <NewTag compact code="F-06" className="ml-2" />
