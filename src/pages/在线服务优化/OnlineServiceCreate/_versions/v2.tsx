@@ -312,6 +312,156 @@ function PlazaModelSelect({
   )
 }
 
+/* 模型Fallback：类型选择（内部推理实例 / 外部推理实例） */
+function FallbackTypeSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLSpanElement>(null)
+  useOutsideClose(rootRef, () => setOpen(false))
+  const opts = ['内部推理实例', '外部推理实例']
+  const displayValue = value === '内部推理服务' ? '内部推理实例' : value === '外部推理服务' ? '外部推理实例' : value
+  return (
+    <span ref={rootRef} className="relative inline-block w-[240px]">
+      <span
+        onClick={() => setOpen((o) => !o)}
+        className={`h-[45px] flex items-center justify-between rounded border bg-white px-4 text-[14px] text-[#333] cursor-pointer ${
+          open ? 'border-[#166EFF]' : 'border-[#d9d9d9]'
+        }`}
+      >
+        <span>{displayValue}</span>
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 12 12"
+          fill="none"
+          aria-hidden
+          className={`transition-transform ${open ? 'rotate-180' : ''}`}
+        >
+          <path d="m2.5 4.5 3.5 3.5 3.5-3.5" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </span>
+      {open && (
+        <span className="absolute left-0 top-full mt-[4px] z-30 w-full rounded-[4px] border border-[#e4e6eb] bg-white shadow-[0_4px_16px_rgba(0,0,0,0.08)] py-[6px]">
+          {opts.map((opt) => (
+            <span
+              key={opt}
+              onClick={() => {
+                onChange(opt)
+                setOpen(false)
+              }}
+              className={`flex h-[41px] items-center px-[26px] cursor-pointer ${
+                displayValue === opt ? 'bg-[#f5f7fa] text-[#166EFF]' : 'text-[#333] hover:bg-[#f5f7fa]'
+              }`}
+            >
+              <span className="text-[15px]">{opt}</span>
+            </span>
+          ))}
+        </span>
+      )}
+    </span>
+  )
+}
+
+/* 模型Fallback：推理实例选择（仅展示运行中实例） */
+function FallbackServiceSelect({
+  type,
+  values,
+  onChange,
+}: {
+  type: string
+  values: string[]
+  onChange: (v: string[]) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLSpanElement>(null)
+  useOutsideClose(rootRef, () => setOpen(false))
+
+  const opts =
+    type === '内部推理实例' || type === '内部推理服务'
+      ? INSTANCE_OPTIONS.internal.filter((o) => o.running)
+      : INSTANCE_OPTIONS.external.filter((o) => o.running)
+
+  const toggle = (label: string) => {
+    onChange(values.includes(label) ? values.filter((x) => x !== label) : [...values, label])
+  }
+
+  return (
+    <span ref={rootRef} className="relative inline-block w-[320px]">
+      <span
+        onClick={() => setOpen((o) => !o)}
+        className={`min-h-[45px] flex items-center justify-between rounded border bg-white px-3 py-1.5 text-[14px] cursor-pointer ${
+          open ? 'border-[#166EFF]' : 'border-[#d9d9d9]'
+        }`}
+      >
+        {values.length === 0 ? (
+          <span className="text-[#bfbfbf]">选择推理实例</span>
+        ) : (
+          <span className="flex flex-wrap items-center gap-1.5">
+            {values.map((v) => (
+              <span
+                key={v}
+                className="inline-flex items-center gap-1.5 h-[26px] px-2.5 rounded-[3px] bg-[#f2f3f5] text-[13px] text-[#4e5969]"
+              >
+                <span>{v}</span>
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    toggle(v)
+                  }}
+                  className="w-[14px] h-[14px] rounded-full bg-[#c9cdd4] hover:bg-[#86909c] flex items-center justify-center text-white"
+                >
+                  <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                    <path d="M2 2l6 6M8 2L2 8" />
+                  </svg>
+                </span>
+              </span>
+            ))}
+          </span>
+        )}
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 12 12"
+          fill="none"
+          aria-hidden
+          className={`shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
+        >
+          <path d="m2.5 4.5 3.5 3.5 3.5-3.5" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </span>
+      {open && (
+        <span className="absolute left-0 top-full mt-[4px] z-30 w-full rounded-[4px] border border-[#e4e6eb] bg-white shadow-[0_4px_16px_rgba(0,0,0,0.08)] py-[6px]">
+          {opts.map((opt) => {
+            const selected = values.includes(opt.label)
+            return (
+              <span
+                key={opt.label}
+                onClick={() => toggle(opt.label)}
+                className={`flex h-[46px] items-center justify-between px-[20px] cursor-pointer ${
+                  selected ? 'bg-[#f5f7fa]' : 'hover:bg-[#f5f7fa]'
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <span className={`text-[15px] ${selected ? 'text-[#166EFF] font-medium' : 'text-[#333]'}`}>
+                    {opt.label}
+                  </span>
+                  <span className="inline-flex h-[20px] items-center rounded bg-[#f0f2f5] px-1.5 text-[12px] text-[#666]">
+                    {opt.model}
+                  </span>
+                </span>
+                {selected && (
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#166EFF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m3.5 8.5 3 3 6-6.5" />
+                  </svg>
+                )}
+              </span>
+            )
+          })}
+        </span>
+      )}
+    </span>
+  )
+}
+
 type RouteStrategyType = '按权重分发' | '金丝雀发布' | '蓝绿发布'
 
 /* 流量分发策略卡片（常规路由：按权重分发 / 灰度发布：金丝雀发布、蓝绿发布） */
@@ -662,7 +812,18 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
   const [routeCategory, setRouteCategory] = useState<'routine' | 'grayscale'>(
     src && (src.routeMode === '金丝雀发布' || src.routeMode === '蓝绿发布') ? 'grayscale' : 'routine',
   )
+  const [fallbackOn, setFallbackOn] = useState(src ? src.fallbackOn : false)
+  const [fallbackType, setFallbackType] = useState<string>(src?.fallbackType || '内部推理实例')
+  const [fallbackModels, setFallbackModels] = useState<string[]>(src ? src.fallbackModels : [])
   const [rpmOn, setRpmOn] = useState(src ? src.rpmOn : false)
+  const isGrayscaleRoute = routeOn && routeCategory === 'grayscale'
+
+  // 灰度发布策略下不支持模型Fallback，切换至灰度发布时自动关闭
+  useEffect(() => {
+    if (isGrayscaleRoute && fallbackOn) {
+      setFallbackOn(false)
+    }
+  }, [isGrayscaleRoute, fallbackOn])
 
   // 选 ≥ 2 个后端推理实例时，「流量分发策略」升级为必选项：自动开启并锁定（不可关闭）
   useEffect(() => {
@@ -1016,6 +1177,45 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
               </div>
 
               <div className="mt-[23px] flex flex-col gap-[37px]">
+                {/* 模型Fallback（常规路由策略及单实例支持，灰度发布策略下无模型Fallback） */}
+                {!isGrayscaleRoute && (
+                  <>
+                    <div className="flex items-center">
+                      <FieldLabel text="模型Fallback" />
+                      <span className="ml-[53px] flex items-center">
+                        <Toggle on={fallbackOn} onClick={() => setFallbackOn((v) => !v)} />
+                        <span className="ml-3 text-[14px] text-[#8c8c8c]">
+                          开启后，当推理实例不可用时将自动切换至备选模型
+                        </span>
+                      </span>
+                    </div>
+
+                    {/* 模型Fallback 展开区 */}
+                    {fallbackOn && (
+                      <div className="pl-[201px] -mt-[18px] flex flex-col gap-[16px]">
+                        <p className="text-[14px] text-[#8c8c8c]">
+                          当配置的推理实例全部宕机，请求将自动转发至下方兜底推理实例。降级过程会有延迟。
+                        </p>
+                        <div className="flex items-center gap-[8px]">
+                          <FallbackTypeSelect
+                            value={fallbackType}
+                            onChange={(t) => {
+                              setFallbackType(t)
+                              setFallbackModels([])
+                            }}
+                          />
+                          <FallbackServiceSelect
+                            type={fallbackType}
+                            values={fallbackModels}
+                            onChange={setFallbackModels}
+                          />
+                        </div>
+                        <p className="text-[13px] text-[#8c8c8c]">仅展示运行中的推理实例</p>
+                      </div>
+                    )}
+                  </>
+                )}
+
                 <div className="flex items-center">
                   <FieldLabel text="全局限流" />
                   <span className="ml-[53px] flex items-center">

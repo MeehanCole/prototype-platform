@@ -26,6 +26,8 @@ type ServiceRow = {
   totalCalls: string
   successCalls: string
   failedCalls: number
+  fallbackOn: boolean
+  fallbackModels: string[]
   rpmOn: boolean
   rpm?: string
 }
@@ -49,6 +51,8 @@ const SERVICE_ROWS: ServiceRow[] = [
     totalCalls: '8,240',
     successCalls: '8,228',
     failedCalls: 12,
+    fallbackOn: false,
+    fallbackModels: [],
     rpmOn: true,
     rpm: '5000 RPM',
   },
@@ -72,6 +76,8 @@ const SERVICE_ROWS: ServiceRow[] = [
     totalCalls: '1,520',
     successCalls: '1,520',
     failedCalls: 0,
+    fallbackOn: false,
+    fallbackModels: [],
     rpmOn: false,
   },
   {
@@ -93,6 +99,8 @@ const SERVICE_ROWS: ServiceRow[] = [
     totalCalls: '320',
     successCalls: '318',
     failedCalls: 2,
+    fallbackOn: false,
+    fallbackModels: [],
     rpmOn: false,
   },
   {
@@ -116,6 +124,8 @@ const SERVICE_ROWS: ServiceRow[] = [
     totalCalls: '12,850',
     successCalls: '12,815',
     failedCalls: 35,
+    fallbackOn: true,
+    fallbackModels: ['vllm验证'],
     rpmOn: true,
     rpm: '2000 RPM',
   },
@@ -136,6 +146,8 @@ const SERVICE_ROWS: ServiceRow[] = [
     totalCalls: '640',
     successCalls: '592',
     failedCalls: 48,
+    fallbackOn: false,
+    fallbackModels: [],
     rpmOn: false,
   },
   {
@@ -155,6 +167,8 @@ const SERVICE_ROWS: ServiceRow[] = [
     totalCalls: '95',
     successCalls: '95',
     failedCalls: 0,
+    fallbackOn: false,
+    fallbackModels: [],
     rpmOn: true,
     rpm: '1000 RPM',
   },
@@ -528,6 +542,15 @@ function ServiceCard({ row }: { row: ServiceRow }) {
         >
           ⚡ 缓存{row.cacheOn ? ` ${row.cacheTime}` : '未开启'}
         </span>
+        {row.route !== '金丝雀发布' && row.route !== '蓝绿发布' && (
+          <span
+            className={`inline-flex items-center rounded px-2 py-1 text-[12px] ${
+              row.fallbackOn ? 'bg-[#E6F4FF] text-[#1677ff]' : 'bg-[#f5f5f5] text-[#999]'
+            }`}
+          >
+            🛡 Fallback{row.fallbackOn ? `: ${row.fallbackModels.join(',')}` : '未开启'}
+          </span>
+        )}
         <span
           className={`inline-flex items-center rounded px-2 py-1 text-[12px] ${
             row.rpmOn ? 'bg-[#F6FFED] text-[#52C41A]' : 'bg-[#f5f5f5] text-[#999]'

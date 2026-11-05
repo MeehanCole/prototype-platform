@@ -356,6 +356,45 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
 
                   <div className="my-[30px] h-px bg-[#f0f0f0]" />
 
+                  {/* 模型Fallback（仅常规路由展示，灰度发布无模型Fallback） */}
+                  {routeMode !== '金丝雀发布' && routeMode !== '蓝绿发布' && (
+                    <>
+                      <div className="text-[16px] font-semibold text-[#1f2329]">模型Fallback</div>
+                      <div className="mt-[24px] flex flex-col gap-[24px]">
+                        <div className={row}>
+                          <span className={label}>是否开启</span>
+                          <span className="text-[15px] text-[#333]">{d.fallbackOn ? '是' : '否'}</span>
+                        </div>
+                        {d.fallbackOn && (
+                          <>
+                            <div className={row}>
+                              <span className={label}>备选模型类型</span>
+                              <span className="inline-flex h-[26px] items-center rounded bg-[#EAF3FF] px-[9px] text-[14px] text-[#166EFF]">
+                                {d.fallbackType === '内部推理服务'
+                                  ? '内部推理实例'
+                                  : d.fallbackType === '外部推理服务'
+                                    ? '外部推理实例'
+                                    : d.fallbackType}
+                              </span>
+                            </div>
+                            <div className={row}>
+                              <span className={label}>备选推理实例</span>
+                              <div className="flex flex-wrap items-center gap-[10px]">
+                                {d.fallbackModels.map((m) => (
+                                  <span key={m} className="inline-flex h-[26px] items-center rounded bg-[#F5F7FA] px-[10px] text-[14px] text-[#333]">
+                                    {m}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+
+                      <div className="my-[30px] h-px bg-[#f0f0f0]" />
+                    </>
+                  )}
+
                   {/* 全局限流 */}
                   <div className="text-[16px] font-semibold text-[#1f2329]">全局限流</div>
                   <div className="mt-[24px]">
