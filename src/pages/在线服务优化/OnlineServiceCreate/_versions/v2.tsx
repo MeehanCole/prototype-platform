@@ -432,15 +432,6 @@ function RouteCard({
             </span>
           )}
         </span>
-        {activeStrategy === '蓝绿发布' && (
-          <button
-            type="button"
-            onClick={() => setBlueGreenActiveIdx((cur) => (cur === 0 ? 1 : 0))}
-            className="ml-[20px] text-[14px] text-[#166EFF] cursor-pointer hover:underline"
-          >
-            切换主备流向
-          </button>
-        )}
       </div>
 
       {/* 下方统一「权重配置」区域：左对齐顶栏下拉框，常规路由与 v1 样式完全一致 */}
@@ -569,51 +560,42 @@ function RouteCard({
             </>
           )}
 
-          {/* 3. 灰度发布 · 蓝绿发布（同构输入框 + 100% / 0% 切换） */}
+          {/* 3. 灰度发布 · 蓝绿发布（Radio 单选承载全部流量的实例 + 状态徽章，无百分比输入框） */}
           {activeStrategy === '蓝绿发布' && (
             <>
               <span className="flex flex-col gap-[10px]">
                 {instances.map((name, idx) => {
-                  const isPrimary = idx === 0
-                  const isStandby = idx === 1
                   const isActive = idx === blueGreenActiveIdx
-                  const val = (isPrimary || isStandby) && isActive ? 100 : 0
                   return (
-                    <div key={name} className="flex items-center">
-                      <span className="w-[240px] shrink-0 text-left text-[15px] text-[#333] truncate pr-2" title={name}>
+                    <div
+                      key={name}
+                      className={`flex h-[40px] w-[420px] cursor-pointer items-center rounded-[4px] border px-3 ${
+                        isActive ? 'border-[#166EFF] bg-[#f0f6ff]' : 'border-[#e4e6eb] bg-white hover:border-[#b6c6e3]'
+                      }`}
+                      onClick={() => setBlueGreenActiveIdx(idx)}
+                    >
+                      <span
+                        className={`inline-flex items-center justify-center w-[15px] h-[15px] rounded-full border ${
+                          isActive ? 'border-[#166EFF] bg-[#166EFF]' : 'border-[#d9d9d9] bg-white'
+                        }`}
+                      >
+                        {isActive && <span className="w-[5px] h-[5px] rounded-full bg-white block" />}
+                      </span>
+                      <span
+                        className={`ml-2 flex-1 text-left text-[15px] truncate pr-2 ${isActive ? 'text-[#166EFF]' : 'text-[#333]'}`}
+                        title={name}
+                      >
                         {name}
                       </span>
-                      <span className="inline-flex items-stretch h-[40px]">
-                        <input
-                          value={String(val)}
-                          readOnly
-                          className="w-[120px] h-full rounded-l border border-[#d9d9d9] bg-[#fafafa] text-center text-[14px] text-[#333] outline-none"
-                        />
-                        <span className="w-[26px] border border-l-0 border-[#d9d9d9] rounded-r flex flex-col bg-[#fafafa]">
-                          <button
-                            type="button"
-                            className="flex-1 flex items-center justify-center cursor-pointer"
-                            aria-label="切换主备"
-                            onClick={() => setBlueGreenActiveIdx((cur) => (cur === 0 ? 1 : 0))}
-                          >
-                            <svg width="9" height="9" viewBox="0 0 10 10" fill="none" aria-hidden>
-                              <path d="M2 6.5 5 3.5 8 6.5" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                          </button>
-                          <span className="h-px bg-[#d9d9d9] mx-[2px]" />
-                          <button
-                            type="button"
-                            className="flex-1 flex items-center justify-center cursor-pointer"
-                            aria-label="切换主备"
-                            onClick={() => setBlueGreenActiveIdx((cur) => (cur === 0 ? 1 : 0))}
-                          >
-                            <svg width="9" height="9" viewBox="0 0 10 10" fill="none" aria-hidden>
-                              <path d="m2 3.5 3 3 3-3" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                          </button>
-                        </span>
+                      <span
+                        className={`shrink-0 rounded-[10px] px-2 py-[1px] text-[12px] leading-[18px] ${
+                          isActive
+                            ? 'bg-[#e6f4ea] text-[#16a34a]'
+                            : 'bg-[#f2f3f5] text-[#8c8c8c]'
+                        }`}
+                      >
+                        {isActive ? '承载全部流量' : '待命无流量'}
                       </span>
-                      <span className="ml-3 text-[14px] text-[#333]">%</span>
                     </div>
                   )
                 })}
@@ -626,7 +608,7 @@ function RouteCard({
                     i
                   </text>
                 </svg>
-                两实例权重锁定为 100% 与 0%，可一键整切流量
+                点击选择承载全部生产流量的实例，另一实例将处于待命状态（0% 流量），支持随时秒级互切
               </span>
             </>
           )}
