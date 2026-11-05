@@ -416,256 +416,251 @@ function RouteCard({
         </span>
       </div>
 
-      {/* 下方统一「权重配置」区域：100% 沿用原版左右结构与 Stepper 输入框 */}
-      <div className="mt-[24px] flex items-start">
-        <span className="w-[148px] shrink-0 text-right text-[16px] font-semibold text-[#1f2329] leading-[40px]">权重配置</span>
-        <span className="ml-[32px] flex-1">
-          {instances.length === 0 ? (
-            <span className="block leading-[40px] text-[14px] text-[#8c8c8c]">
-              请先在上方「后端推理实例」中选择实例
-            </span>
-          ) : (
+      {/* 下方统一「权重配置」区域：左对齐顶栏下拉框，常规路由与 v1 样式完全一致 */}
+      <div className="mt-[24px] flex items-start text-left">
+        <span className="shrink-0 text-left text-[16px] font-semibold text-[#1f2329]">权重配置</span>
+        <span className="ml-[32px] flex-1 text-left">
+          {/* 1. 常规路由（按权重分发）—— 与 v1 保持 100% 一致 */}
+          {activeStrategy === '按权重分发' && (
             <>
-              {/* 1. 常规路由（按权重分发） */}
-              {activeStrategy === '按权重分发' && (
-                <>
-                  <span className="flex flex-col gap-[10px]">
-                    {instances.map((name) => (
-                      <div key={name} className="flex items-center">
-                        <span className="w-[240px] shrink-0 text-[15px] text-[#333] truncate pr-2" title={name}>
-                          {name}
-                        </span>
-                        <span className="inline-flex items-stretch h-[40px]">
-                          <input
-                            value={weights[name] ?? '0'}
-                            onChange={(e) => setWeights((w) => ({ ...w, [name]: e.target.value.replace(/[^\d]/g, '') }))}
-                            className="w-[120px] h-full rounded-l border border-[#d9d9d9] text-center text-[14px] text-[#333] outline-none focus:border-[#166EFF]"
-                          />
-                          <span className="w-[26px] border border-l-0 border-[#d9d9d9] rounded-r flex flex-col bg-[#fafafa]">
-                            <button
-                              type="button"
-                              className="flex-1 flex items-center justify-center cursor-pointer"
-                              aria-label="增加"
-                              onClick={() => setWeights((w) => ({ ...w, [name]: String(Math.min(100, (Number(w[name]) || 0) + 1)) }))}
-                            >
-                              <svg width="9" height="9" viewBox="0 0 10 10" fill="none" aria-hidden>
-                                <path d="M2 6.5 5 3.5 8 6.5" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                              </svg>
-                            </button>
-                            <span className="h-px bg-[#d9d9d9] mx-[2px]" />
-                            <button
-                              type="button"
-                              className="flex-1 flex items-center justify-center cursor-pointer"
-                              aria-label="减少"
-                              onClick={() => setWeights((w) => ({ ...w, [name]: String(Math.max(0, (Number(w[name]) || 0) - 1)) }))}
-                            >
-                              <svg width="9" height="9" viewBox="0 0 10 10" fill="none" aria-hidden>
-                                <path d="m2 3.5 3 3 3-3" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                              </svg>
-                            </button>
-                          </span>
-                        </span>
-                        <span className="ml-3 text-[14px] text-[#333]">%</span>
-                      </div>
-                    ))}
-                  </span>
-                  <span className={`mt-[10px] flex items-center text-[15px] ${weightSum === 100 ? 'text-[#8c8c8c]' : 'text-[#F5222D]'}`}>
-                    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" className="mr-1.5 shrink-0" aria-hidden>
-                      <circle cx="8" cy="8" r="7" fill={weightSum === 100 ? '#8c8c8c' : '#F5222D'} />
-                      <text x="8" y="12" textAnchor="middle" fontSize="10" fill="#fff" fontStyle="italic" fontWeight="bold">
-                        i
-                      </text>
-                    </svg>
-                    权重之和：{weightSum}%（必须等于100%）
-                  </span>
-                </>
-              )}
-
-              {/* 2. 灰度发布 · 金丝雀发布（同构 Stepper 输入框 + 基线/金丝雀自动互补） */}
-              {activeStrategy === '金丝雀发布' && (
-                <>
-                  <span className="flex flex-col gap-[10px]">
-                    {instances.map((name, idx) => {
-                      const isBaseline = idx === 0
-                      const isCanary = idx === 1
-                      const val = isBaseline ? baselineWeight : isCanary ? canaryWeight : 0
-                      const roleText = isBaseline ? '（基线）' : isCanary ? '（金丝雀）' : ''
-                      const updateVal = (nextVal: number) => {
-                        const clamped = Math.min(100, Math.max(0, nextVal))
-                        if (isBaseline) setCanaryWeight(100 - clamped)
-                        else if (isCanary) setCanaryWeight(clamped)
-                      }
-                      return (
-                        <div key={name} className="flex items-center">
-                          <span className="w-[240px] shrink-0 text-[15px] text-[#333] truncate pr-2" title={name}>
-                            {name}
-                            {roleText && <span className="text-[13px] text-[#8c8c8c]">{roleText}</span>}
-                          </span>
-                          <span className="inline-flex items-stretch h-[40px]">
-                            <input
-                              value={String(val)}
-                              readOnly={!isBaseline && !isCanary}
-                              onChange={(e) => updateVal(Number(e.target.value.replace(/[^\d]/g, '')) || 0)}
-                              className="w-[120px] h-full rounded-l border border-[#d9d9d9] text-center text-[14px] text-[#333] outline-none focus:border-[#166EFF]"
-                            />
-                            <span className="w-[26px] border border-l-0 border-[#d9d9d9] rounded-r flex flex-col bg-[#fafafa]">
-                              <button
-                                type="button"
-                                className="flex-1 flex items-center justify-center cursor-pointer"
-                                aria-label="增加"
-                                onClick={() => updateVal(val + 5)}
-                              >
-                                <svg width="9" height="9" viewBox="0 0 10 10" fill="none" aria-hidden>
-                                  <path d="M2 6.5 5 3.5 8 6.5" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
-                              </button>
-                              <span className="h-px bg-[#d9d9d9] mx-[2px]" />
-                              <button
-                                type="button"
-                                className="flex-1 flex items-center justify-center cursor-pointer"
-                                aria-label="减少"
-                                onClick={() => updateVal(val - 5)}
-                              >
-                                <svg width="9" height="9" viewBox="0 0 10 10" fill="none" aria-hidden>
-                                  <path d="m2 3.5 3 3 3-3" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
-                              </button>
-                            </span>
-                          </span>
-                          <span className="ml-3 text-[14px] text-[#333]">%</span>
-                        </div>
-                      )
-                    })}
-                  </span>
-
-                  {/* 金丝雀快捷比例档位（简洁原生文本行） */}
-                  <div className="mt-[10px] flex items-center gap-[8px] text-[14px] text-[#8c8c8c]">
-                    <span>金丝雀比例：</span>
-                    {[5, 10, 20, 50, 100].map((preset) => (
-                      <button
-                        key={preset}
-                        type="button"
-                        onClick={() => setCanaryWeight(preset)}
-                        className={`px-2 py-0.5 rounded border text-[13px] cursor-pointer ${
-                          canaryWeight === preset
-                            ? 'border-[#166EFF] text-[#166EFF] bg-[#e9f2ff]'
-                            : 'border-[#d9d9d9] text-[#333] bg-white hover:border-[#166EFF]'
-                        }`}
-                      >
-                        {preset}%
-                      </button>
-                    ))}
+              <span className="flex flex-col gap-[10px]">
+                {instances.map((name) => (
+                  <div key={name} className="flex items-center">
+                    <span className="w-[240px] shrink-0 text-left text-[15px] text-[#333] truncate pr-2" title={name}>
+                      {name}
+                    </span>
+                    <span className="inline-flex items-stretch h-[40px]">
+                      <input
+                        value={weights[name] ?? '0'}
+                        onChange={(e) => setWeights((w) => ({ ...w, [name]: e.target.value.replace(/[^\d]/g, '') }))}
+                        className="w-[120px] h-full rounded-l border border-[#d9d9d9] text-center text-[14px] text-[#333] outline-none"
+                      />
+                      <span className="w-[26px] border border-l-0 border-[#d9d9d9] rounded-r flex flex-col bg-[#fafafa]">
+                        <button
+                          type="button"
+                          className="flex-1 flex items-center justify-center cursor-pointer"
+                          aria-label="增加"
+                          onClick={() => setWeights((w) => ({ ...w, [name]: String((Number(w[name]) || 0) + 1) }))}
+                        >
+                          <svg width="9" height="9" viewBox="0 0 10 10" fill="none" aria-hidden>
+                            <path d="M2 6.5 5 3.5 8 6.5" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </button>
+                        <span className="h-px bg-[#d9d9d9] mx-[2px]" />
+                        <button
+                          type="button"
+                          className="flex-1 flex items-center justify-center cursor-pointer"
+                          aria-label="减少"
+                          onClick={() => setWeights((w) => ({ ...w, [name]: String(Math.max(0, (Number(w[name]) || 0) - 1)) }))}
+                        >
+                          <svg width="9" height="9" viewBox="0 0 10 10" fill="none" aria-hidden>
+                            <path d="m2 3.5 3 3 3-3" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </button>
+                      </span>
+                    </span>
+                    <span className="ml-3 text-[14px] text-[#333]">%</span>
                   </div>
+                ))}
+              </span>
+              <span className="mt-[10px] flex items-center text-[15px] text-[#F5222D]">
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="none" className="mr-1.5 shrink-0" aria-hidden>
+                  <circle cx="8" cy="8" r="7" fill="#F5222D" />
+                  <text x="8" y="12" textAnchor="middle" fontSize="10" fill="#fff" fontStyle="italic" fontWeight="bold">
+                    i
+                  </text>
+                </svg>
+                权重之和：{weightSum}%（必须等于100%）
+              </span>
+              <span className="mt-[10px] block text-[15px] text-[#E6A23C]">此为终态策略，不可再添加后续路由策略。</span>
+            </>
+          )}
 
-                  {instances.length < 2 ? (
-                    <span className="mt-[10px] flex items-center text-[15px] text-[#F5222D]">
-                      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" className="mr-1.5 shrink-0" aria-hidden>
-                        <circle cx="8" cy="8" r="7" fill="#F5222D" />
-                        <text x="8" y="12" textAnchor="middle" fontSize="10" fill="#fff" fontStyle="italic" fontWeight="bold">
-                          i
-                        </text>
-                      </svg>
-                      金丝雀发布需在上方选择至少 2 个后端推理实例
-                    </span>
-                  ) : (
-                    <span className="mt-[10px] flex items-center text-[15px] text-[#8c8c8c]">
-                      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" className="mr-1.5 shrink-0" aria-hidden>
-                        <circle cx="8" cy="8" r="7" fill="#8c8c8c" />
-                        <text x="8" y="12" textAnchor="middle" fontSize="10" fill="#fff" fontStyle="italic" fontWeight="bold">
-                          i
-                        </text>
-                      </svg>
-                      基线与金丝雀权重自动互补（权重之和：100%）
-                    </span>
-                  )}
-                </>
+          {/* 2. 灰度发布 · 金丝雀发布（同构 Stepper 输入框 + 基线/金丝雀自动互补） */}
+          {activeStrategy === '金丝雀发布' && (
+            <>
+              <span className="flex flex-col gap-[10px]">
+                {instances.map((name, idx) => {
+                  const isBaseline = idx === 0
+                  const isCanary = idx === 1
+                  const val = isBaseline ? baselineWeight : isCanary ? canaryWeight : 0
+                  const roleText = isBaseline ? '（基线）' : isCanary ? '（金丝雀）' : ''
+                  const updateVal = (nextVal: number) => {
+                    const clamped = Math.min(100, Math.max(0, nextVal))
+                    if (isBaseline) setCanaryWeight(100 - clamped)
+                    else if (isCanary) setCanaryWeight(clamped)
+                  }
+                  return (
+                    <div key={name} className="flex items-center">
+                      <span className="w-[240px] shrink-0 text-left text-[15px] text-[#333] truncate pr-2" title={name}>
+                        {name}
+                        {roleText && <span className="text-[13px] text-[#8c8c8c]">{roleText}</span>}
+                      </span>
+                      <span className="inline-flex items-stretch h-[40px]">
+                        <input
+                          value={String(val)}
+                          readOnly={!isBaseline && !isCanary}
+                          onChange={(e) => updateVal(Number(e.target.value.replace(/[^\d]/g, '')) || 0)}
+                          className="w-[120px] h-full rounded-l border border-[#d9d9d9] text-center text-[14px] text-[#333] outline-none"
+                        />
+                        <span className="w-[26px] border border-l-0 border-[#d9d9d9] rounded-r flex flex-col bg-[#fafafa]">
+                          <button
+                            type="button"
+                            className="flex-1 flex items-center justify-center cursor-pointer"
+                            aria-label="增加"
+                            onClick={() => updateVal(val + 5)}
+                          >
+                            <svg width="9" height="9" viewBox="0 0 10 10" fill="none" aria-hidden>
+                              <path d="M2 6.5 5 3.5 8 6.5" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          </button>
+                          <span className="h-px bg-[#d9d9d9] mx-[2px]" />
+                          <button
+                            type="button"
+                            className="flex-1 flex items-center justify-center cursor-pointer"
+                            aria-label="减少"
+                            onClick={() => updateVal(val - 5)}
+                          >
+                            <svg width="9" height="9" viewBox="0 0 10 10" fill="none" aria-hidden>
+                              <path d="m2 3.5 3 3 3-3" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          </button>
+                        </span>
+                      </span>
+                      <span className="ml-3 text-[14px] text-[#333]">%</span>
+                    </div>
+                  )
+                })}
+              </span>
+
+              {/* 金丝雀快捷比例档位 */}
+              <div className="mt-[10px] flex items-center gap-[8px] text-[14px] text-[#8c8c8c]">
+                <span>金丝雀比例：</span>
+                {[5, 10, 20, 50, 100].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setCanaryWeight(preset)}
+                    className={`px-2 py-0.5 rounded border text-[13px] cursor-pointer ${
+                      canaryWeight === preset
+                        ? 'border-[#166EFF] text-[#166EFF] bg-[#e9f2ff]'
+                        : 'border-[#d9d9d9] text-[#333] bg-white hover:border-[#166EFF]'
+                    }`}
+                  >
+                    {preset}%
+                  </button>
+                ))}
+              </div>
+
+              {instances.length < 2 ? (
+                <span className="mt-[10px] flex items-center text-[15px] text-[#F5222D]">
+                  <svg width="15" height="15" viewBox="0 0 16 16" fill="none" className="mr-1.5 shrink-0" aria-hidden>
+                    <circle cx="8" cy="8" r="7" fill="#F5222D" />
+                    <text x="8" y="12" textAnchor="middle" fontSize="10" fill="#fff" fontStyle="italic" fontWeight="bold">
+                      i
+                    </text>
+                  </svg>
+                  金丝雀发布需在上方选择至少 2 个后端推理实例
+                </span>
+              ) : (
+                <span className="mt-[10px] flex items-center text-[15px] text-[#8c8c8c]">
+                  <svg width="15" height="15" viewBox="0 0 16 16" fill="none" className="mr-1.5 shrink-0" aria-hidden>
+                    <circle cx="8" cy="8" r="7" fill="#8c8c8c" />
+                    <text x="8" y="12" textAnchor="middle" fontSize="10" fill="#fff" fontStyle="italic" fontWeight="bold">
+                      i
+                    </text>
+                  </svg>
+                  基线与金丝雀权重自动互补（权重之和：100%）
+                </span>
               )}
+              <span className="mt-[10px] block text-[15px] text-[#E6A23C]">此为终态策略，不可再添加后续路由策略。</span>
+            </>
+          )}
 
-              {/* 3. 灰度发布 · 蓝绿发布（同构输入框 + 100% / 0% 切换） */}
-              {activeStrategy === '蓝绿发布' && (
-                <>
-                  <span className="flex flex-col gap-[10px]">
-                    {instances.map((name, idx) => {
-                      const isPrimary = idx === 0
-                      const isStandby = idx === 1
-                      const isActive = idx === blueGreenActiveIdx
-                      const val = (isPrimary || isStandby) && isActive ? 100 : 0
-                      const roleText = isPrimary ? '（主）' : isStandby ? '（备）' : ''
-                      return (
-                        <div key={name} className="flex items-center">
-                          <span className="w-[240px] shrink-0 text-[15px] text-[#333] truncate pr-2" title={name}>
-                            {name}
-                            {roleText && <span className="text-[13px] text-[#8c8c8c]">{roleText}</span>}
-                          </span>
-                          <span className="inline-flex items-stretch h-[40px]">
-                            <input
-                              value={String(val)}
-                              readOnly
-                              className="w-[120px] h-full rounded-l border border-[#d9d9d9] bg-[#fafafa] text-center text-[14px] text-[#333] outline-none"
-                            />
-                            <span className="w-[26px] border border-l-0 border-[#d9d9d9] rounded-r flex flex-col bg-[#fafafa]">
-                              <button
-                                type="button"
-                                className="flex-1 flex items-center justify-center cursor-pointer"
-                                aria-label="切换主备"
-                                onClick={() => setBlueGreenActiveIdx((cur) => (cur === 0 ? 1 : 0))}
-                              >
-                                <svg width="9" height="9" viewBox="0 0 10 10" fill="none" aria-hidden>
-                                  <path d="M2 6.5 5 3.5 8 6.5" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
-                              </button>
-                              <span className="h-px bg-[#d9d9d9] mx-[2px]" />
-                              <button
-                                type="button"
-                                className="flex-1 flex items-center justify-center cursor-pointer"
-                                aria-label="切换主备"
-                                onClick={() => setBlueGreenActiveIdx((cur) => (cur === 0 ? 1 : 0))}
-                              >
-                                <svg width="9" height="9" viewBox="0 0 10 10" fill="none" aria-hidden>
-                                  <path d="m2 3.5 3 3 3-3" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
-                              </button>
-                            </span>
-                          </span>
-                          <span className="ml-3 text-[14px] text-[#333]">%</span>
-                        </div>
-                      )
-                    })}
-                  </span>
+          {/* 3. 灰度发布 · 蓝绿发布（同构输入框 + 100% / 0% 切换） */}
+          {activeStrategy === '蓝绿发布' && (
+            <>
+              <span className="flex flex-col gap-[10px]">
+                {instances.map((name, idx) => {
+                  const isPrimary = idx === 0
+                  const isStandby = idx === 1
+                  const isActive = idx === blueGreenActiveIdx
+                  const val = (isPrimary || isStandby) && isActive ? 100 : 0
+                  const roleText = isPrimary ? '（主）' : isStandby ? '（备）' : ''
+                  return (
+                    <div key={name} className="flex items-center">
+                      <span className="w-[240px] shrink-0 text-left text-[15px] text-[#333] truncate pr-2" title={name}>
+                        {name}
+                        {roleText && <span className="text-[13px] text-[#8c8c8c]">{roleText}</span>}
+                      </span>
+                      <span className="inline-flex items-stretch h-[40px]">
+                        <input
+                          value={String(val)}
+                          readOnly
+                          className="w-[120px] h-full rounded-l border border-[#d9d9d9] bg-[#fafafa] text-center text-[14px] text-[#333] outline-none"
+                        />
+                        <span className="w-[26px] border border-l-0 border-[#d9d9d9] rounded-r flex flex-col bg-[#fafafa]">
+                          <button
+                            type="button"
+                            className="flex-1 flex items-center justify-center cursor-pointer"
+                            aria-label="切换主备"
+                            onClick={() => setBlueGreenActiveIdx((cur) => (cur === 0 ? 1 : 0))}
+                          >
+                            <svg width="9" height="9" viewBox="0 0 10 10" fill="none" aria-hidden>
+                              <path d="M2 6.5 5 3.5 8 6.5" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          </button>
+                          <span className="h-px bg-[#d9d9d9] mx-[2px]" />
+                          <button
+                            type="button"
+                            className="flex-1 flex items-center justify-center cursor-pointer"
+                            aria-label="切换主备"
+                            onClick={() => setBlueGreenActiveIdx((cur) => (cur === 0 ? 1 : 0))}
+                          >
+                            <svg width="9" height="9" viewBox="0 0 10 10" fill="none" aria-hidden>
+                              <path d="m2 3.5 3 3 3-3" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          </button>
+                        </span>
+                      </span>
+                      <span className="ml-3 text-[14px] text-[#333]">%</span>
+                    </div>
+                  )
+                })}
+              </span>
 
-                  <div className="mt-[10px] flex items-center">
-                    <button
-                      type="button"
-                      onClick={() => setBlueGreenActiveIdx((cur) => (cur === 0 ? 1 : 0))}
-                      className="text-[14px] text-[#166EFF] cursor-pointer hover:underline"
-                    >
-                      切换主备流向（100% ⇄ 0%）
-                    </button>
-                  </div>
+              <div className="mt-[10px] flex items-center">
+                <button
+                  type="button"
+                  onClick={() => setBlueGreenActiveIdx((cur) => (cur === 0 ? 1 : 0))}
+                  className="text-[14px] text-[#166EFF] cursor-pointer hover:underline"
+                >
+                  切换主备流向（100% ⇄ 0%）
+                </button>
+              </div>
 
-                  {instances.length < 2 ? (
-                    <span className="mt-[10px] flex items-center text-[15px] text-[#F5222D]">
-                      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" className="mr-1.5 shrink-0" aria-hidden>
-                        <circle cx="8" cy="8" r="7" fill="#F5222D" />
-                        <text x="8" y="12" textAnchor="middle" fontSize="10" fill="#fff" fontStyle="italic" fontWeight="bold">
-                          i
-                        </text>
-                      </svg>
-                      蓝绿发布需在上方选择至少 2 个后端推理实例
-                    </span>
-                  ) : (
-                    <span className="mt-[10px] flex items-center text-[15px] text-[#8c8c8c]">
-                      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" className="mr-1.5 shrink-0" aria-hidden>
-                        <circle cx="8" cy="8" r="7" fill="#8c8c8c" />
-                        <text x="8" y="12" textAnchor="middle" fontSize="10" fill="#fff" fontStyle="italic" fontWeight="bold">
-                          i
-                        </text>
-                      </svg>
-                      主备实例权重锁定为 100% 与 0%，可一键整切流量
-                    </span>
-                  )}
-                </>
+              {instances.length < 2 ? (
+                <span className="mt-[10px] flex items-center text-[15px] text-[#F5222D]">
+                  <svg width="15" height="15" viewBox="0 0 16 16" fill="none" className="mr-1.5 shrink-0" aria-hidden>
+                    <circle cx="8" cy="8" r="7" fill="#F5222D" />
+                    <text x="8" y="12" textAnchor="middle" fontSize="10" fill="#fff" fontStyle="italic" fontWeight="bold">
+                      i
+                    </text>
+                  </svg>
+                  蓝绿发布需在上方选择至少 2 个后端推理实例
+                </span>
+              ) : (
+                <span className="mt-[10px] flex items-center text-[15px] text-[#8c8c8c]">
+                  <svg width="15" height="15" viewBox="0 0 16 16" fill="none" className="mr-1.5 shrink-0" aria-hidden>
+                    <circle cx="8" cy="8" r="7" fill="#8c8c8c" />
+                    <text x="8" y="12" textAnchor="middle" fontSize="10" fill="#fff" fontStyle="italic" fontWeight="bold">
+                      i
+                    </text>
+                  </svg>
+                  主备实例权重锁定为 100% 与 0%，可一键整切流量
+                </span>
               )}
+              <span className="mt-[10px] block text-[15px] text-[#E6A23C]">此为终态策略，不可再添加后续路由策略。</span>
             </>
           )}
         </span>
@@ -798,7 +793,7 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
                 {/* 发布类型 */}
                 <div className="flex flex-col">
                   <div className="flex items-center">
-                    <FieldLabel text="发布类型" />
+                    <FieldLabel text="发布类型" required />
                     <div className="ml-[53px] flex items-center gap-[46px]">
                       <Radio
                         checked={publishType === 'private'}
@@ -823,7 +818,7 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
 
                 {/* 后端推理类型 */}
                 <div className="flex items-center">
-                  <FieldLabel text="后端推理类型" />
+                  <FieldLabel text="后端推理类型" required />
                   <div className="ml-[53px] flex items-center gap-[46px]">
                     <Radio checked={backend === 'internal'} label="内部推理实例" onChange={() => handleBackendChange('internal')} />
                     <Radio checked={backend === 'external'} label="外部推理实例" onChange={() => handleBackendChange('external')} />
@@ -964,8 +959,10 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
               </div>
 
               {/* 模型调用示例代码 */}
-              <div className="mt-[30px] flex">
-                <FieldLabel text="模型调用示例代码" />
+              <div className="mt-[30px] flex items-start">
+                <div className="h-[37px] flex items-center shrink-0">
+                  <FieldLabel text="模型调用示例代码" />
+                </div>
                 <div className="ml-[53px] flex-1">
                   <div className="flex items-center">
                     {['Linux/MacOS', 'CMD', 'PowerShell'].map((t, i) => (
