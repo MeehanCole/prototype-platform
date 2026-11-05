@@ -1,10 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { DocPanel, DocProvider, FEATURES, NewTag } from '../feature-tags'
+import { DocPanel, DocProvider, FEATURES } from '../feature-tags'
 import { PlatformHeader, SideNav } from '../_shared'
-
-/* Shared column ratios for header and data rows, measured from the screenshot (fluid fr units) */
-const GRID_COLS = 'grid grid-cols-[274fr_269fr_112fr_124fr_214fr_179fr_157fr_359fr_247fr_304fr_210fr]'
 
 type Instance = {
   label: string
@@ -163,29 +160,6 @@ const SERVICE_ROWS: ServiceRow[] = [
     rpm: '1000 RPM',
   },
 ]
-
-function SelectBox({
-  text,
-  widthClass,
-  textClass = 'text-[13px]',
-  chevron = 10,
-}: {
-  text: string
-  widthClass: string
-  textClass?: string
-  chevron?: number
-}) {
-  return (
-    <span
-      className={`h-[36px] inline-flex items-center justify-between rounded border border-[#d9d9d9] bg-white px-3 ${textClass} text-[#bfbfbf] cursor-pointer ${widthClass}`}
-    >
-      {text}
-      <svg width={chevron} height={chevron} viewBox="0 0 10 10" fill="none" aria-hidden>
-        <path d="m2 3.5 3 3 3-3" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    </span>
-  )
-}
 
 type FilterField = '服务名称' | '调用模型名' | '发布类型'
 const FILTER_FIELDS: FilterField[] = ['服务名称', '调用模型名', '发布类型']
@@ -376,20 +350,6 @@ function ListToolbar({
     </div>
   )
 }
-
-const HEADERS: { label: string; featCode?: string }[] = [
-  { label: '服务名称', featCode: 'F-01' },
-  { label: '调用模型名', featCode: 'F-02' },
-  { label: '状态' },
-  { label: '发布类型' },
-  { label: '路由策略', featCode: 'F-05' },
-  { label: '缓存加速' },
-  { label: '后端推理类型', featCode: 'F-03' },
-  { label: '后端推理实例', featCode: 'F-04' },
-  { label: '限流策略' },
-  { label: '创建时间' },
-  { label: '操作' },
-]
 
 function InstanceHealthTip() {
   return (
@@ -603,13 +563,17 @@ function ServiceCard({ row }: { row: ServiceRow }) {
 
 function TableCard() {
   const navigate = useNavigate()
-  const [view, setView] = useState<'card' | 'list'>('card')
 
   // 真实过滤状态（布局1：组合筛选器直接置于顶栏）
   const [filterField, setFilterField] = useState<FilterField>('服务名称')
   const [keyword, setKeyword] = useState('')
   const [modelValue, setModelValue] = useState('')
   const [publishTypeValue, setPublishTypeValue] = useState('')
+
+  // 分页状态
+  const [pageSize, setPageSize] = useState(12)
+  const [page, setPage] = useState(1)
+  const [goto, setGoto] = useState('')
 
   const filteredRows = useMemo(() => {
     const kw = keyword.trim().toLowerCase()
@@ -624,6 +588,16 @@ function TableCard() {
     })
   }, [filterField, keyword, modelValue, publishTypeValue])
 
+  // 过滤条件变化时回到第一页
+  useEffect(() => {
+    setPage(1)
+    setGoto('')
+  }, [filterField, keyword, modelValue, publishTypeValue])
+
+  const total = filteredRows.length
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const pageRows = filteredRows.slice((page - 1) * pageSize, page * pageSize)
+
   const handleQuery = () => {
     // 查询动作：过滤已通过 filteredRows 实时生效，这里保持受控
   }
@@ -633,11 +607,9 @@ function TableCard() {
     setPublishTypeValue('')
   }
 
-  const rows = filteredRows
-
   return (
     <div className="flex-1 min-h-0 rounded-lg border border-[#e8e8e8] bg-white flex flex-col">
-      {/* Toolbar: 创建 + 组合筛选器(布局1：左创建/中筛选/右视图切换) + 卡片列表切换 */}
+      {/* Toolbar: 创建 + 组合筛选器(布局1：左创建/中筛选) */}
       <div className="h-[70px] shrink-0 flex items-center gap-[18px] pl-[18px] pr-[24px] border-b border-[#f0f0f0]">
         <button
           onClick={() => navigate('/在线服务优化/onlineservicecreate?v=v2')}
@@ -662,172 +634,73 @@ function TableCard() {
           onQuery={handleQuery}
           onReset={handleReset}
         />
+      </div>
 
-        <div className="ml-auto shrink-0 flex items-center gap-2">
-          <div className="flex items-center rounded border border-[#d9d9d9] overflow-hidden">
-            <button
-              onClick={() => setView('card')}
-              className={`h-[34px] px-3 flex items-center gap-1.5 text-[14px] cursor-pointer ${
-                view === 'card' ? 'bg-[#166EFF] text-white' : 'bg-white text-[#666]'
-              }`}
-            >
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden>
-                <rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1" />
-                <rect x="9" y="1.5" width="5.5" height="5.5" rx="1" />
-                <rect x="1.5" y="9" width="5.5" height="5.5" rx="1" />
-                <rect x="9" y="9" width="5.5" height="5.5" rx="1" />
-              </svg>
-              卡片
-            </button>
-            <button
-              onClick={() => setView('list')}
-              className={`h-[34px] px-3 flex items-center gap-1.5 text-[14px] border-l border-[#d9d9d9] cursor-pointer ${
-                view === 'list' ? 'bg-[#166EFF] text-white' : 'bg-white text-[#666]'
-              }`}
-            >
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" aria-hidden>
-                <path d="M2 4h12M2 8h12M2 12h12" />
-              </svg>
-              列表
-            </button>
-          </div>
+      {/* 卡片区域（可滚动） */}
+      <div className="flex-1 min-h-0 overflow-auto px-4 pb-4">
+        <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-4">
+          {pageRows.map((row) => (
+            <ServiceCard key={row.name} row={row} />
+          ))}
         </div>
       </div>
 
-      {view === 'card' ? (
-        <div className="flex-1 min-h-0 overflow-auto px-4 pb-4">
-          <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-4">
-            {rows.map((row) => (
-              <ServiceCard key={row.name} row={row} />
-            ))}
-          </div>
+      {/* 分页（参考列表分页样式） */}
+      <div className="shrink-0 border-t border-[#f6f6f6] h-[78px] flex items-start pt-[12px] justify-end pl-[18px] pr-[28px]">
+        <span className="h-[36px] flex items-center text-[14.5px] text-[#656565] mr-5">共 {total} 条</span>
+        <DropdownSelect
+          value={String(pageSize)}
+          options={['12', '24', '48']}
+          placeholder="条/页"
+          widthClass="w-[100px]"
+          onChange={(v) => {
+            setPageSize(Number(v))
+            setPage(1)
+            setGoto('')
+          }}
+        />
+        <div className="ml-[19px] flex items-center gap-[10px]">
+          <button
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            className={`w-[35px] h-[35px] flex items-center justify-center rounded cursor-pointer ${
+              page <= 1 ? 'bg-[#f5f5f5] cursor-not-allowed' : 'bg-[#EEEEEE]'
+            }`}
+            aria-label="上一页"
+          >
+            <svg width="11" height="11" viewBox="0 0 10 10" fill="none" aria-hidden>
+              <path d="M6.5 1.5 3 5l3.5 3.5" stroke="#595959" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <button className="w-[36px] h-[35px] rounded-[6px] bg-[#166EFF] text-[14.5px] text-white cursor-pointer">{page}</button>
+          <button
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            className={`w-[35px] h-[35px] flex items-center justify-center rounded cursor-pointer ${
+              page >= totalPages ? 'bg-[#f5f5f5] cursor-not-allowed' : 'bg-[#EEEEEE]'
+            }`}
+            aria-label="下一页"
+          >
+            <svg width="11" height="11" viewBox="0 0 10 10" fill="none" aria-hidden>
+              <path d="M3.5 1.5 7 5 3.5 8.5" stroke="#595959" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
         </div>
-      ) : (
-        <>
-          {/* Header band + rows share a horizontally scrollable area */}
-          <div className="flex-1 min-h-0 overflow-auto">
-            <div className="min-w-[2000px]">
-              <div className="mx-[18px] h-[38px] rounded-[4px] bg-[#F3F5F7] border-t border-[#f6f6f6] flex items-center pl-3.5 pr-3 text-[15px] font-medium text-[#4a5475]">
-                <div className={`w-full ${GRID_COLS} items-center`}>
-                  {HEADERS.map((h, i) => (
-                    <div
-                      key={h.label}
-                      className={`inline-flex items-center gap-1.5 ${i === 10 ? 'sticky right-0 z-10 bg-[#F3F5F7] pl-3' : ''}`}
-                    >
-                      <span>{h.label}</span>
-                      {h.featCode && <NewTag code={h.featCode} compact />}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {rows.map((row) => (
-                <div key={row.name} className="shrink-0 border-b border-[#f6f6f6] flex items-center py-[8px] pl-[31px] pr-[18px]">
-                  <div className={`w-full ${GRID_COLS} items-center text-[15px]`}>
-                    <div>
-                      <a
-                        onClick={() =>
-                          navigate(`/在线服务优化/onlineservicedetail?name=${encodeURIComponent(row.name)}&v=v2`)
-                        }
-                        className="text-[#166EFF] cursor-pointer"
-                      >
-                        {row.name}
-                      </a>
-                    </div>
-                    <div className="text-[#333]">{row.model}</div>
-                    <div>
-                      <span
-                        className={`inline-flex h-[26px] items-center rounded px-[9px] text-[14px] text-white ${
-                          row.published ? 'bg-[#67C23A]' : 'bg-[#909399]'
-                        }`}
-                      >
-                        {row.published ? '已发布' : '未发布'}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="inline-flex h-[26px] items-center rounded bg-[#F0F9EB] px-[9px] text-[14px] text-[#67C23A]">
-                        {row.publishType}
-                      </span>
-                    </div>
-                    <div className={row.route === '–' ? 'text-[#949494]' : 'text-[#333]'}>{row.route}</div>
-                    <div className="text-[#333]">{row.cacheOn ? `已开启${row.cacheTime ? `（${row.cacheTime}）` : ''}` : '未开启'}</div>
-                    <div className="text-[#333]">{row.backend}</div>
-                    <div className="flex flex-col py-1">
-                      {row.instances.map((ins) => (
-                        <div key={ins.label} className="h-[29px] flex items-center gap-1.5">
-                          <span
-                            className={`w-[11px] h-[11px] rounded-full block ${
-                              ins.running ? 'bg-[#52C18E]' : 'bg-[#F82709]'
-                            }`}
-                          />
-                          <a className="text-[#166EFF] cursor-pointer">{ins.label}</a>
-                          {ins.role && (
-                            <span
-                              className={`shrink-0 rounded px-1.5 py-0.2 text-[11px] font-medium leading-none ${
-                                ins.role === '金丝雀'
-                                  ? 'bg-[#FFF7E6] text-[#FA8C16] border border-[#FFD591]'
-                                  : ins.role === '基线'
-                                  ? 'bg-[#E6F4FF] text-[#1677FF] border border-[#91CAFF]'
-                                  : ins.role === '主'
-                                  ? 'bg-[#F6FFED] text-[#52C41A] border border-[#B7EB8F]'
-                                  : 'bg-[#F5F5F5] text-[#8C8C8C] border border-[#D9D9D9]'
-                              }`}
-                            >
-                              {ins.role}
-                            </span>
-                          )}
-                          {ins.weight != null && row.instances.length > 1 && (
-                            <span className="text-[12px] text-[#8c8c8c]">({ins.weight}%)</span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                    <div className="text-[#949494]">–</div>
-                    <div className="text-[#949494]">–</div>
-                    <div className="sticky right-0 z-10 bg-white pl-3 flex items-center gap-[22px] text-[15px] whitespace-nowrap">
-                      <a
-                        onClick={() =>
-                          navigate(`/在线服务优化/onlineservicecreate?name=${encodeURIComponent(row.name)}&v=v2`)
-                        }
-                        className="text-[#166EFF] cursor-pointer"
-                      >
-                        编辑
-                      </a>
-                      <a className="text-[#166EFF] cursor-pointer">{row.published ? '停止发布' : '发布'}</a>
-                      <a className="text-[#F5222D] cursor-pointer">删除</a>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Pagination */}
-          <div className="shrink-0 border-t border-[#f6f6f6] h-[78px] flex items-start pt-[12px] justify-end pl-[18px] pr-[28px]">
-            <span className="h-[36px] flex items-center text-[14.5px] text-[#656565] mr-5">共 {rows.length} 条</span>
-            <SelectBox text="10条/页" widthClass="w-[143px]" textClass="text-[14.5px]" />
-            <div className="ml-[19px] flex items-center gap-[10px]">
-              <button className="w-[35px] h-[35px] flex items-center justify-center rounded bg-[#EEEEEE] cursor-pointer" aria-label="上一页">
-                <svg width="11" height="11" viewBox="0 0 10 10" fill="none" aria-hidden>
-                  <path d="M6.5 1.5 3 5l3.5 3.5" stroke="#595959" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-              <button className="w-[36px] h-[35px] rounded-[6px] bg-[#166EFF] text-[14.5px] text-white cursor-pointer">1</button>
-              <button className="w-[35px] h-[35px] flex items-center justify-center rounded bg-[#EEEEEE] cursor-pointer" aria-label="下一页">
-                <svg width="11" height="11" viewBox="0 0 10 10" fill="none" aria-hidden>
-                  <path d="M3.5 1.5 7 5 3.5 8.5" stroke="#595959" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-            </div>
-            <span className="ml-[14px] h-[36px] flex items-center text-[14.5px] text-[#656565]">前往</span>
-            <input
-              defaultValue="1"
-              className="ml-[10px] h-[32px] w-[62px] rounded border border-[#d9d9d9] text-center text-[14.5px] text-[#333] outline-none"
-            />
-            <span className="ml-[9px] h-[36px] flex items-center text-[14.5px] text-[#656565]">页</span>
-          </div>
-        </>
-      )}
+        <span className="ml-[14px] h-[36px] flex items-center text-[14.5px] text-[#656565]">前往</span>
+        <input
+          value={goto}
+          onChange={(e) => setGoto(e.target.value.replace(/[^\d]/g, ''))}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              const n = Number(goto)
+              if (n >= 1 && n <= totalPages) setPage(n)
+              setGoto('')
+            }
+          }}
+          className="ml-[10px] h-[32px] w-[62px] rounded border border-[#d9d9d9] text-center text-[14.5px] text-[#333] outline-none"
+        />
+        <span className="ml-[9px] h-[36px] flex items-center text-[14.5px] text-[#656565]">页</span>
+      </div>
     </div>
   )
 }
