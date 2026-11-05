@@ -118,12 +118,14 @@ export function FeatureBadge({
   lines,
   onClick,
   compact = false,
+  className = '',
 }: {
   type: '新增' | '变更'
   label: string
   lines?: string[]
   onClick?: () => void
   compact?: boolean
+  className?: string
 }) {
   const hostRef = useRef<HTMLButtonElement | null>(null)
   const [tip, setTip] = useState<{ top: number; left: number; above: boolean; show: boolean }>({
@@ -167,8 +169,8 @@ export function FeatureBadge({
         style={{ background: ACCENT, borderColor: ACCENT }}
         className={
           compact
-            ? 'inline-flex h-[16px] shrink-0 items-center justify-center rounded-[3px] border px-1 text-[9px] font-medium leading-none text-white shadow-sm transition-transform hover:scale-105 cursor-pointer'
-            : 'inline-flex h-[18px] items-center gap-1 rounded-[3px] border px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm transition-transform hover:scale-[1.03] cursor-pointer'
+            ? `inline-flex h-[16px] shrink-0 items-center justify-center rounded-[3px] border px-1 text-[9px] font-medium leading-none text-white shadow-sm transition-transform hover:scale-105 cursor-pointer ${className}`
+            : `inline-flex h-[18px] items-center gap-1 rounded-[3px] border px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm transition-transform hover:scale-[1.03] cursor-pointer ${className}`
         }
       >
         {compact ? (
@@ -218,7 +220,7 @@ export function FeatureBadge({
 // ─── NewTag：从 Context 取配置，渲染 FeatureBadge ─────────────────────────────
 
 
-export function NewTag({ code, compact = false }: { code: string; compact?: boolean }) {
+export function NewTag({ code, compact = false, className }: { code: string; compact?: boolean; className?: string }) {
   const { openDoc, showFeat, features } = useContext(DocContext)
   const f = features[code]
   if (!showFeat || !f) return null
@@ -231,6 +233,7 @@ export function NewTag({ code, compact = false }: { code: string; compact?: bool
         ...(f.rules?.length ? [`含 ${f.rules.length} 条校验规则`] : []),
       ]}
       compact={compact}
+      className={className}
       onClick={() => openDoc(code)}
     />
   )

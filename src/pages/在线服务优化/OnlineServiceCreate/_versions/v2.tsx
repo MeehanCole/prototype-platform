@@ -789,7 +789,7 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
                       isEdit ? 'bg-[#f7f8fa] text-[#666] cursor-not-allowed' : 'text-[#333]'
                     }`}
                   />
-                  <NewTag compact code="F-01" />
+                  <NewTag compact code="F-01" className="ml-2" />
                 </div>
 
                 {/* 发布类型 */}
@@ -825,7 +825,7 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
                     <Radio checked={backend === 'internal'} label="内部推理实例" onChange={() => handleBackendChange('internal')} />
                     <Radio checked={backend === 'external'} label="外部推理实例" onChange={() => handleBackendChange('external')} />
                   </div>
-                  <NewTag compact code="F-02" />
+                  <NewTag compact code="F-02" className="ml-2" />
                 </div>
 
                 {/* 关联模型（仅公开发布 + 内部推理实例时出现） */}
@@ -834,7 +834,7 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
                     <div className="flex items-center">
                       <FieldLabel text="关联模型" />
                       <PlazaModelSelect value={plazaModel} onChange={handlePlazaModelChange} />
-                      <NewTag compact code="F-03" />
+                      <NewTag compact code="F-03" className="ml-2" />
                     </div>
                     <p className="ml-[201px] mt-[8px] text-[13px] text-[#8c8c8c]">
                       关联一个模型广场的模型，其他用户可在模型广场查看此在线服务的API调用信息；
@@ -852,7 +852,7 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
                     modelFilter={publishType === 'public' && backend === 'internal' ? plazaModel : ''}
                     onChange={(next) => handleInstancesChange(next, backend)}
                   />
-                  <NewTag compact code="F-04" />
+                  <NewTag compact code="F-04" className="ml-2" />
                 </div>
 
                 {/* 调用模型名 */}
@@ -869,7 +869,7 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
                       }}
                       className="ml-[53px] w-[600px] h-[45px] rounded border border-[#d9d9d9] px-3 text-[14px] text-[#333] placeholder:text-[#bfbfbf] outline-none focus:border-[#166EFF]"
                     />
-                    <NewTag compact code="F-05" />
+                    <NewTag compact code="F-05" className="ml-2" />
                   </div>
                   <p className="ml-[201px] mt-[2px] text-[13px] text-[#8c8c8c]">
                     公开发布且关联模型后自动填充该模型名（也可手动修改别名）；私有发布或未关联时按首个后端推理实例模型名称自动填充；对应在线服务详情【API 文档】示例代码中"model"字段
@@ -929,7 +929,7 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
                         开启后可对已选后端推理实例配置常规路由（按权重分发）或灰度发布（金丝雀 / 蓝绿）策略
                       </span>
                     </span>
-                    <NewTag compact code="F-06" />
+                    <NewTag compact code="F-06" className="ml-2" />
                   </div>
 
                   {routeOn && (
