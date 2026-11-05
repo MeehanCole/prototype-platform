@@ -420,7 +420,7 @@ function RouteCard({
             onClick={() => setBlueGreenActiveIdx((cur) => (cur === 0 ? 1 : 0))}
             className="ml-[20px] text-[14px] text-[#166EFF] cursor-pointer hover:underline"
           >
-            切换主备流向（100% ⇄ 0%）
+            切换主备流向
           </button>
         )}
       </div>
