@@ -8,7 +8,6 @@ type Instance = {
   running: boolean
   weight?: number
   model?: string
-  role?: '基线' | '金丝雀' | '主' | '备'
 }
 type ServiceRow = {
   name: string
@@ -63,8 +62,8 @@ const SERVICE_ROWS: ServiceRow[] = [
     cacheTime: '120秒',
     backend: '外部推理实例',
     instances: [
-      { label: '百炼基线服务', running: true, weight: 90, model: 'qwen-plus', role: '基线' },
-      { label: '百炼灰度服务', running: true, weight: 10, model: 'qwen-plus', role: '金丝雀' },
+      { label: '百炼基线服务', running: true, weight: 90, model: 'qwen-plus' },
+      { label: '百炼灰度服务', running: true, weight: 10, model: 'qwen-plus' },
     ],
     apiUrl: API_BASE,
     totalTokens: '426.8k',
@@ -84,8 +83,8 @@ const SERVICE_ROWS: ServiceRow[] = [
     cacheOn: false,
     backend: '内部推理实例',
     instances: [
-      { label: 'kt服务-蓝组', running: true, weight: 100, model: 'QwQ-32B', role: '主' },
-      { label: 'kt服务-绿组', running: true, weight: 0, model: 'QwQ-32B', role: '备' },
+      { label: 'kt服务-蓝组', running: true, weight: 100, model: 'QwQ-32B' },
+      { label: 'kt服务-绿组', running: true, weight: 0, model: 'QwQ-32B' },
     ],
     apiUrl: API_BASE,
     totalTokens: '89.2k',
@@ -306,7 +305,7 @@ function ListToolbar({
   onReset: () => void
 }) {
   return (
-    <div className="flex items-center pl-3 pr-3 flex-1 min-w-0">
+    <div className="ml-auto flex items-center">
       <FilterSelect value={filterField} onChange={setFilterField} />
       {filterField === '服务名称' && (
         <input
@@ -464,40 +463,59 @@ function ServiceCard({ row }: { row: ServiceRow }) {
           <InstanceHealthTip />
         </div>
         <div className="flex flex-col gap-2">
-          {row.instances.map((ins) => (
-            <div key={ins.label} className="flex items-center gap-2">
-              <span
-                className={`w-[8px] h-[8px] rounded-full shrink-0 ${
-                  ins.running ? 'bg-[#52C18E]' : 'bg-[#F82709]'
+          {row.instances.map((ins) => {
+            const isBlueGreen = row.route === '蓝绿发布'
+            const isActiveBg = isBlueGreen && (ins.weight ?? 0) > 0
+            return (
+              <div
+                key={ins.label}
+                className={`flex items-center gap-2 ${
+                  isBlueGreen
+                    ? `rounded-[6px] px-2.5 py-1.5 border ${
+                        isActiveBg
+                          ? 'border-[#b7eb8f] bg-[#f6ffed]/70'
+                          : 'border-[#f0f0f0] bg-[#fafafa]'
+                      }`
+                    : ''
                 }`}
-              />
-              <span className="w-[140px] shrink-0 truncate text-[13px] text-[#333]">{ins.label}</span>
-              {ins.role && (
+              >
                 <span
-                  className={`shrink-0 rounded px-1.5 py-0.2 text-[11px] font-medium leading-none ${
-                    ins.role === '金丝雀'
-                      ? 'bg-[#FFF7E6] text-[#FA8C16] border border-[#FFD591]'
-                      : ins.role === '基线'
-                      ? 'bg-[#E6F4FF] text-[#1677FF] border border-[#91CAFF]'
-                      : ins.role === '主'
-                      ? 'bg-[#F6FFED] text-[#52C41A] border border-[#B7EB8F]'
-                      : 'bg-[#F5F5F5] text-[#8C8C8C] border border-[#D9D9D9]'
+                  className={`w-[8px] h-[8px] rounded-full shrink-0 ${
+                    ins.running ? 'bg-[#52C18E]' : 'bg-[#F82709]'
                   }`}
-                >
-                  {ins.role}
+                />
+                <span className={`${isBlueGreen ? 'max-w-[140px]' : 'w-[140px]'} shrink-0 truncate text-[13px] text-[#333]`}>
+                  {ins.label}
                 </span>
-              )}
-              {ins.model && <span className="shrink-0 text-[12px] text-[#999]">({ins.model})</span>}
-              {ins.weight != null && (
-                <>
-                  <div className="flex-1 h-[6px] rounded bg-[#f0f0f0] overflow-hidden">
-                    <div className="h-full bg-[#166EFF]" style={{ width: `${ins.weight}%` }} />
-                  </div>
-                  <span className="w-[34px] shrink-0 text-right text-[12px] text-[#666]">{ins.weight}%</span>
-                </>
-              )}
-            </div>
-          ))}
+                {ins.model && <span className="shrink-0 text-[12px] text-[#999]">({ins.model})</span>}
+                {isBlueGreen ? (
+                  <span
+                    className={`ml-auto inline-flex items-center gap-1.5 shrink-0 rounded-[10px] px-2 py-[1px] text-[12px] leading-[18px] font-medium ${
+                      isActiveBg
+                        ? 'bg-[#e6f4ea] text-[#16a34a]'
+                        : 'bg-[#f0f1f3] text-[#8c8c8c]'
+                    }`}
+                  >
+                    <span
+                      className={`h-[6px] w-[6px] rounded-full ${
+                        isActiveBg ? 'bg-[#16a34a]' : 'bg-[#bfbfbf]'
+                      }`}
+                    />
+                    {isActiveBg ? '当前生效' : '待命'}
+                  </span>
+                ) : (
+                  ins.weight != null && (
+                    <>
+                      <div className="flex-1 h-[6px] rounded bg-[#f0f0f0] overflow-hidden">
+                        <div className="h-full bg-[#166EFF]" style={{ width: `${ins.weight}%` }} />
+                      </div>
+                      <span className="w-[34px] shrink-0 text-right text-[12px] text-[#666]">{ins.weight}%</span>
+                    </>
+                  )
+                )}
+              </div>
+            )
+          })}
         </div>
       </div>
 
@@ -515,7 +533,7 @@ function ServiceCard({ row }: { row: ServiceRow }) {
             row.rpmOn ? 'bg-[#F6FFED] text-[#52C41A]' : 'bg-[#f5f5f5] text-[#999]'
           }`}
         >
-          ⏱ 限流{row.rpmOn ? ` ${row.rpm}` : '不限流'}
+          ⏱ {row.rpmOn ? `限流 ${row.rpm}` : '不限流'}
         </span>
       </div>
 
