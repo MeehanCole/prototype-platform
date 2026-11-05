@@ -370,7 +370,7 @@ function RouteCard({
   return (
     <div className="w-[617px] rounded-[4px] border border-[#e4e6eb] p-[20px]">
       {/* 卡片顶栏：原版 327px 下拉框（常规路由展示「按权重分发」；灰度发布单选「金丝雀发布 / 蓝绿发布」） */}
-      <div className="flex items-start">
+      <div className="flex items-center">
         <span ref={dropdownRef} className="relative inline-block w-[327px]">
           <span
             onClick={() => setDropdownOpen((o) => !o)}
@@ -414,6 +414,15 @@ function RouteCard({
             </span>
           )}
         </span>
+        {activeStrategy === '蓝绿发布' && (
+          <button
+            type="button"
+            onClick={() => setBlueGreenActiveIdx((cur) => (cur === 0 ? 1 : 0))}
+            className="ml-[20px] text-[14px] text-[#166EFF] cursor-pointer hover:underline"
+          >
+            切换主备流向（100% ⇄ 0%）
+          </button>
+        )}
       </div>
 
       {/* 下方统一「权重配置」区域：左对齐顶栏下拉框，常规路由与 v1 样式完全一致 */}
@@ -472,7 +481,6 @@ function RouteCard({
                 </svg>
                 权重之和：{weightSum}%（必须等于100%）
               </span>
-              <span className="mt-[10px] block text-[15px] text-[#E6A23C]">此为终态策略，不可再添加后续路由策略。</span>
             </>
           )}
 
@@ -573,7 +581,6 @@ function RouteCard({
                   基线与金丝雀权重自动互补（权重之和：100%）
                 </span>
               )}
-              <span className="mt-[10px] block text-[15px] text-[#E6A23C]">此为终态策略，不可再添加后续路由策略。</span>
             </>
           )}
 
@@ -629,16 +636,6 @@ function RouteCard({
                 })}
               </span>
 
-              <div className="mt-[10px] flex items-center">
-                <button
-                  type="button"
-                  onClick={() => setBlueGreenActiveIdx((cur) => (cur === 0 ? 1 : 0))}
-                  className="text-[14px] text-[#166EFF] cursor-pointer hover:underline"
-                >
-                  切换主备流向（100% ⇄ 0%）
-                </button>
-              </div>
-
               {instances.length < 2 ? (
                 <span className="mt-[10px] flex items-center text-[15px] text-[#F5222D]">
                   <svg width="15" height="15" viewBox="0 0 16 16" fill="none" className="mr-1.5 shrink-0" aria-hidden>
@@ -660,7 +657,6 @@ function RouteCard({
                   主备实例权重锁定为 100% 与 0%，可一键整切流量
                 </span>
               )}
-              <span className="mt-[10px] block text-[15px] text-[#E6A23C]">此为终态策略，不可再添加后续路由策略。</span>
             </>
           )}
         </span>
@@ -935,12 +931,12 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
                       <div className="flex items-center gap-[46px]">
                         <Radio
                           checked={routeCategory === 'routine'}
-                          label="常规路由"
+                          label="常规路由策略"
                           onChange={() => setRouteCategory('routine')}
                         />
                         <Radio
                           checked={routeCategory === 'grayscale'}
-                          label="灰度发布"
+                          label="灰度发布策略"
                           onChange={() => setRouteCategory('grayscale')}
                         />
                       </div>
