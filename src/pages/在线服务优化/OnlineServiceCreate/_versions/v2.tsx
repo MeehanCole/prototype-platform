@@ -711,6 +711,12 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
   )
   const [rpmOn, setRpmOn] = useState(src ? src.rpmOn : false)
 
+  useEffect(() => {
+    if (instances.length > 2 && routeCategory === 'grayscale') {
+      setRouteCategory('routine')
+    }
+  }, [instances.length, routeCategory])
+
   const handleInstancesChange = (next: string[], currentBackend: 'internal' | 'external' = backend) => {
     setInstances(next)
     if (!modelTouched) {
@@ -934,11 +940,19 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
                           label="常规路由策略"
                           onChange={() => setRouteCategory('routine')}
                         />
-                        <Radio
-                          checked={routeCategory === 'grayscale'}
-                          label="灰度发布策略"
-                          onChange={() => setRouteCategory('grayscale')}
-                        />
+                        <div className="flex items-center gap-[8px]">
+                          <div className={instances.length > 2 ? 'opacity-50' : ''}>
+                            <Radio
+                              checked={routeCategory === 'grayscale'}
+                              label="灰度发布策略"
+                              disabled={instances.length > 2}
+                              onChange={() => setRouteCategory('grayscale')}
+                            />
+                          </div>
+                          {instances.length > 2 && (
+                            <span className="text-[13px] text-[#8c8c8c]">（灰度发布仅支持 2 个后端推理实例）</span>
+                          )}
+                        </div>
                       </div>
 
                       <RouteCard
