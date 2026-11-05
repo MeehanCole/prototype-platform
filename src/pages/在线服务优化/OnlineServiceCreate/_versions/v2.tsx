@@ -324,9 +324,9 @@ function RouteCard({
   initialMode?: RouteStrategyType
 }) {
   const [strategy, setStrategy] = useState<RouteStrategyType>(initialMode)
-  const [open, setOpen] = useState(false)
-  const routeRef = useRef<HTMLSpanElement>(null)
-  useOutsideClose(routeRef, () => setOpen(false))
+  const [grayOpen, setGrayOpen] = useState(false)
+  const grayRef = useRef<HTMLSpanElement>(null)
+  useOutsideClose(grayRef, () => setGrayOpen(false))
 
   // 1. 按权重分发 state
   const [weights, setWeights] = useState<Record<string, string>>(() => {
@@ -352,86 +352,109 @@ function RouteCard({
 
   const weightSum = instances.reduce((acc, n) => acc + (Number(weights[n]) || 0), 0)
 
-  // 2. 金丝雀发布 state
-  const [baselineInstance, setBaselineInstance] = useState<string>(instances[0] || '')
-  const [canaryInstance, setCanaryInstance] = useState<string>(instances[1] || instances[0] || '')
-  const [canaryWeight, setCanaryWeight] = useState<number>(10)
+  // 2. 金丝雀发布 state (基线与灰度联动互补：baseline = 100 - canary)
+  const [canaryWeight, setCanaryWeight] = useState<number>(() => {
+    if (initialWeights && instances[1] && initialWeights[instances[1]]) {
+      const parsed = Number(initialWeights[instances[1]])
+      if (!isNaN(parsed) && parsed >= 0 && parsed <= 100) return parsed
+    }
+    return 10
+  })
   const baselineWeight = Math.max(0, 100 - canaryWeight)
 
-  // 3. 蓝绿发布 state
-  const [activeInstance, setActiveInstance] = useState<string>(instances[0] || '')
-  const [standbyInstance, setStandbyInstance] = useState<string>(instances[1] || instances[0] || '')
-
-  const handleSwapBlueGreen = () => {
-    const prevActive = activeInstance
-    const prevStandby = standbyInstance
-    setActiveInstance(prevStandby)
-    setStandbyInstance(prevActive)
-  }
-
-  // 当实例选择变化时自动校准
-  useEffect(() => {
-    if (instances.length > 0) {
-      if (!instances.includes(baselineInstance)) setBaselineInstance(instances[0])
-      if (!instances.includes(canaryInstance)) setCanaryInstance(instances[1] || instances[0])
-      if (!instances.includes(activeInstance)) setActiveInstance(instances[0])
-      if (!instances.includes(standbyInstance)) setStandbyInstance(instances[1] || instances[0])
+  // 3. 蓝绿发布 state (二元极值：active 100%, standby 0%)
+  const [blueGreenActiveIdx, setBlueGreenActiveIdx] = useState<number>(() => {
+    if (initialWeights && instances.length >= 2) {
+      if (Number(initialWeights[instances[1]]) === 100) return 1
     }
-  }, [instances])
+    return 0
+  })
+
+  const isGrayscale = strategy === '金丝雀发布' || strategy === '蓝绿发布'
 
   return (
     <div className="w-[660px] rounded-[6px] border border-[#e4e6eb] bg-white p-[20px] shadow-[0_1px_4px_rgba(0,0,0,0.03)]">
-      {/* 顶部：策略类型下拉 + 删除 */}
+      {/* 顶部：场景并列切换（常规路由 vs 灰度发布下拉） + 删除 */}
       <div className="flex items-center justify-between pb-4 border-b border-[#f0f0f0]">
         <div className="flex items-center gap-3">
-          <span className="text-[14px] font-semibold text-[#1f2329]">策略模式</span>
-          <span ref={routeRef} className="relative inline-block w-[240px]">
-            <span
-              onClick={() => setOpen((o) => !o)}
-              className={`h-[38px] flex items-center justify-between rounded border px-3 text-[14px] cursor-pointer bg-white transition-colors ${
-                open ? 'border-[#166EFF] text-[#166EFF]' : 'border-[#d9d9d9] text-[#333]'
+          <span className="text-[14px] font-semibold text-[#1f2329]">路由模式</span>
+
+          {/* 并列切换：常规路由 vs 灰度发布 */}
+          <div className="inline-flex items-center rounded border border-[#d9d9d9] bg-[#f5f5f5] p-0.5 text-[13px]">
+            <button
+              type="button"
+              onClick={() => {
+                setStrategy('按权重分发')
+                setGrayOpen(false)
+              }}
+              className={`px-3 py-1.5 rounded-[3px] font-medium transition-colors cursor-pointer ${
+                !isGrayscale
+                  ? 'bg-white text-[#166EFF] shadow-sm'
+                  : 'text-[#595959] hover:text-[#1f2329]'
               }`}
             >
-              <span className="font-medium">{strategy}</span>
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 12 12"
-                fill="none"
-                aria-hidden
-                className={`transition-transform ${open ? 'rotate-180' : ''}`}
+              常规路由 (按权重分发)
+            </button>
+
+            {/* 灰度发布：金丝雀发布 / 蓝绿发布 */}
+            <span ref={grayRef} className="relative inline-block">
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isGrayscale) {
+                    setStrategy('金丝雀发布')
+                  }
+                  setGrayOpen((o) => !o)
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] font-medium transition-colors cursor-pointer ${
+                  isGrayscale
+                    ? 'bg-white text-[#166EFF] shadow-sm'
+                    : 'text-[#595959] hover:text-[#1f2329]'
+                }`}
               >
-                <path d="m2.5 4.5 3.5 3.5 3.5-3.5" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+                <span>灰度发布：{isGrayscale ? strategy : '选择模式'}</span>
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  aria-hidden
+                  className={`transition-transform ${grayOpen ? 'rotate-180' : ''}`}
+                >
+                  <path d="m2.5 4.5 3.5 3.5 3.5-3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+
+              {grayOpen && (
+                <div className="absolute left-0 top-[36px] z-30 w-[150px] rounded-[4px] border border-[#e4e6eb] bg-white shadow-[0_6px_20px_rgba(0,0,0,0.12)] py-1">
+                  {(['金丝雀发布', '蓝绿发布'] as const).map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => {
+                        setStrategy(type)
+                        setGrayOpen(false)
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2 text-[13px] text-left cursor-pointer hover:bg-[#f5f7fa] ${
+                        strategy === type ? 'bg-[#f0f7ff] text-[#166EFF] font-medium' : 'text-[#333]'
+                      }`}
+                    >
+                      <span>{type}</span>
+                      {strategy === type && <span className="text-[12px] text-[#166EFF]">✓</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
             </span>
-            {open && (
-              <span className="absolute left-0 top-[44px] z-30 w-full rounded-[4px] border border-[#e4e6eb] bg-white shadow-[0_6px_20px_rgba(0,0,0,0.1)] py-1">
-                {(['按权重分发', '金丝雀发布', '蓝绿发布'] as RouteStrategyType[]).map((type) => (
-                  <span
-                    key={type}
-                    onClick={() => {
-                      setStrategy(type)
-                      setOpen(false)
-                    }}
-                    className={`flex h-[38px] items-center justify-between px-3 text-[14px] cursor-pointer hover:bg-[#f5f7fa] ${
-                      strategy === type ? 'bg-[#f0f7ff] text-[#166EFF] font-medium' : 'text-[#333]'
-                    }`}
-                  >
-                    <span>{type}</span>
-                    {strategy === type && (
-                      <span className="text-[12px] text-[#166EFF]">✓</span>
-                    )}
-                  </span>
-                ))}
-              </span>
-            )}
-          </span>
+          </div>
+
           <span className="rounded bg-[#f5f6f8] px-2 py-1 text-[12px] text-[#8c8c8c]">
-            {strategy === '按权重分发' && '多实例按百分比分摊流量'}
-            {strategy === '金丝雀发布' && '小流量灰度验证，安全上线'}
-            {strategy === '蓝绿发布' && '主备双组热备，一键瞬时切流'}
+            {strategy === '按权重分发' && '多实例自由输入百分比，总和需等于 100%'}
+            {strategy === '金丝雀发布' && '基线与灰度实例联动调权，阶梯放量'}
+            {strategy === '蓝绿发布' && '主备二元极值锁死，一键瞬时切流'}
           </span>
         </div>
+
         <button
           onClick={onDelete}
           aria-label="删除路由策略"
@@ -451,7 +474,7 @@ function RouteCard({
         </div>
       )}
 
-      {/* 模式 1：按权重分发 */}
+      {/* 模式 1：常规路由 · 按权重分发 */}
       {instances.length > 0 && strategy === '按权重分发' && (
         <div className="mt-[20px] flex items-start">
           <div className="w-[120px] shrink-0 text-right text-[15px] font-medium text-[#1f2329] pt-2">
@@ -471,7 +494,9 @@ function RouteCard({
             <div className="flex flex-col gap-[10px]">
               {instances.map((name) => (
                 <div key={name} className="flex items-center justify-between rounded border border-[#f0f0f0] bg-[#fafbfc] px-3 py-2">
-                  <span className="w-[240px] truncate text-[14px] text-[#333] font-medium">{name}</span>
+                  <span className="w-[240px] truncate text-[14px] text-[#333] font-medium" title={name}>
+                    {name}
+                  </span>
                   <div className="inline-flex items-center gap-1.5">
                     <input
                       value={weights[name] ?? '0'}
@@ -497,196 +522,216 @@ function RouteCard({
         </div>
       )}
 
-      {/* 模式 2：金丝雀发布 */}
+      {/* 模式 2：灰度发布 · 金丝雀发布 */}
       {instances.length > 0 && strategy === '金丝雀发布' && (
-        <div className="mt-[20px] flex flex-col gap-4">
-          {instances.length < 2 && (
-            <div className="rounded bg-[#FFFBE6] border border-[#FFE58F] px-3 py-2 text-[13px] text-[#D46B08]">
-              提示：金丝雀发布建议选择至少 2 个实例分别作为基线与金丝雀。当前已选 1 个实例。
-            </div>
-          )}
-
-          {/* 角色指定 */}
-          <div className="grid grid-cols-2 gap-4">
-            {/* 基线实例 */}
-            <div className="rounded border border-[#e8e8e8] p-3 bg-[#fafbfc]">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[13px] font-semibold text-[#1f2329] flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-[#166EFF]" />
-                  基线实例 (当前主版本)
-                </span>
-                <span className="rounded bg-[#E6F4FF] px-1.5 py-0.5 text-[11px] text-[#1677FF] font-medium">
-                  {baselineWeight}% 流量
-                </span>
-              </div>
-              <select
-                value={baselineInstance}
-                onChange={(e) => setBaselineInstance(e.target.value)}
-                className="w-full h-[36px] rounded border border-[#d9d9d9] bg-white px-2.5 text-[13px] text-[#333] outline-none"
-              >
-                {instances.map((ins) => (
-                  <option key={ins} value={ins}>
-                    {ins}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* 金丝雀实例 */}
-            <div className="rounded border border-[#e8e8e8] p-3 bg-[#fafbfc]">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[13px] font-semibold text-[#1f2329] flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-[#FA8C16]" />
-                  金丝雀实例 (灰度新版本)
-                </span>
-                <span className="rounded bg-[#FFF7E6] px-1.5 py-0.5 text-[11px] text-[#FA8C16] font-medium">
-                  {canaryWeight}% 流量
-                </span>
-              </div>
-              <select
-                value={canaryInstance}
-                onChange={(e) => setCanaryInstance(e.target.value)}
-                className="w-full h-[36px] rounded border border-[#d9d9d9] bg-white px-2.5 text-[13px] text-[#333] outline-none"
-              >
-                {instances.map((ins) => (
-                  <option key={ins} value={ins}>
-                    {ins}
-                  </option>
-                ))}
-              </select>
-            </div>
+        <div className="mt-[20px] flex items-start">
+          <div className="w-[120px] shrink-0 text-right text-[15px] font-medium text-[#1f2329] pt-1">
+            权重配置
           </div>
+          <div className="ml-[24px] flex-1 flex flex-col gap-3">
+            {instances.length < 2 && (
+              <div className="rounded bg-[#FFFBE6] border border-[#FFE58F] px-3 py-2 text-[13px] text-[#D46B08]">
+                提示：金丝雀发布建议在上方「后端推理实例」中选择至少 2 个实例分别作为基线与灰度实例。
+              </div>
+            )}
 
-          {/* 流量比例配置 */}
-          <div className="rounded border border-[#f0f0f0] p-3 bg-white">
-            <div className="flex items-center justify-between">
-              <span className="text-[13px] font-medium text-[#333]">灰度流量占比</span>
-              <div className="flex items-center gap-2">
-                {[5, 10, 20, 50].map((preset) => (
+            {/* 快捷比例 */}
+            <div className="flex items-center justify-between pb-1">
+              <span className="text-[13px] text-[#595959]">快捷比例（灰度实例）：</span>
+              <div className="flex items-center gap-1.5">
+                {[5, 10, 20, 50, 100].map((preset) => (
                   <button
                     key={preset}
                     type="button"
                     onClick={() => setCanaryWeight(preset)}
-                    className={`h-[26px] px-2.5 rounded text-[12px] border cursor-pointer transition-colors ${
+                    className={`h-[26px] px-2.5 rounded text-[12px] border cursor-pointer font-medium transition-colors ${
                       canaryWeight === preset
-                        ? 'bg-[#166EFF] text-white border-[#166EFF]'
-                        : 'bg-white text-[#666] border-[#d9d9d9] hover:border-[#166EFF]'
+                        ? 'bg-[#FA8C16] text-white border-[#FA8C16] shadow-sm'
+                        : 'bg-white text-[#595959] border-[#d9d9d9] hover:border-[#FA8C16] hover:text-[#FA8C16]'
                     }`}
                   >
                     {preset}%
                   </button>
                 ))}
-                <div className="ml-2 inline-flex items-center gap-1">
-                  <input
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={canaryWeight}
-                    onChange={(e) => setCanaryWeight(Math.min(100, Math.max(0, Number(e.target.value) || 0)))}
-                    className="w-[56px] h-[28px] rounded border border-[#d9d9d9] text-center text-[13px] text-[#333] outline-none focus:border-[#166EFF]"
-                  />
-                  <span className="text-[13px] text-[#666]">%</span>
-                </div>
               </div>
             </div>
 
-            {/* 双色流量分流条 */}
-            <div className="mt-3">
-              <div className="h-[10px] w-full rounded-full bg-[#f0f0f0] overflow-hidden flex">
-                <div className="bg-[#166EFF] h-full transition-all" style={{ width: `${baselineWeight}%` }} />
-                <div className="bg-[#FA8C16] h-full transition-all" style={{ width: `${canaryWeight}%` }} />
+            {/* 直接渲染上方已选实例列表（无需二次下拉选择） */}
+            <div className="flex flex-col gap-[10px]">
+              {instances.map((name, idx) => {
+                const isBaseline = idx === 0
+                const isCanary = idx === 1
+                const currentWeight = isBaseline ? baselineWeight : isCanary ? canaryWeight : 0
+                return (
+                  <div
+                    key={name}
+                    className={`flex items-center justify-between rounded border px-3.5 py-2.5 transition-colors ${
+                      isBaseline
+                        ? 'border-[#91CAFF] bg-[#F0F7FF]'
+                        : isCanary
+                        ? 'border-[#FFD591] bg-[#FFFBF0]'
+                        : 'border-[#f0f0f0] bg-[#fafbfc]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span
+                        className={`rounded px-1.5 py-0.5 text-[12px] font-medium border ${
+                          isBaseline
+                            ? 'bg-[#E6F4FF] text-[#1677FF] border-[#91CAFF]'
+                            : isCanary
+                            ? 'bg-[#FFF7E6] text-[#D46B08] border-[#FFD591]'
+                            : 'bg-[#f5f5f5] text-[#8c8c8c] border-[#d9d9d9]'
+                        }`}
+                      >
+                        {isBaseline ? '基线' : isCanary ? '灰度' : `实例 ${idx + 1}`}
+                      </span>
+                      <span className="w-[220px] truncate text-[14px] text-[#333] font-medium" title={name}>
+                        {name}
+                      </span>
+                      <span className="text-[12px] text-[#8c8c8c]">
+                        {isBaseline ? '(当前主版本)' : isCanary ? '(灰度新版本)' : ''}
+                      </span>
+                    </div>
+
+                    <div className="inline-flex items-center gap-1.5">
+                      {isCanary ? (
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={canaryWeight}
+                          onChange={(e) => {
+                            const val = Math.min(100, Math.max(0, Number(e.target.value.replace(/[^\d]/g, '')) || 0))
+                            setCanaryWeight(val)
+                          }}
+                          className="w-[72px] h-[34px] rounded border border-[#FFD591] bg-white text-center text-[14px] font-semibold text-[#D46B08] outline-none focus:border-[#FA8C16]"
+                        />
+                      ) : (
+                        <div className="w-[72px] h-[34px] rounded border border-[#91CAFF] bg-[#FAFCFF] flex items-center justify-center text-[14px] font-semibold text-[#1677FF]">
+                          {currentWeight}
+                        </div>
+                      )}
+                      <span className="text-[14px] text-[#666] font-medium">%</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* 双色流量分流进度条 */}
+            <div className="mt-1 rounded border border-[#f0f0f0] bg-[#fafbfc] p-3">
+              <div className="h-[10px] w-full rounded-full bg-[#e8e8e8] overflow-hidden flex">
+                <div
+                  className="bg-[#1677FF] h-full transition-all duration-300"
+                  style={{ width: `${baselineWeight}%` }}
+                />
+                <div
+                  className="bg-[#FA8C16] h-full transition-all duration-300"
+                  style={{ width: `${canaryWeight}%` }}
+                />
               </div>
-              <div className="mt-1.5 flex justify-between text-[12px] text-[#8c8c8c]">
-                <span>基线: {baselineWeight}%</span>
-                <span>金丝雀: {canaryWeight}%</span>
+              <div className="mt-2 flex justify-between text-[12px]">
+                <span className="text-[#1677FF] font-medium">基线流量：{baselineWeight}%</span>
+                <span className="text-[#D46B08] font-medium">灰度流量：{canaryWeight}%</span>
               </div>
             </div>
-          </div>
 
-          <div className="text-[13px] text-[#8c8c8c]">
-            💡 验证金丝雀版本表现良好后，可通过提高金丝雀占比逐步扩大灰度，直至 100% 全量切流。
+            <div className="text-[12px] text-[#8c8c8c]">
+              💡 联动互补：调节灰度实例百分比时，基线实例将自动补足剩余流量（100% - X%），支持阶梯放量至 100%。
+            </div>
           </div>
         </div>
       )}
 
-      {/* 模式 3：蓝绿发布 */}
+      {/* 模式 3：灰度发布 · 蓝绿发布 */}
       {instances.length > 0 && strategy === '蓝绿发布' && (
-        <div className="mt-[20px] flex flex-col gap-4">
-          {instances.length < 2 && (
-            <div className="rounded bg-[#FFFBE6] border border-[#FFE58F] px-3 py-2 text-[13px] text-[#D46B08]">
-              提示：蓝绿发布需要配置主、备两组实例。当前已选 1 个实例。
-            </div>
-          )}
-
-          {/* 主备两组卡片 + 一键切换按钮 */}
-          <div className="flex items-center gap-3">
-            {/* 主组卡片 */}
-            <div className="flex-1 rounded border-2 border-[#52C41A] p-3.5 bg-[#F6FFED]">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[13px] font-semibold text-[#237804] flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#52C41A]" />
-                  主实例 (活跃)
-                </span>
-                <span className="rounded bg-[#52C41A] px-2 py-0.5 text-[11px] text-white font-medium">
-                  100% 流量
-                </span>
+        <div className="mt-[20px] flex items-start">
+          <div className="w-[120px] shrink-0 text-right text-[15px] font-medium text-[#1f2329] pt-1">
+            权重配置
+          </div>
+          <div className="ml-[24px] flex-1 flex flex-col gap-3">
+            {instances.length < 2 && (
+              <div className="rounded bg-[#FFFBE6] border border-[#FFE58F] px-3 py-2 text-[13px] text-[#D46B08]">
+                提示：蓝绿发布需要在上方「后端推理实例」中选择至少 2 个实例分别作为主、备实例。
               </div>
-              <select
-                value={activeInstance}
-                onChange={(e) => setActiveInstance(e.target.value)}
-                className="w-full h-[36px] rounded border border-[#b7eb8f] bg-white px-2.5 text-[13px] text-[#333] outline-none"
-              >
-                {instances.map((ins) => (
-                  <option key={ins} value={ins}>
-                    {ins}
-                  </option>
-                ))}
-              </select>
-            </div>
+            )}
 
-            {/* 一键主备切换按钮 */}
-            <div className="shrink-0 flex flex-col items-center">
+            {/* 流向切换操作条 */}
+            <div className="flex items-center justify-between pb-1">
+              <span className="text-[13px] text-[#595959]">二元极值流向控制（权重锁死为 100% 和 0%）：</span>
               <button
                 type="button"
-                onClick={handleSwapBlueGreen}
-                className="h-[38px] px-3 rounded-md bg-[#166EFF] text-white text-[13px] flex items-center gap-1.5 shadow-sm hover:bg-[#1258cc] cursor-pointer transition-all"
-                title="一键调换主备实例角色（秒级无损切流）"
+                onClick={() => setBlueGreenActiveIdx((idx) => (idx === 0 ? 1 : 0))}
+                className="h-[30px] px-3.5 rounded bg-[#166EFF] text-white text-[13px] font-medium flex items-center gap-1.5 shadow-sm hover:bg-[#1258cc] cursor-pointer transition-all"
+                title="一键调换主备流向（100% 与 0% 秒级互换）"
               >
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                   <path d="M4 11h9m0 0l-3-3m3 3l-3 3M12 5H3m0 0l3-3M3 5l3 3" />
                 </svg>
-                一键切换
+                切换主备流向 ⇄
               </button>
-              <span className="mt-1 text-[11px] text-[#8c8c8c]">秒级切流</span>
             </div>
 
-            {/* 备组卡片 */}
-            <div className="flex-1 rounded border border-[#d9d9d9] p-3.5 bg-[#fafafa]">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[13px] font-semibold text-[#595959] flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#bfbfbf]" />
-                  备实例 (待命)
-                </span>
-                <span className="rounded bg-[#f0f0f0] px-2 py-0.5 text-[11px] text-[#8c8c8c] font-medium">
-                  0% 流量
-                </span>
-              </div>
-              <select
-                value={standbyInstance}
-                onChange={(e) => setStandbyInstance(e.target.value)}
-                className="w-full h-[36px] rounded border border-[#d9d9d9] bg-white px-2.5 text-[13px] text-[#333] outline-none"
-              >
-                {instances.map((ins) => (
-                  <option key={ins} value={ins}>
-                    {ins}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+            {/* 直接渲染上方已选实例列表（无需二次下拉选择） */}
+            <div className="flex flex-col gap-[10px]">
+              {instances.map((name, idx) => {
+                const isBlue = idx === 0
+                const isGreen = idx === 1
+                const isActive = idx === blueGreenActiveIdx
+                const currentWeight = isActive ? 100 : 0
+                const groupName = isBlue ? '蓝组' : isGreen ? '绿组' : `分组 ${idx + 1}`
 
-          <div className="text-[13px] text-[#8c8c8c]">
-            💡 蓝绿模式下备用实例保持热备状态；点击「一键切换」可实现瞬时切流，如遇突发异常可再次点击秒级回滚。
+                return (
+                  <div
+                    key={name}
+                    className={`flex items-center justify-between rounded border-2 px-3.5 py-3 transition-colors ${
+                      isActive
+                        ? 'border-[#52C41A] bg-[#F6FFED]'
+                        : 'border-[#d9d9d9] bg-[#fafafa]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span
+                        className={`rounded px-2 py-0.5 text-[12px] font-semibold border ${
+                          isActive
+                            ? 'bg-[#52C41A] text-white border-[#52C41A]'
+                            : 'bg-[#f0f0f0] text-[#8c8c8c] border-[#d9d9d9]'
+                        }`}
+                      >
+                        {groupName}
+                      </span>
+                      <span className="w-[220px] truncate text-[14px] text-[#333] font-medium" title={name}>
+                        {name}
+                      </span>
+                      <span
+                        className={`text-[12px] font-medium ${
+                          isActive ? 'text-[#389E0D]' : 'text-[#8c8c8c]'
+                        }`}
+                      >
+                        {isActive ? '● 当前生效 (100% 流量)' : '○ 待命热备 (0% 流量)'}
+                      </span>
+                    </div>
+
+                    <div className="inline-flex items-center gap-1.5">
+                      <div
+                        className={`w-[72px] h-[34px] rounded border flex items-center justify-center text-[14px] font-bold ${
+                          isActive
+                            ? 'border-[#b7eb8f] bg-white text-[#389E0D]'
+                            : 'border-[#d9d9d9] bg-[#f5f5f5] text-[#8c8c8c]'
+                        }`}
+                      >
+                        {currentWeight}
+                      </div>
+                      <span className="text-[14px] text-[#666] font-medium">%</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="text-[12px] text-[#8c8c8c]">
+              💡 二元极值：蓝绿模式下权重锁死为 100% 与 0%（不可填中间值）；点击「切换主备流向 ⇄」瞬时整切，遇异常可再次点击秒级回退。
+            </div>
           </div>
         </div>
       )}
