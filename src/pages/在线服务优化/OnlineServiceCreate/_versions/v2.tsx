@@ -712,7 +712,7 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
   const [rpmOn, setRpmOn] = useState(src ? src.rpmOn : false)
 
   useEffect(() => {
-    if (instances.length > 2 && routeCategory === 'grayscale') {
+    if (instances.length !== 2 && routeCategory === 'grayscale') {
       setRouteCategory('routine')
     }
   }, [instances.length, routeCategory])
@@ -941,16 +941,16 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
                           onChange={() => setRouteCategory('routine')}
                         />
                         <div className="flex items-center gap-[8px]">
-                          <div className={instances.length > 2 ? 'opacity-50' : ''}>
+                          <div className={instances.length !== 2 ? 'opacity-50' : ''}>
                             <Radio
                               checked={routeCategory === 'grayscale'}
                               label="灰度发布策略"
-                              disabled={instances.length > 2}
+                              disabled={instances.length !== 2}
                               onChange={() => setRouteCategory('grayscale')}
                             />
                           </div>
-                          {instances.length > 2 && (
-                            <span className="text-[13px] text-[#8c8c8c]">（灰度发布仅支持 2 个后端推理实例）</span>
+                          {instances.length !== 2 && (
+                            <span className="text-[13px] text-[#8c8c8c]">（灰度发布需选择 2 个后端推理实例）</span>
                           )}
                         </div>
                       </div>
