@@ -831,16 +831,6 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
   const [fallbackType, setFallbackType] = useState<string>(src?.fallbackType || '内部推理实例')
   const [fallbackModels, setFallbackModels] = useState<string[]>(src ? src.fallbackModels : [])
   const [rpmOn, setRpmOn] = useState(src ? src.rpmOn : false)
-  // 是否处于「灰度发布」路由：流量分发已开启 且 当前选中灰度发布策略
-  // 该标志同时控制两件事：① 底部「模型Fallback」在灰度发布下隐藏  ② 切换至灰度发布时强制关闭已开启的 Fallback
-  const isGrayscaleRoute = routeOn && routeCategory === 'grayscale'
-
-  // 灰度发布策略下不支持模型Fallback：一旦切到灰度发布，自动关闭已开启的 Fallback 开关
-  useEffect(() => {
-    if (isGrayscaleRoute && fallbackOn) {
-      setFallbackOn(false)
-    }
-  }, [isGrayscaleRoute, fallbackOn])
 
   // 选 ≥ 2 个后端推理实例时，「流量分发策略」升级为必选项：自动开启并锁定（不可关闭）
   useEffect(() => {
@@ -1195,8 +1185,8 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
               </div>
 
               <div className="mt-[23px] flex flex-col gap-[37px]">
-                {/* 模型Fallback（常规路由策略及单实例支持；灰度发布策略下不支持，由 !isGrayscaleRoute 隐藏并自动关闭） */}
-                {!isGrayscaleRoute && (
+                {/* 模型Fallback（常规路由与灰度发布策略下均保留，支持模型兜底） */}
+                {
                   <>
                     <div className="flex items-center">
                       <FieldLabel text="模型Fallback" />
@@ -1233,7 +1223,7 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
                       </div>
                     )}
                   </>
-                )}
+                }
 
                 <div className="flex items-center">
                   <FieldLabel text="全局限流" />

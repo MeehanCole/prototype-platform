@@ -386,48 +386,6 @@ function InstanceHealthTip() {
   )
 }
 
-function MetricTip({
-  successCalls,
-  failedCalls,
-  inputTokens,
-  outputTokens,
-}: {
-  successCalls: string | number
-  failedCalls: string | number
-  inputTokens: string | number
-  outputTokens: string | number
-}) {
-  return (
-    <span className="relative ml-1 inline-flex items-center group">
-      <svg
-        width="14"
-        height="14"
-        viewBox="0 0 16 16"
-        fill="none"
-        aria-hidden
-        className="text-[#bbb] group-hover:text-[#666] cursor-help transition-colors"
-      >
-        <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.2" />
-        <text x="8" y="11" textAnchor="middle" fontSize="9" fill="currentColor" fontStyle="italic" fontWeight="bold">?</text>
-      </svg>
-      <span className="pointer-events-none absolute bottom-[22px] left-1/2 -translate-x-1/2 hidden w-[236px] group-hover:block z-20">
-        <span className="block rounded-[6px] bg-[#262626] px-3 py-2.5 text-[12px] text-white leading-[18px] shadow-lg">
-          <span className="block text-[#bfbfbf] pb-1.5 mb-1.5 border-b border-white/15">近 24 小时服务监控统计</span>
-          <span className="flex justify-between">
-            <span>调用（成功/失败）</span>
-            <b className="text-white">{successCalls} / {failedCalls}</b>
-          </span>
-          <span className="flex justify-between mt-1">
-            <span>Token 输入/输出</span>
-            <b className="text-white">{inputTokens} / {outputTokens}</b>
-          </span>
-        </span>
-        <span className="mx-auto -mt-[5px] block h-[10px] w-[10px] rotate-45 bg-[#262626]" />
-      </span>
-    </span>
-  )
-}
-
 function CopyIcon({ done }: { done?: boolean }) {
   return done ? (
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#67C23A" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -454,7 +412,6 @@ function ServiceCard({ row }: { row: ServiceRow }) {
     window.setTimeout(() => setCopied((c) => (c === key ? null : c)), 1500)
   }
   const toDetail = () => navigate(`/在线服务优化/onlineservicedetail?name=${encodeURIComponent(row.name)}&v=v2`)
-  const toUsage = () => navigate(`/在线服务优化/onlineservicedetail?name=${encodeURIComponent(row.name)}&tab=usage&v=v2`)
   const toEdit = () => navigate(`/在线服务优化/onlineservicecreate?name=${encodeURIComponent(row.name)}&v=v2`)
 
   return (
@@ -570,7 +527,7 @@ function ServiceCard({ row }: { row: ServiceRow }) {
         >
           ⚡ 缓存{row.cacheOn ? ` ${row.cacheTime}` : '未开启'}
         </span>
-        {row.route !== '金丝雀发布' && row.route !== '蓝绿发布' && (
+        {(
           <span
             className={`inline-flex items-center rounded px-2 py-1 text-[12px] ${
               row.fallbackOn ? 'bg-[#E6F4FF] text-[#1677ff]' : 'bg-[#f5f5f5] text-[#999]'
@@ -588,31 +545,8 @@ function ServiceCard({ row }: { row: ServiceRow }) {
         </span>
       </div>
 
-      {/* 底部：核心监控指标（精简）+ 快捷操作 */}
-      <div className="mt-4 flex items-center justify-between border-t border-[#f0f0f0] px-5 py-3">
-        <div
-          onClick={toUsage}
-          title={`Token输入：${row.inputTokens} ｜ Token输出：${row.outputTokens} ｜ 成功：${row.successCalls} 次（点击查看用量统计）`}
-          className="flex items-center gap-2.5 text-[12px] text-[#666] cursor-pointer hover:text-[#166EFF]"
-        >
-          <span>
-            调用 <b className="text-[#333]">{row.totalCalls}</b>
-          </span>
-          <span className="text-[#e5e7eb]">|</span>
-          <span>
-            失败 <b className={row.failedCalls > 0 ? 'text-[#F5222D]' : 'text-[#333]'}>{row.failedCalls}</b>
-          </span>
-          <span className="text-[#e5e7eb]">|</span>
-          <span>
-            Token <b className="text-[#333]">{row.totalTokens}</b>
-          </span>
-          <MetricTip
-            successCalls={row.successCalls}
-            failedCalls={row.failedCalls}
-            inputTokens={row.inputTokens}
-            outputTokens={row.outputTokens}
-          />
-        </div>
+      {/* 底部：快捷操作 */}
+      <div className="mt-4 flex items-center justify-end border-t border-[#f0f0f0] px-5 py-3">
         <div className="flex shrink-0 items-center gap-3 text-[13px]">
           <a onClick={toEdit} className="text-[#166EFF] cursor-pointer">
             编辑

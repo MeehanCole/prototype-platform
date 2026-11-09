@@ -370,8 +370,8 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
                   <div className="my-[30px] h-px bg-[#f0f0f0]" />
 
                   {/* 高可用与安全 */}
-                  {/* 模型Fallback（仅常规路由或未开启灰度时展示，灰度发布无模型Fallback） */}
-                  {!isGrayscale && (
+                  {/* 模型Fallback（常规路由与灰度发布策略下均展示） */}
+                  {(
                     <>
                       <div className="text-[16px] font-semibold text-[#1f2329]">模型Fallback</div>
                       <div className="mt-[24px] flex flex-col gap-[24px]">
