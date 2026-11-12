@@ -1226,7 +1226,7 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
                 }
 
                 <div className="flex items-center">
-                  <FieldLabel text="全局限流" />
+                  <FieldLabel text="实例限流" />
                   <span className="ml-[53px] flex items-center">
                     <Toggle on={rpmOn} onClick={() => setRpmOn((v) => !v)} />
                     <span className="ml-3 text-[14px] text-[#333]">启动请求频次限流（RPM）</span>

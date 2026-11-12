@@ -396,8 +396,8 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
                     </>
                   )}
 
-                  {/* 全局限流 */}
-                  <div className="text-[16px] font-semibold text-[#1f2329]">全局限流</div>
+                  {/* 实例限流 */}
+                  <div className="text-[16px] font-semibold text-[#1f2329]">实例限流</div>
                   <div className="mt-[24px] flex flex-col gap-[24px]">
                     <div className={row}>
                       <span className={label}>是否开启</span>

@@ -1,3 +1,5 @@
+import { useNavigate } from 'react-router-dom'
+
 /**
  * 产品外壳还原（R1：产品 Header / Sidebar 必须放在页面自己的 _shared.tsx 中）。
  * 所有 token 仅来自本项目截图 01-在线服务.webp。
@@ -6,6 +8,19 @@
 /* ---------- 小图标（16px 线框，#6b7280；active 时用 #166EFF） ---------- */
 
 const ICON_PATHS: Record<string, React.ReactNode> = {
+  key: (
+    <>
+      <circle cx="8" cy="8" r="4.5" />
+      <path d="m11.5 11.5 5.5 5.5m-2-2 2 2m-3.5-0.5 1.5 1.5" />
+    </>
+  ),
+  usage: (
+    <>
+      <rect x="4" y="11" width="3.5" height="6" rx="0.5" />
+      <rect x="9.5" y="7" width="3.5" height="10" rx="0.5" />
+      <rect x="15" y="4" width="3.5" height="13" rx="0.5" />
+    </>
+  ),
   book: (
     <>
       <rect x="4.5" y="3.5" width="13" height="14" rx="1.5" />
@@ -310,33 +325,38 @@ interface NavRow {
   active?: boolean
   lvl?: 1 | 2 | 3
   chevron?: 'up' | 'down'
+  path?: string
 }
 
-const NAV_ROWS: NavRow[] = [
-  { kind: 'item', label: '快速入门', icon: 'book', lvl: 1 },
-  { kind: 'item', label: '总览', icon: 'overview', lvl: 1 },
-  { kind: 'section', label: '弹性算力' },
-  { kind: 'sub', label: '容器实例', icon: 'containers', lvl: 2 },
-  { kind: 'sub', label: '主机实例', icon: 'hosts', lvl: 2 },
-  { kind: 'sub', label: '裸金属实例', icon: 'baremetal', lvl: 2 },
-  { kind: 'section', label: '模型服务' },
-  { kind: 'item', label: '模型广场', icon: 'plaza', lvl: 2 },
-  { kind: 'item', label: '模型仓库', icon: 'repo', lvl: 2 },
-  { kind: 'group', label: '推理服务', icon: 'infer', lvl: 2, chevron: 'up' },
-  { kind: 'sub', label: '推理实例', icon: 'layers', lvl: 3 },
-  { kind: 'sub', label: '在线服务', icon: 'gem', active: true, lvl: 3 },
-  { kind: 'item', label: '模型体验', icon: 'exp', lvl: 2 },
-  { kind: 'group', label: 'API 管理', icon: 'apicloud', lvl: 2, chevron: 'down' },
-  { kind: 'sub', label: '模型链路分析', icon: 'link', lvl: 2 },
-  { kind: 'section', label: '基础资源' },
-  { kind: 'item', label: '存储管理', icon: 'hdd', lvl: 2 },
-  { kind: 'item', label: '镜像管理', icon: 'mirror', lvl: 2 },
-  { kind: 'section', label: '算力评测' },
-  { kind: 'item', label: '算力评估', icon: 'percent', lvl: 2 },
-  { kind: 'item', label: '性能评估', icon: 'wave', lvl: 2 },
-]
+export function SideNav({ activeKey = '在线服务' }: { activeKey?: string }) {
+  const navigate = useNavigate()
 
-export function SideNav() {
+  const rows: NavRow[] = [
+    { kind: 'item', label: '快速入门', icon: 'book', lvl: 1 },
+    { kind: 'item', label: '总览', icon: 'overview', lvl: 1 },
+    { kind: 'section', label: '弹性算力' },
+    { kind: 'sub', label: '容器实例', icon: 'containers', lvl: 2 },
+    { kind: 'sub', label: '主机实例', icon: 'hosts', lvl: 2 },
+    { kind: 'sub', label: '裸金属实例', icon: 'baremetal', lvl: 2 },
+    { kind: 'section', label: '模型服务' },
+    { kind: 'item', label: '模型广场', icon: 'plaza', lvl: 2 },
+    { kind: 'item', label: '模型仓库', icon: 'repo', lvl: 2 },
+    { kind: 'group', label: '推理服务', icon: 'infer', lvl: 2, chevron: activeKey === '在线服务' ? 'up' : 'down' },
+    { kind: 'sub', label: '推理实例', icon: 'layers', lvl: 3 },
+    { kind: 'sub', label: '在线服务', icon: 'gem', active: activeKey === '在线服务', lvl: 3, path: '/在线服务优化/onlineservice' },
+    { kind: 'item', label: '模型体验', icon: 'exp', lvl: 2 },
+    { kind: 'group', label: 'API 管理', icon: 'apicloud', lvl: 2, chevron: activeKey === 'API Key' ? 'up' : 'down' },
+    { kind: 'sub', label: 'API Key', icon: 'key', active: activeKey === 'API Key', lvl: 3, path: '/在线服务优化/apikey' },
+    { kind: 'sub', label: '用量统计', icon: 'usage', lvl: 3 },
+    { kind: 'sub', label: '模型调用分析', icon: 'link', lvl: 3 },
+    { kind: 'section', label: '基础资源' },
+    { kind: 'item', label: '存储管理', icon: 'hdd', lvl: 2 },
+    { kind: 'item', label: '镜像管理', icon: 'mirror', lvl: 2 },
+    { kind: 'section', label: '算力评测' },
+    { kind: 'item', label: '算力评估', icon: 'percent', lvl: 2 },
+    { kind: 'item', label: '性能评估', icon: 'wave', lvl: 2 },
+  ]
+
   return (
     <aside className="w-[256px] shrink-0 bg-white border-r border-[#eaeaea] flex flex-col overflow-y-auto select-none">
       {/* 节点 / 租户胶囊 */}
@@ -352,11 +372,11 @@ export function SideNav() {
       </div>
 
       {/* 标题 */}
-      <div className="pl-[26px] pt-[20px] pb-[15px] text-[18px] font-bold text-[#111]">算力平台</div>
+      <div className="pl-[26px] pt-[20px] pb-[15px] text-[18px] font-bold text-[#111]">算网服务</div>
 
       {/* 菜单行（行高 45px） */}
       <nav className="flex-1">
-        {NAV_ROWS.map((row) => {
+        {rows.map((row) => {
           if (row.kind === 'section') {
             return (
               <div key={row.label} className="h-[45px] flex items-start pt-[15px] pl-[28px] text-[15px] text-[#8c8c8c]">
@@ -370,7 +390,7 @@ export function SideNav() {
               <div key={row.label} className="h-[45px] flex items-center">
                 <div className="ml-[8px] h-[35px] rounded-md bg-[#ECF1FD] flex items-center pl-[56px] pr-3 w-[214px]">
                   <Icon name={row.icon!} size={20} color={iconColor} />
-                  <span className="ml-[8px] text-[18px] text-[#166EFF]">{row.label}</span>
+                  <span className="ml-[8px] text-[18px] text-[#166EFF] font-medium">{row.label}</span>
                 </div>
               </div>
             )
@@ -379,6 +399,7 @@ export function SideNav() {
           return (
             <div
               key={row.label}
+              onClick={() => row.path && navigate(row.path)}
               className={`h-[45px] flex items-center cursor-pointer hover:bg-[#f7f8fa] ${indent}`}
             >
               {row.icon && <Icon name={row.icon} size={20} color={iconColor} />}

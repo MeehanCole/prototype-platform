@@ -1,0 +1,11 @@
+{
+  "title": "API Key 管理",
+  "module": "在线服务优化",
+  "source": "screenshot",
+  "status": "draft",
+  "updatedAt": "2026-11-10",
+  "tags": [],
+  "versions": ["v1"],
+  "defaultVersion": "v1",
+  "versionSummary": "v1：1:1 还原 API Key 管理页面，包含 API Key 列表、新建、查看、修改、绑定服务、额度设置操作"
+}
