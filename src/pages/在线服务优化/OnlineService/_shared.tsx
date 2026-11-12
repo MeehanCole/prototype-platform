@@ -341,10 +341,10 @@ export function SideNav({ activeKey = '在线服务' }: { activeKey?: string }) 
     { kind: 'section', label: '模型服务' },
     { kind: 'item', label: '模型广场', icon: 'plaza', lvl: 2 },
     { kind: 'item', label: '模型仓库', icon: 'repo', lvl: 2 },
-    { kind: 'group', label: '推理服务', icon: 'infer', lvl: 2, chevron: activeKey === '在线服务' || activeKey === '模型体验' ? 'up' : 'down' },
+    { kind: 'group', label: '推理服务', icon: 'infer', lvl: 2, chevron: activeKey === '在线服务' ? 'up' : 'down' },
     { kind: 'sub', label: '推理实例', icon: 'layers', lvl: 3 },
     { kind: 'sub', label: '在线服务', icon: 'gem', active: activeKey === '在线服务', lvl: 3, path: '/在线服务优化/onlineservice' },
-    { kind: 'sub', label: '模型体验', icon: 'exp', active: activeKey === '模型体验', lvl: 3, path: '/在线服务优化/modelexperience' },
+    { kind: 'item', label: '模型体验', icon: 'exp', active: activeKey === '模型体验', lvl: 2, path: '/在线服务优化/modelexperience' },
     { kind: 'group', label: 'API 管理', icon: 'apicloud', lvl: 2, chevron: activeKey === 'API Key' ? 'up' : 'down' },
     { kind: 'sub', label: 'API Key', icon: 'key', active: activeKey === 'API Key', lvl: 3, path: '/在线服务优化/apikey' },
     { kind: 'sub', label: '用量统计', icon: 'usage', lvl: 3 },
@@ -386,9 +386,10 @@ export function SideNav({ activeKey = '在线服务' }: { activeKey?: string }) 
           }
           const iconColor = row.active ? '#166EFF' : '#1f2329'
           if (row.active) {
+            const activeIndent = row.lvl === 3 ? 'pl-[56px]' : 'pl-[38px]'
             return (
               <div key={row.label} className="h-[40px] flex items-center">
-                <div className="ml-[8px] h-[35px] rounded-md bg-[#ECF1FD] flex items-center pl-[56px] pr-3 w-[214px]">
+                <div className={`ml-[8px] h-[35px] rounded-md bg-[#ECF1FD] flex items-center pr-3 w-[214px] ${activeIndent}`}>
                   <Icon name={row.icon!} size={20} color={iconColor} />
                   <span className="ml-[8px] text-[18px] text-[#166EFF] font-medium">{row.label}</span>
                 </div>
