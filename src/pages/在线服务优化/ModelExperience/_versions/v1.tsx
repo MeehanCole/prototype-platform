@@ -407,13 +407,13 @@ export default function ModelExperience({ __showFeat = false }: { __showFeat?: b
               <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
                 {/* 1. 选择 API Key (附带提示图标，鼠标移入立即展示提示气泡) */}
                 <div ref={keyDropdownRef} className="relative">
-                  {/* 变更标记：绝对定位，不占布局 */}
-                  <NewTag code="F-01" compact className="absolute right-0 top-0" />
                   <div className="flex items-center gap-1.5 mb-1.5">
                     <label className="text-[14px] font-normal text-[#1f1f1f]">
                       选择API Key:
                     </label>
-                    <InfoTooltip text="只有启用的 API Key 可以使用" />
+                    <InfoTooltip text="只有启用且未开启 IP 白名单限制的 API Key 可以使用" />
+                    {/* 变更标记：行内紧跟标题，不占布局 */}
+                    <NewTag code="F-01" compact />
                   </div>
                   <div
                     onClick={() => setKeyDropdownOpen(!keyDropdownOpen)}

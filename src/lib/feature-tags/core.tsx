@@ -213,22 +213,22 @@ export function FeatureBadge({
               zIndex: 99999,
               transform: tip.above ? 'translateY(-100%)' : 'translateY(0)',
             }}
-            className="pointer-events-none w-[260px] rounded-md bg-[#1f2329] px-3 py-2 text-[11px] leading-snug text-white shadow-xl"
+            className="pointer-events-none w-[260px] rounded-md border border-border bg-foreground px-3 py-2 text-[11px] leading-snug text-background shadow-xl"
           >
             <span className="mb-1 flex items-center gap-1.5">
-              <span className="rounded-[2px] bg-white/15 px-1 py-px text-[9px] font-medium text-white/90">
+              <span className="rounded-[2px] bg-background/15 px-1 py-px text-[9px] font-medium text-background/90">
                 {type}
               </span>
               <span className="font-semibold">{label}</span>
             </span>
             {lines && lines.length > 0 && (
-              <ul className="list-disc space-y-0.5 pl-3.5 text-white/85">
+              <ul className="list-disc space-y-0.5 pl-3.5 text-background/85">
                 {lines.map((l) => (
                   <li key={l}>{l}</li>
                 ))}
               </ul>
             )}
-            <span className="mt-1 block text-[10px] text-white/50">点击查看详细说明</span>
+            <span className="mt-1 block text-[10px] text-background/50">点击查看详细说明</span>
           </div>,
           document.body,
         )}
@@ -280,29 +280,28 @@ export function DocPanel({ code, onClose }: { code: string | null; onClose: () =
     <div className="fixed inset-0 z-[70]" onClick={onClose}>
       <div className="absolute inset-0 bg-black/20" />
       <div
-        className="absolute right-0 top-0 flex h-full w-[520px] max-w-[92vw] flex-col border-l border-[#e5e6eb] bg-white shadow-2xl"
-        style={{ color: '#1f2329' }}
+        className="absolute right-0 top-0 flex h-full w-[520px] max-w-[92vw] flex-col border-l border-border bg-card text-foreground shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-2 border-b border-[#e5e6eb] px-5 py-4">
+        <div className="flex items-start justify-between gap-2 border-b border-border px-5 py-4">
           <div>
             <div className="flex items-center gap-2">
               <span
                 style={{
                   color: ACCENT,
-                  background: `color-mix(in srgb, ${ACCENT} 10%, white)`,
+                  background: `color-mix(in srgb, ${ACCENT} 10%, transparent)`,
                 }}
                 className="rounded-[2px] px-1.5 py-0.5 text-[11px] font-semibold"
               >
                 {code}
               </span>
-              <span className="text-[11px] text-[#8f959e]">{f.type}</span>
+              <span className="text-[11px] text-muted-foreground">{f.type}</span>
             </div>
-            <h3 className="mt-1 text-[14px] font-semibold text-[#1f2329]">{f.title}</h3>
+            <h3 className="mt-1 text-[14px] font-semibold text-foreground">{f.title}</h3>
           </div>
           <button
             onClick={onClose}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[2px] text-[#8f959e] hover:bg-[#f7f8fa] hover:text-[#1f2329]"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[2px] text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             <svg
               width="16"
@@ -321,8 +320,8 @@ export function DocPanel({ code, onClose }: { code: string | null; onClose: () =
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
           <div className="mb-4">
-            <div className="mb-1.5 text-[11px] font-medium text-[#8f959e]">本次改动</div>
-            <ul className="list-disc space-y-1 pl-4 text-[12px] leading-5 text-[#1f2329]">
+            <div className="mb-1.5 text-[11px] font-medium text-muted-foreground">本次改动</div>
+            <ul className="list-disc space-y-1 pl-4 text-[12px] leading-5 text-foreground">
               {f.changes.map((c) => (
                 <li key={c}>{c}</li>
               ))}
@@ -331,15 +330,15 @@ export function DocPanel({ code, onClose }: { code: string | null; onClose: () =
 
           {f.rules && f.rules.length > 0 && (
             <div className="mb-4">
-              <div className="mb-1.5 text-[11px] font-medium text-[#8f959e]">校验规则</div>
-              <div className="overflow-hidden rounded-[2px] border border-[#e5e6eb]">
+              <div className="mb-1.5 text-[11px] font-medium text-muted-foreground">校验规则</div>
+              <div className="overflow-hidden rounded-[2px] border border-border">
                 <table className="w-full border-collapse text-[11px]">
                   <thead>
-                    <tr className="bg-[#f7f8fa] text-[#8f959e]">
-                      <th className="w-[46%] border-b border-[#e5e6eb] px-2 py-1.5 text-left font-normal">
+                    <tr className="bg-muted text-muted-foreground">
+                      <th className="w-[46%] border-b border-border px-2 py-1.5 text-left font-normal">
                         规则
                       </th>
-                      <th className="border-b border-[#e5e6eb] px-2 py-1.5 text-left font-normal">
+                      <th className="border-b border-border px-2 py-1.5 text-left font-normal">
                         触发时提示
                       </th>
                     </tr>
@@ -347,8 +346,8 @@ export function DocPanel({ code, onClose }: { code: string | null; onClose: () =
                   <tbody>
                     {f.rules.map((r) => (
                       <tr key={r.rule} className="align-top">
-                        <td className="border-b border-[#f0f1f3] px-2 py-1.5 text-[#1f2329]">{r.rule}</td>
-                        <td className="border-b border-[#f0f1f3] px-2 py-1.5 text-[#646a73]">
+                        <td className="border-b border-border/60 px-2 py-1.5 text-foreground">{r.rule}</td>
+                        <td className="border-b border-border/60 px-2 py-1.5 text-foreground/80">
                           {r.message ?? '—'}
                         </td>
                       </tr>
@@ -360,21 +359,21 @@ export function DocPanel({ code, onClose }: { code: string | null; onClose: () =
           )}
 
           {f.scope && (
-            <div className="mb-4 rounded-[2px] bg-[#f7f8fa] px-3 py-2">
-              <span className="text-[11px] font-medium text-[#8f959e]">生效条件　</span>
-              <span className="text-[12px] text-[#1f2329]">{f.scope}</span>
+            <div className="mb-4 rounded-[2px] bg-muted px-3 py-2">
+              <span className="text-[11px] font-medium text-muted-foreground">生效条件　</span>
+              <span className="text-[12px] text-foreground">{f.scope}</span>
             </div>
           )}
 
           {f.doc && (
             <div>
-              <div className="mb-1.5 flex items-center gap-1.5 text-[11px] text-[#8f959e]">
+              <div className="mb-1.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
                 <span className="font-medium">PRD 原文</span>
                 {f.prdRef && (
                   <span
                     style={{
                       color: ACCENT,
-                      background: `color-mix(in srgb, ${ACCENT} 8%, white)`,
+                      background: `color-mix(in srgb, ${ACCENT} 8%, transparent)`,
                     }}
                     className="rounded-[2px] px-1 py-px text-[10px]"
                   >
@@ -382,7 +381,7 @@ export function DocPanel({ code, onClose }: { code: string | null; onClose: () =
                   </span>
                 )}
               </div>
-              <div className="rounded-[2px] border border-[#e5e6eb] px-3 py-2 text-[12px] leading-6 text-[#1f2329]">
+              <div className="rounded-[2px] border border-border px-3 py-2 text-[12px] leading-6 text-foreground">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   components={{
@@ -396,15 +395,15 @@ export function DocPanel({ code, onClose }: { code: string | null; onClose: () =
                       <table className="my-1.5 w-full border-collapse text-[11px]">{children}</table>
                     ),
                     th: ({ children }) => (
-                      <th className="border border-[#e5e6eb] bg-[#f7f8fa] px-2 py-1 text-left font-medium">
+                      <th className="border border-border bg-muted px-2 py-1 text-left font-medium">
                         {children}
                       </th>
                     ),
                     td: ({ children }) => (
-                      <td className="border border-[#e5e6eb] px-2 py-1 align-top">{children}</td>
+                      <td className="border border-border px-2 py-1 align-top">{children}</td>
                     ),
                     code: ({ children }) => (
-                      <code className="rounded-[2px] bg-[#f7f8fa] px-1 py-0.5 font-mono text-[11px]">
+                      <code className="rounded-[2px] bg-muted px-1 py-0.5 font-mono text-[11px]">
                         {children}
                       </code>
                     ),

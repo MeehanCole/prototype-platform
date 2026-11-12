@@ -206,7 +206,7 @@ export { default } from './_versions/v2'
 }
 ```
 
-`features[].type` 枚举与 FEATURE_LABELS 一致: `A`(重构) / `B`(新增) / `M`(修改) / `R`(删除)。`code` 建议与 FEATURE_LABELS key 对齐(`A.01` / `B.02` / `FR-1` / `F-Copilot` 均可)。
+`FeatureDoc.type` 只有两个值：`'新增'` / `'变更'`（不再使用 A/B/M/R 四型编号）。`code` 是 `FEATURES` 的 key，建议用稳定短码：`F-01` / `M.01` / `FR-1` / `F-Copilot` 均可，但必须与 `<NewTag code="..." />` 完全一致。
 
 ## 3.5 原型协作台外壳边界（强约束）
 
@@ -288,6 +288,30 @@ return (
 - 必须使用 Tailwind CSS + Shadcn UI 风格组件
 - 禁止 antd、inline-style、CSS Modules
 - 必须使用平台设计 token：`bg-background`、`text-foreground`、`bg-primary`、`text-primary-foreground`、`bg-muted`、`text-muted-foreground`、`border-border`
+
+#### 深浅色双主题（强约束）
+
+平台外壳有深色（默认）/浅色两套主题，实现方式是把 `data-workbench-theme="dark" | "light"` 打在 `document.documentElement` 上，由 `src/index.css` 里的 `--color-*` 变量切换。
+
+**分界线：原型画布内 vs 画布外**
+
+- **画布内**（`src/pages/**` 的页面内容）：被 `.prototype-canvas-isolation` 强制回浅色 token（`color-scheme: light`），所以页面里按 §4.0 保留 Figma 原始色值不会有问题，页面永远长成设计稿的样子。
+- **画布外**（`src/host/**`、`src/lib/**` 里共享的浮层组件、`createPortal` 到 `document.body` 的任何东西）：**没有**隔离，直接吃 `documentElement` 上的主题变量。
+
+**因此：只要组件会 portal 到 `document.body`（tooltip、抽屉、Popover、Modal、Toast），就禁止写死颜色。**
+
+| ❌ 禁止 | ✅ 改用 |
+|---|---|
+| `bg-white` / `background: '#fff'` | `bg-background` / `bg-card` |
+| `#1f2329`、`#333` 等文字色 | `text-foreground` |
+| `#8f959e`、`#646a73` 等次要文字 | `text-muted-foreground` |
+| `#e5e6eb`、`#f0f1f3` 等边框/分隔 | `border-border` / `bg-muted` |
+| `color-mix(in srgb, var(--feat-accent) 8%, white)` | 混 `transparent`（`color-mix(..., transparent)`），深浅色都成立 |
+
+写浮层时的自检：
+- [ ] 组件里有 `createPortal(..., document.body)` → 检查有没有残留 hex / `bg-white`
+- [ ] 切到深色主题，浮层背景、正文、次要文字、分隔线是否都还看得清
+- [ ] 强调色只用透明混色做底（`/8`、`/12` 或用 `color-mix` 混 `transparent`），不要混 `white`
 
 ### 4.0 Figma 代码转换的样式保留原则（强约束）
 
@@ -601,6 +625,9 @@ function extractSection(raw: string, startFr: string, endFr?: string): string {
 ```
 
 ### 7.3 FEATURE_DOCS 映射表
+
+> **已废弃**：本节及 7.4 / 7.5 展示的是旧式 `FEATURE_LABELS + FEATURE_DOCS` 双表写法，仅为历史对照。新页面一律按 §8.1 的单一 `FEATURES: Record<string, FeatureDoc>` 写法。
+
 ```tsx
 const FEATURE_DOCS: Record<string, string> = {
   'A.01': extractSection(prdV2Raw, 'FR-1'),
@@ -748,45 +775,62 @@ export default function V2Page() {
 
 ## 8. 功能点标注规范
 
-### 8.1 FEATURE_LABELS 定义
+> **现状（以此为准）**：批注能力已抽成平台共享库 `src/lib/feature-tags/core.tsx`，并由 `src/lib/feature-tags/catalog.ts` 自动汇总成「变更清单」。页面**只负责**在 `feature-tags.tsx` 里声明 `FEATURES`，不实现组件、不写颜色。
+> 下面 8.1 / 8.2 里出现的 `FEATURE_LABELS`、`A/B/M/R` 四型编号、蓝色/灰色胶囊按钮，**均为已废弃的旧写法**，仅作历史对照，新页面禁止使用。
+
+### 8.1 正确写法：声明 `FEATURES`
+
 ```tsx
-const FEATURE_LABELS: Record<string, { type: 'A'|'B'|'M'|'R'; title: string; desc: string }> = {
-  'A.01': { type: 'A', title: '顶层双视角 Tab', desc: '页面最顶部显示个人视角/团队视角切换 Tab' },
-  'B.01': { type: 'B', title: '团队统计卡', desc: '团队视角聚合统计：待办/超时/平均时长/本周通过' },
-  'M.01': { type: 'M', title: '部门/成员筛选', desc: '团队视角新增部门下拉+成员下拉筛选' },
-  // ...
+// src/pages/<App>/<Page>/feature-tags.tsx
+import prdRaw from './prd.md?raw'
+import { pick, DocProvider, DocPanel, NewTag, type FeatureDoc } from '@/lib/feature-tags/core'
+
+export const FEATURES: Record<string, FeatureDoc> = {
+  'F-01': {
+    type: '新增',                    // 只有两种：'新增' | '变更'（没有 A/B/M/R）
+    title: '弹性模式新增第三项「指标模式」',
+    changes: ['下拉由两项变三项', '选指标模式后隐藏「实例规格」字段'],
+    rules: [{ rule: '最小模型副本数不能为 0', message: '最小模型副本数不能为 0（…）' }],
+    scope: '仅创建页可选',
+    prdRef: 'PRD 4.2.1',
+    doc: pick(prdRaw, '**FR-3 弹性模式', '**FR-4'),
+  },
 }
+
+export { DocProvider, DocPanel, NewTag }
 ```
 
-### 8.2 标注类型
-| 类型 | 代码 | 说明 |
-|------|------|------|
-| A 重构 | A.01, A.02... | 信息架构调整 |
-| B 新增 | B.01, B.02... | 新增功能 |
-| M 修改 | M.01, M.02... | 现有功能修改 |
-| R 删除 | R.01, R.02... | 移除功能 |
+- `type` 决定徽标文案与强调色（`新增` / `变更`），**不再用字母前缀编号**；`code` 命名建议 `F-01`、`F-02` 这类可读序号。
+- 组件样式、tooltip、抽屉、深浅色适配全在共享库里，页面**不得**重新实现或覆盖样式。
+- `code` 打错（`FEATURES` 里没有）时 `NewTag` **静默渲染为 `null`**，不报错也不占位 —— 所以加完批注必须肉眼确认徽标真的出现了。
+
+### 8.2 视觉规格
+
+| 项 | 默认 | `compact`（表格/卡片字段/表单行） |
+|---|---|---|
+| 高度 | 18px | 16px |
+| 文案 | `新增 · 说明` / `变更 · 说明` | `说明` |
+| 形态 | 行内胶囊（`inline-flex`），圆角、浅底、主题色描边 | 同左，更小 |
+| 主题色 | `#1668ff`，可用 CSS 变量 `--feat-accent` 覆盖 | 同左 |
 
 ### 8.3 交互规则
-- Header 右侧「显示新增功能点」checkbox 开关，按「路由+版本」存 localStorage
-- 打开开关 → 功能点旁出现胶囊形「说明」按钮
-- 蓝色按钮 = 有 PRD 详情 → 可点击 → DocPanel 展示完整 PRD
-- 灰色按钮 = 无 PRD 详情 → 仅 hover 显示简短 tooltip
-- 关闭开关 → 所有按钮瞬间消失，零占位零位移
+
+- 顶栏「显示新增功能点」开关控制显隐，按页面 + 版本存 localStorage；关闭时 `NewTag` 返回 `null`，**页面零位移**。
+- 悬停：浮层显示 `code + title` + `changes`；有 `rules` 时追加「含 N 条校验规则」。
+- 点击：右侧 520px 抽屉（`createPortal` 到 `document.body`，`Esc` 关闭），顺序为「本次改动 → 校验规则 → 生效条件 → PRD 原文」。
+- tooltip / 抽屉一律 portal 渲染，避免被祖先 `overflow-hidden` 裁切（见 §9）。
+- 模块级「变更清单」面板自动读取 `FEATURES`，规范见 [`agent-rules.md` D4](./agent-rules.md)。
 
 ### 8.4 NewTag 位置规范（强约束）
 
-NewTag 角标统一采用 **inline 紧贴标题文字右侧**的定位方式，确保角标与标题视觉关联性强、位置可预测。
+NewTag 是**行内元素**，必须紧贴被标注的控件文字，跟随文本流排布。
 
-**核心原则**：角标作为 `inline-flex` 元素，在 `flex items-center gap-2` 容器中紧跟标题文字流动。禁止使用 `absolute` 定位（会导致角标跑到页面右上角，与标题脱节）。
-
-#### 统一规则
-
-所有层级（L1 页面标题、L2 卡片子标题、L3 操作组）均采用相同的 inline 紧贴方式：
+**核心原则**：`inline-flex` 跟在标题/按钮后面，不 `absolute`、不预留占位。
 
 ```tsx
 <div className="flex items-center gap-2">
   <div className="font-medium" style={{ fontSize: 20 }}>策略管理</div>
-  <NewTag code="B.06" />
+  <NewTag code="F-01" />
 </div>
 ```
 
@@ -794,30 +838,33 @@ NewTag 角标统一采用 **inline 紧贴标题文字右侧**的定位方式，�
 
 | 场景 | 写法 | 说明 |
 |------|------|------|
-| **L1 页面标题** | `<div className="flex items-center gap-2"><div className="font-medium">标题</div><NewTag code="X.XX" /></div>` | 标题独占一行，角标紧跟标题文字 |
-| **L2 卡片子标题**（含返回按钮） | `<div className="flex items-center justify-between"><div className="flex items-center gap-2"><h3>标题</h3><NewTag code="X.XX" /></div><button>返回</button></div>` | 标题+角标为一组，返回按钮在右侧 |
-| **L3 操作组** | `<div className="flex items-center gap-2"><Btn>按钮1</Btn><Btn>按钮2</Btn><NewTag code="X.XX" /></div>` | 角标紧贴最后一个按钮 |
+| **L1 页面标题** | `<div className="flex items-center gap-2"><div className="font-medium">标题</div><NewTag code="F-01" /></div>` | 标题独占一行，徽标紧跟标题文字 |
+| **L2 卡片子标题**（含返回按钮） | `<div className="flex items-center justify-between"><div className="flex items-center gap-2"><h3>标题</h3><NewTag code="F-01" /></div><button>返回</button></div>` | 标题+徽标为一组，返回按钮在右侧 |
+| **L3 操作组** | `<div className="flex items-center gap-2"><Btn>按钮1</Btn><Btn>按钮2</Btn><NewTag code="F-01" /></div>` | 徽标紧贴最后一个按钮 |
+| **表格单元格 / 表单字段** | `<span className="inline-flex items-center gap-1">字段名<NewTag code="F-01" compact /></span>` | 空间紧，用 `compact` |
+| **`<Field label>` 这类只接受 `ReactNode` 的行** | 直接把 `<NewTag>` 塞进 `label` 节点 | 不要为放徽标去改 Field 组件 |
 
 #### 强制规则
 
-1. **必须用 `flex items-center gap-2` 包裹**标题和 NewTag，确保垂直对齐和水平间距
-2. **禁止使用 `absolute` 定位** — 会导致角标脱离文档流，跑到 `relative` 祖先的右上角
-3. **禁止使用 `relative` 父容器 + `absolute -top-1.5 right-0` 角标** — 角标离标题太远，关联性弱
-4. **NewTag 组件本身不需要 `position` prop** — 默认就是 inline-flex，跟随父容器流动
+1. 标题和 NewTag 放在**同一个 flex 行内容器**（`flex items-center gap-2`），保证垂直对齐与间距
+2. **禁止 `absolute`**（含 `relative` 父容器 + `-top-1.5 right-0` 老写法）：徽标会脱离文档流跑到右上角，与标注对象脱节，且开关关闭后仍留出空位
+3. 徽标放在标注对象**之后（右侧或行尾）**，不要放行首
+4. 一行里多个控件各自变更时，只给被改的那个挂徽标，不要整行挂一个笼统的
 
 #### 禁止的反模式
 
-- ❌ `<div className="font-medium relative">标题<NewTag /></div>` + 组件内 `absolute -top-1.5 right-0` → 角标跑到右上角
-- ❌ 角标放在行首（如 `<NewTag /><Btn>按钮</Btn>`）→ 语义不明确，应紧贴标题或按钮
-- ❌ 标题和角标不在同一个 flex 容器 → 间距不可控，垂直不对齐
+- ❌ `<div className="relative">标题<NewTag /></div>` + 内部 `absolute -top-1.5 right-0` → 跑到右上角
+- ❌ 为放徽标给文本容器加 `pr-10` / `mt-3` 等补偿间距 → 开关关闭后露出空白
+- ❌ 徽标与标题分处两个 flex 容器 → 间距与基线都不可控
+- ❌ 在页面里手写 `<span className="rounded-full ring-1 ...">说明</span>` 冒充分格徽标
 
 #### 自检 Checklist
 
-生成代码后必须自检：
-- [ ] 所有 NewTag 是否都用 `flex items-center gap-2` 包裹？
-- [ ] 是否有 NewTag 使用了 `absolute` 定位？（应为否）
-- [ ] L2 含返回按钮的场景，标题+角标是否为一组，返回按钮在右侧？
-- [ ] L3 操作组角标是否紧贴最后一个按钮？
+- [ ] 所有 NewTag 都紧贴被标注的控件，且与它同在一个 flex 行内容器？
+- [ ] 没有任何 NewTag 使用 `absolute` 或依赖 `relative` 父容器？
+- [ ] 表格/卡片等紧凑位置用了 `compact`？
+- [ ] 关闭开关后页面无位移、无空白？
+- [ ] 每个 `code` 都能在 `FEATURES` 里找到（打错会静默不渲染）？
 
 ## 9. 禁止事项
 
@@ -825,7 +872,7 @@ NewTag 角标统一采用 **inline 紧贴标题文字右侧**的定位方式，�
 |--------|------|---------|
 | 硬编码 PRD 文本在 JSX | 重复内容，维护困难 | `?raw` 导入 + `extractSection` |
 | DocPanel 内联渲染（不用 portal） | `transform: scale()` 破坏 fixed 定位 | `createPortal` 到 `document.body` |
-| FEATURE_DOCS 与 FEATURE_LABELS key 不匹配 | 点击显示错误文档 | key 必须 1:1 对应 |
+| `FEATURES` key 与 `<NewTag code>` 不匹配 | 标注静默不渲染，且无报错 | key 必须 1:1，改完点开页面逐个点一遍 |
 | PRD 跳过 `**FR-X` 标记 | `extractSection` 找不到边界 | 每个需求段落加标记 |
 | 用 `innerHTML` / `dangerouslySetInnerHTML` | 安全风险 | `ReactMarkdown` + `remarkGfm` |
 | 渲染多个 DocPanel 实例 | z-index 冲突、堆叠 | 单例模式（单个 `code` state） |
@@ -927,11 +974,11 @@ return (
 - [ ] PRD 文件存在，含 Business Context
 - [ ] 设计系统预设已选择并应用
 - [ ] Mode C：PRD 有 `**FR-X` 标记
-- [ ] Mode C：版本文件含 `?raw` 导入 + `extractSection` + `FEATURE_DOCS`
+- [ ] Mode C：版本文件含 `?raw` 导入 + `extractSection` + `FEATURES`
 - [ ] Mode C：DocPanel 用 `createPortal` 到 `document.body`
 - [ ] Mode C：DocPanel 支持 Esc + 遮罩关闭
-- [ ] Mode C：功能点按钮蓝色可点击 / 灰色仅 tooltip
-- [ ] Mode C：`FEATURE_DOCS` 与 `FEATURE_LABELS` key 1:1
+- [ ] Mode C：`NewTag` 为 inline-flex 行内徽标，不占布局、无位移（⚠️ 不遮挡标题）
+- [ ] Mode C：`FEATURES`、PRD `**FR-X` 标记、`<NewTag code>` 三者 key 1:1
 - [ ] Mode C：DocPanel 配置 `rehypeMermaid`（strategy: 'img-svg'），PRD 中 Mermaid 流程图可渲染
 - [ ] 未修改 `src/host/` 下的任何外壳文件（见 §3.5）
 - [ ] 平台级 Header/导航定义在原型页面 `_shared.tsx` 中，非外壳层

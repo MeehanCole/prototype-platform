@@ -262,13 +262,16 @@
 5. 删除项 (R)
 6. 测试 checklist（逐项验收）
 
-编号规则：Changelog 编号 = FEATURE_LABELS key = 原型按钮编号
+编号规则：Changelog 编号 = `FEATURES` key = 原型 `<NewTag code>` 编号
 
 **测试流程**：
-1. 打开「显示新增功能点」开关（Header 右侧）
-2. 逐个点击「说明」按钮
-3. 对照 Changelog 文档验收
-4. 点击文档图标 📄 查看完整 PRD 描述
+1. 先看右侧「变更清单」浮层——一眼扫完本模块改了什么（无需开标注开关）
+2. 打开「显示新增功能点」开关（Header 右侧）
+3. 逐个点击「说明」按钮，看单点详细说明
+4. 对照 Changelog 文档验收
+5. 需要权威依据时，在 DocPanel 内看「PRD 原文」
+
+三层信息各司其职：变更清单=速览、DocPanel=单点详情、PRD=权威依据，不要互相复制。
 
 ---
 
@@ -335,7 +338,7 @@ src/pages/<Module>/<Page>/
   ├── prd_v2.md              # 多版本 PRD（含 **FR-X 标记）
   ├── _versions/             # 多版本原型
   │   ├── v1.tsx             # 含完整页面代码
-  │   └── v2.tsx             # 含 ?raw 导入 + FEATURE_DOCS + DocPanel
+  │   └── v2.tsx             # 含 ?raw 导入 + FEATURES + DocPanel
   └── _workflow/             # 工作流产物（可选，不参与路由，与 docs/ 内容同步）
       ├── 需求清单.md            # A1 需求清单
       ├── 需求分析.md            # A2 分析报告
@@ -459,8 +462,8 @@ flowchart TD
    - 单版本：在 `prd.md` §4 功能需求详单中新增/修改对应 FR-X 段落
    - 多版本：在 `prd_v2.md`（当前版本）新增/修改对应 FR-X 段落
 2. **新增功能点标注**（如需标注）：
-   - 在 `FEATURE_LABELS` 中新增条目，保持编号连续
-   - 在 `FEATURE_DOCS` 中新增 1:1 映射
+   - 在 `FEATURES` 中新增条目（`{ type, title, changes, rules?, scope?, prdRef?, doc? }`），保持编号连续
+   - `doc` 用 `pick(prdRaw, '**FR-X', '**FR-Y')` 取 PRD 原文，无需再维护 `FEATURE_DOCS` 映射表
    - 在 JSX 对应位置 inline 紧贴标题文字右侧插入 `<NewTag code="X.XX" />`
 3. **不做的事**：
    - ❌ 不强制创建新版本（v3.tsx），直接改当前版本
@@ -483,5 +486,6 @@ flowchart TD
 - [ ] 代码修改最小化，未重构周边代码
 - [ ] Vite 编译通过（无 PARSE_ERROR、无类型错误
 - [ ] 功能变更时 PRD 对应段落已更新
-- [ ] 功能变更时 FEATURE_LABELS / FEATURE_DOCS / NewTag 1:1 对应
+- [ ] 变更清单（右侧「本次变更」浮层）已带上本次条目，`title` 与 `changes[0]` 能独立看懂
+- [ ] 功能变更时 `FEATURES` / `<NewTag code>` / PRD `**FR-X` 1:1 对应
 - [ ] 未触及 R1-R5 任何一条红线

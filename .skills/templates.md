@@ -190,6 +190,12 @@ stateDiagram-v2
 
 ## 6. 测试 Checklist
 
+### 变更清单 (D4)
+- [ ] 右侧「本次变更」浮层自动列出本页所有 `FEATURES` 条目（无手写清单）
+- [ ] 默认收起时可见 `type` + `title` + `changes[0]`，一眼能看懂改了什么
+- [ ] 点条目跳转到对应页面并定位/高亮
+- [ ] 基线版本（无变更）时不显示浮层
+
 ### 基础验证
 - [ ] Header 「显示新增功能点」开关正常工作
 - [ ] 切换版本（V1/V2）后功能点标注正确
@@ -212,6 +218,7 @@ stateDiagram-v2
 - [ ] 页面缩放（50%-200%）正常
 - [ ] 窄屏适配正常
 - [ ] 设计系统预设一致
+- [ ] 浅色/深色两种主题下页面与 DocPanel 均可读，无白底黑字硬编码残留
 ```
 
 ## 5. extractSection 工具函数
@@ -233,7 +240,9 @@ function extractSection(raw: string, startFr: string, endFr?: string): string {
 }
 ```
 
-## 6. FEATURE_LABELS 完整示例
+## 6. FEATURE_LABELS 完整示例（已废弃）
+
+> **已废弃**：`FEATURE_LABELS` + `FEATURE_DOCS` 双表写法已由单一 `FEATURES: Record<string, FeatureDoc>`（见 `.skills/page-generator.md` §8.1）取代。以下内容仅作历史对照，新页面禁止使用。
 
 ```tsx
 const FEATURE_LABELS: Record<string, {
@@ -317,8 +326,8 @@ function extractSection(raw: string, startFr: string, endFr?: string): string {
   // ... 见上文模板 5
 }
 
-// === 功能点定义 ===
-const FEATURE_LABELS = { /* ... 见上文模板 6 */ }
+// === 功能点定义（新写法，见 page-generator.md §8.1） ===
+export const FEATURES: Record<string, FeatureDoc> = { /* ... 见 page-generator.md §8.1 */ }
 
 // === PRD 文档映射 ===
 const FEATURE_DOCS: Record<string, string> = {

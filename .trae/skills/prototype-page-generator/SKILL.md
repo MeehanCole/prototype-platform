@@ -10,7 +10,7 @@ description: "Generates prototype page code that conforms to the prototype-platf
 **This skill's canonical rules live in the project-level `.skills/` directory.** Read these files first before generating any code:
 
 1. **`.skills/page-generator.md`** — Full code generation contract (directory convention, default export, style system, PRD embedding, DocPanel, NewTag, anti-patterns, output checklist)
-2. **`.skills/templates.md`** — Copy-paste ready templates (meta.json, PRD, Changelog, extractSection, FEATURE_LABELS, DocPanel, NewTag, complete v2.tsx skeleton)
+2. **`.skills/templates.md`** — Copy-paste ready templates (meta.json, PRD, Changelog, extractSection, FEATURES, DocPanel, NewTag, complete v2.tsx skeleton)
 
 ## When to Invoke
 
@@ -35,11 +35,12 @@ For detailed rules, read `.skills/page-generator.md`. Key points:
 
 1. **Directory**: `src/pages/<Module>/<Page>/` with `index.tsx`, `meta.json`, optional `_versions/`
 2. **Export**: `export default function XxxPage()` (no named export)
-3. **Style**: Tailwind + Shadcn, no antd/inline-style, use design tokens
+3. **Style**: Tailwind + Shadcn, no antd/inline-style, use design tokens; 页面既要浅色也要深色可读——禁用 `bg-white`/`text-[#1f2329]` 等硬编码色（见 `.skills/page-generator.md` §4 深浅色双主题）
+4. **变更清单**: 变更条目由 `FEATURES` 自动汇总到外壳右侧浮层，页面侧不要手写清单（见 `.skills/agent-rules.md` D4）
 4. **Figma layout**: `min-h-screen` not `h-screen`, Sidebar 通顶, no `overflow-y-auto` on main (see §4.1)
 5. **Wide table scroll**: flex 容器每层加 `min-w-0` + 外层 `overflow-hidden`，表格内部 `overflow-x-auto` + `min-w-[Npx]`，否则宽表格撑开整页 (see §4.1)
 6. **Design system**: 5 presets (default/element-plus/ant-design/arco-design/naive-ui), ask user
-7. **Mode C mandatory**: PRD `**FR-X` markers, `?raw` import, `extractSection`, `FEATURE_DOCS`, DocPanel with `createPortal`
+7. **Mode C mandatory**: PRD `**FR-X` markers, `?raw` import, `extractSection`, `FEATURES`, DocPanel with `createPortal`
 8. **Anti-patterns**: No `**/` in comments, no CJK punctuation, no inline DocPanel, keys must match 1:1, no `h-screen` from Figma, no flex item missing `min-w-0` under wide table
 
 ## Validation

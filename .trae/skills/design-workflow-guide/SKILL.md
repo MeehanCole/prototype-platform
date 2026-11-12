@@ -48,11 +48,11 @@ description: "Guides users through AI design workflows (Mode D incremental edits
 Mode C (hybrid/modification) has mandatory requirements beyond Mode A/B:
 
 1. **PRD paragraph markers**: Every requirement in `prd_v2.md` must have `**FR-X` at paragraph start
-2. **PRD embedding**: Version file must import PRD via `?raw`, include `extractSection`, `FEATURE_DOCS`
+2. **PRD embedding**: Version file must import PRD via `?raw`, include `extractSection`, and a single `FEATURES: Record<string, FeatureDoc>` table
 3. **DocPanel**: Right-side panel rendered via `createPortal` to `document.body`
-4. **Feature labels**: Capsule-shaped "说明" buttons (blue = clickable, gray = tooltip only)
+4. **Feature annotation**: inline `NewTag` (18px / compact 16px, accent `#1668ff`), no absolute positioning, no layout shift; clicking opens the right-side `DocPanel` drawer
 5. **Changelog**: Generate `_workflow/c5_v1_vs_v2_changelog.md` with 6 sections
-6. **Test flow**: Toggle "显示新增功能点" → click each "说明" button → verify PRD content
+6. **Test flow**: Read the right-side "变更清单" digest first → toggle "显示新增功能点" → click each tag → verify `DocPanel` / PRD content
 
 Read `.skills/design-workflow.md` for complete Mode C details.
 
