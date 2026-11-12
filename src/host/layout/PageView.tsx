@@ -563,14 +563,13 @@ export function PageView() {
   // 使用 any 是因为不同版本组件 props 签名不同（v1 不接收 __showFeat，v2+ 接收），
   // 动态加载场景下无法用单一精确类型覆盖，React 中处理 lazy 动态组件的常见做法
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let ActiveComponent: ComponentType<any>
-  if (hasVersions && versionComponents[currentVersion]) {
-    const LazyComp = lazy(versionComponents[currentVersion])
-    ActiveComponent = LazyComp
-  } else {
-    const LazyComp = lazy(component)
-    ActiveComponent = LazyComp
-  }
+  // 注意：lazy() 必须 memo，否则每次渲染都会生成新的组件类型，
+  // 导致点击「变更清单」等任何父级状态更新都触发原型整页卸载重挂（白屏/闪烁）。
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ActiveComponent = useMemo<ComponentType<any>>(() => {
+    const loader = hasVersions && versionComponents[currentVersion] ? versionComponents[currentVersion] : component
+    return loader ? lazy(loader) : (() => null)
+  }, [component, versionComponents, hasVersions, currentVersion])
 
   return (
     <div
