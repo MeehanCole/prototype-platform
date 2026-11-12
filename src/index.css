@@ -34,6 +34,55 @@
   --ease-soft: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+:root[data-workbench-theme="dark"] {
+  --color-background: hsl(240 10% 3.9%);
+  --color-foreground: hsl(0 0% 98%);
+  --color-card: hsl(240 10% 6%);
+  --color-muted: hsl(240 3.7% 15.9%);
+  --color-muted-foreground: hsl(240 5% 64.9%);
+  --color-border: hsl(240 3.7% 18%);
+  --color-accent: hsl(240 3.7% 15.9%);
+  --color-accent-foreground: hsl(0 0% 98%);
+
+  --color-sidebar: hsl(240 10% 3.9%);
+  --color-sidebar-foreground: hsl(0 0% 95%);
+  --color-sidebar-muted: hsl(240 3.7% 15.9%);
+  --color-sidebar-muted-foreground: hsl(240 5% 64.9%);
+  --color-sidebar-border: hsl(240 3.7% 18%);
+}
+
+:root[data-workbench-theme="light"] {
+  --color-background: hsl(0 0% 100%);
+  --color-foreground: hsl(240 10% 3.9%);
+  --color-card: hsl(0 0% 100%);
+  --color-muted: hsl(240 4.8% 96%);
+  --color-muted-foreground: hsl(240 3.8% 46.1%);
+  --color-border: hsl(240 5.9% 90%);
+  --color-accent: hsl(240 4.8% 96%);
+  --color-accent-foreground: hsl(240 5.9% 10%);
+
+  --color-sidebar: hsl(0 0% 100%);
+  --color-sidebar-foreground: hsl(240 10% 15%);
+  --color-sidebar-muted: hsl(240 4.8% 95%);
+  --color-sidebar-muted-foreground: hsl(240 3.8% 46.1%);
+  --color-sidebar-border: hsl(240 5.9% 90%);
+}
+
+/* 确保原型内部画布与样式不受工作台深浅色影响 */
+.prototype-canvas-isolation {
+  --color-background: hsl(0 0% 100%);
+  --color-foreground: hsl(240 10% 3.9%);
+  --color-card: hsl(0 0% 100%);
+  --color-muted: hsl(240 4.8% 96%);
+  --color-muted-foreground: hsl(240 3.8% 46.1%);
+  --color-border: hsl(240 5.9% 90%);
+  --color-accent: hsl(240 4.8% 96%);
+  --color-accent-foreground: hsl(240 5.9% 10%);
+  color-scheme: light;
+  background-color: #f0f2f5;
+  color: #1f2329;
+}
+
 html, body, #root {
   height: 100%;
   margin: 0;

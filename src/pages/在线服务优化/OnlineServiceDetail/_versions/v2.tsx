@@ -137,10 +137,10 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
                   <div className="flex items-center">
                     <span className="w-[112px] shrink-0 text-[14px] text-[#8c8c8c]">发布类型</span>
                     <span
-                      className={`inline-flex h-[24px] items-center rounded px-[8px] text-[12px] ${
+                      className={`inline-flex h-[24px] items-center rounded-[4px] px-[8px] text-[12px] border ${
                         d.publishType === '公开发布'
-                          ? 'bg-[#EEF5FF] text-[#166EFF] border border-[#D4E4FF]'
-                          : 'bg-[#F0F9EB] text-[#67C23A] border border-[#E1F3D8]'
+                          ? 'border-[#e1f3d8] bg-[#f0f9eb] text-[#67c23a]'
+                          : 'border-[#d9ecff] bg-[#ecf5ff] text-[#409eff]'
                       }`}
                     >
                       {d.publishType}

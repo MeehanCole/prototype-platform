@@ -430,43 +430,56 @@ function ServiceCard({ row }: { row: ServiceRow }) {
             {row.published ? '已发布' : '未发布'}
           </span>
           <span
-            className={`inline-flex h-[24px] items-center rounded px-[9px] text-[13px] ${
-              row.publishType === '公开发布' ? 'bg-[#E6F4FF] text-[#1677ff]' : 'bg-[#F0F9EB] text-[#67C23A]'
+            className={`inline-flex h-[22px] items-center rounded-[4px] border px-2 text-[12px] ${
+              row.publishType === '公开发布'
+                ? 'border-[#e1f3d8] bg-[#f0f9eb] text-[#67c23a]'
+                : 'border-[#d9ecff] bg-[#ecf5ff] text-[#409eff]'
             }`}
           >
-            {row.publishType === '公开发布' ? '模型广场' : '私有发布'}
+            {row.publishType}
           </span>
         </div>
       </div>
 
       {/* 调用模型名 + 复制 */}
       <div className="px-5 mt-3 flex items-center gap-2">
-        <span className="shrink-0 text-[13px] text-[#8c8c8c]">调用模型名</span>
-        <code className="inline-flex max-w-[230px] truncate rounded bg-[#f5f6f8] px-2 py-1 text-[13px] font-mono text-[#333]">
-          {row.model}
-        </code>
-        <button
-          onClick={() => copy(row.model, 'model')}
-          className="inline-flex items-center gap-1 rounded border border-[#e6e8eb] px-1.5 py-1 text-[12px] text-[#666] hover:text-[#166EFF] cursor-pointer"
-          title="复制调用模型名"
-        >
-          <CopyIcon done={copied === 'model'} />
-        </button>
+        <span className="w-[64px] shrink-0 text-[13px] text-[#8c8c8c]">调用模型名</span>
+        <div className="group flex-1 min-w-0 flex items-center justify-between gap-2 rounded-[4px] bg-[#f7f8fa] border border-[#e5e6eb] px-2.5 py-1 text-[12px] transition-colors hover:border-[#c9cdd4]">
+          <span className="truncate font-mono font-medium text-[#1f2329] select-all" title={row.model}>
+            {row.model}
+          </span>
+          <button
+            onClick={() => copy(row.model, 'model')}
+            className="shrink-0 -mr-1 p-1 rounded text-[#8c8c8c] hover:text-[#166EFF] hover:bg-[#e6f4ff] transition-colors cursor-pointer"
+            title="复制调用模型名"
+          >
+            <CopyIcon done={copied === 'model'} />
+          </button>
+        </div>
       </div>
 
       {/* 接入地址 + 复制 */}
       <div className="px-5 mt-2 flex items-center gap-2">
-        <span className="shrink-0 text-[13px] text-[#8c8c8c]">接入地址</span>
-        <code className="flex-1 truncate rounded bg-[#f5f6f8] px-2 py-1 text-[12px] font-mono text-[#666]">
-          {row.published ? row.apiUrl : '–'}
-        </code>
-        <button
-          onClick={() => row.published && copy(row.apiUrl, 'url')}
-          className={`inline-flex shrink-0 items-center gap-1 rounded border border-[#e6e8eb] px-1.5 py-1 text-[12px] ${row.published ? 'text-[#666] hover:text-[#166EFF] cursor-pointer' : 'text-[#ccc] cursor-not-allowed'}`}
-          title={row.published ? '复制接入地址' : '未发布，暂无接入地址'}
-        >
-          <CopyIcon done={copied === 'url'} />
-        </button>
+        <span className="w-[64px] shrink-0 text-[13px] text-[#8c8c8c]">接入地址</span>
+        {row.published ? (
+          <div className="group flex-1 min-w-0 flex items-center justify-between gap-2 rounded-[4px] bg-[#f7f8fa] border border-[#e5e6eb] px-2.5 py-1 text-[12px] transition-colors hover:border-[#c9cdd4]">
+            <span className="truncate font-mono text-[#4e5969] select-all" title={row.apiUrl}>
+              {row.apiUrl}
+            </span>
+            <button
+              onClick={() => copy(row.apiUrl, 'url')}
+              className="shrink-0 -mr-1 p-1 rounded text-[#8c8c8c] hover:text-[#166EFF] hover:bg-[#e6f4ff] transition-colors cursor-pointer"
+              title="复制接入地址"
+            >
+              <CopyIcon done={copied === 'url'} />
+            </button>
+          </div>
+        ) : (
+          <div className="flex-1 min-w-0 flex items-center gap-2 rounded-[4px] bg-[#fbfbfc] border border-dashed border-[#e5e6eb] px-2.5 py-1 text-[12px] text-[#8c8c8c]">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#faad14] shrink-0" />
+            <span className="truncate">请先发布服务以获取接入地址</span>
+          </div>
+        )}
       </div>
 
       {/* 后端推理实例 + 权重 + 健康 */}
@@ -500,7 +513,7 @@ function ServiceCard({ row }: { row: ServiceRow }) {
                       isActiveBg ? 'text-[#166EFF] font-medium' : 'text-[#999]'
                     }`}
                   >
-                    {isActiveBg ? '当前生效' : '待命'}
+                    {isActiveBg ? '主用' : '备用'}
                   </span>
                 ) : (
                   ins.weight != null && (
@@ -642,7 +655,7 @@ function TableCard() {
       </div>
 
       {/* 卡片区域（可滚动） */}
-      <div className="flex-1 min-h-0 overflow-auto px-4 pb-4">
+      <div className="flex-1 min-h-0 overflow-auto px-4 pt-4 pb-4">
         <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-4">
           {pageRows.map((row) => (
             <ServiceCard key={row.name} row={row} />
@@ -714,7 +727,7 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
   const [docCode, setDocCode] = useState<string | null>(null)
   return (
     <DocProvider showFeat={__showFeat} features={FEATURES} onOpenDoc={setDocCode}>
-      <div className="relative h-[calc((100vh-57px)/0.9)] w-[calc(100%/0.9)] origin-top-left scale-[0.9] flex flex-col overflow-hidden bg-white text-[#1f2329] [font-family:'PingFang_SC','Helvetica_Neue',Arial,sans-serif]">
+      <div className="relative h-full w-full flex flex-col overflow-hidden bg-white text-[#1f2329] [font-family:'PingFang_SC','Helvetica_Neue',Arial,sans-serif]">
         <PlatformHeader />
         <div className="flex-1 min-h-0 flex">
           <SideNav />

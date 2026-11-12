@@ -759,7 +759,7 @@ function RouteCard({
                             : 'bg-[#f2f3f5] text-[#8c8c8c]'
                         }`}
                       >
-                        {isActive ? '当前生效 (100%)' : '待命 (0%)'}
+                        {isActive ? '主用 (100%)' : '备用 (0%)'}
                       </span>
                     </div>
                   )
@@ -989,7 +989,7 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
                   <div className="flex items-center">
                     <FieldLabel text="调用模型名" required />
                     <input
-                      placeholder="请选择关联模型以自动填充，或手动输入调用模型名"
+                      placeholder="选择后端推理实例（或关联模型）后自动填充，也可手动输入调用模型名"
                       value={modelName}
                       onChange={(e) => {
                         const v = e.target.value

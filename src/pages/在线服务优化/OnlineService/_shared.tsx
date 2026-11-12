@@ -341,10 +341,10 @@ export function SideNav({ activeKey = '在线服务' }: { activeKey?: string }) 
     { kind: 'section', label: '模型服务' },
     { kind: 'item', label: '模型广场', icon: 'plaza', lvl: 2 },
     { kind: 'item', label: '模型仓库', icon: 'repo', lvl: 2 },
-    { kind: 'group', label: '推理服务', icon: 'infer', lvl: 2, chevron: activeKey === '在线服务' ? 'up' : 'down' },
+    { kind: 'group', label: '推理服务', icon: 'infer', lvl: 2, chevron: activeKey === '在线服务' || activeKey === '模型体验' ? 'up' : 'down' },
     { kind: 'sub', label: '推理实例', icon: 'layers', lvl: 3 },
     { kind: 'sub', label: '在线服务', icon: 'gem', active: activeKey === '在线服务', lvl: 3, path: '/在线服务优化/onlineservice' },
-    { kind: 'item', label: '模型体验', icon: 'exp', lvl: 2 },
+    { kind: 'sub', label: '模型体验', icon: 'exp', active: activeKey === '模型体验', lvl: 3, path: '/在线服务优化/modelexperience' },
     { kind: 'group', label: 'API 管理', icon: 'apicloud', lvl: 2, chevron: activeKey === 'API Key' ? 'up' : 'down' },
     { kind: 'sub', label: 'API Key', icon: 'key', active: activeKey === 'API Key', lvl: 3, path: '/在线服务优化/apikey' },
     { kind: 'sub', label: '用量统计', icon: 'usage', lvl: 3 },
@@ -360,7 +360,7 @@ export function SideNav({ activeKey = '在线服务' }: { activeKey?: string }) 
   return (
     <aside className="w-[256px] shrink-0 bg-white border-r border-[#eaeaea] flex flex-col overflow-y-auto select-none">
       {/* 节点 / 租户胶囊 */}
-      <div className="pl-[14px] pt-[22px]">
+      <div className="pl-[14px] pt-[14px]">
         <div className="flex items-center gap-2 rounded-md bg-[#edf1f8] pl-[11px] pr-2.5 h-[47px] w-[201px]">
           <span className="text-[18px] text-[#166EFF] whitespace-nowrap">长沙…</span>
           <span className="text-[18px] text-[#166EFF]">–</span>
@@ -372,14 +372,14 @@ export function SideNav({ activeKey = '在线服务' }: { activeKey?: string }) 
       </div>
 
       {/* 标题 */}
-      <div className="pl-[26px] pt-[20px] pb-[15px] text-[18px] font-bold text-[#111]">算网服务</div>
+      <div className="pl-[26px] pt-[14px] pb-[10px] text-[18px] font-bold text-[#111]">算网服务</div>
 
       {/* 菜单行（行高 45px） */}
       <nav className="flex-1">
         {rows.map((row) => {
           if (row.kind === 'section') {
             return (
-              <div key={row.label} className="h-[45px] flex items-start pt-[15px] pl-[28px] text-[15px] text-[#8c8c8c]">
+              <div key={row.label} className="h-[40px] flex items-start pt-[12px] pl-[28px] text-[15px] text-[#8c8c8c]">
                 {row.label}
               </div>
             )
@@ -387,7 +387,7 @@ export function SideNav({ activeKey = '在线服务' }: { activeKey?: string }) 
           const iconColor = row.active ? '#166EFF' : '#1f2329'
           if (row.active) {
             return (
-              <div key={row.label} className="h-[45px] flex items-center">
+              <div key={row.label} className="h-[40px] flex items-center">
                 <div className="ml-[8px] h-[35px] rounded-md bg-[#ECF1FD] flex items-center pl-[56px] pr-3 w-[214px]">
                   <Icon name={row.icon!} size={20} color={iconColor} />
                   <span className="ml-[8px] text-[18px] text-[#166EFF] font-medium">{row.label}</span>
@@ -400,7 +400,7 @@ export function SideNav({ activeKey = '在线服务' }: { activeKey?: string }) 
             <div
               key={row.label}
               onClick={() => row.path && navigate(row.path)}
-              className={`h-[45px] flex items-center cursor-pointer hover:bg-[#f7f8fa] ${indent}`}
+              className={`h-[40px] flex items-center cursor-pointer hover:bg-[#f7f8fa] ${indent}`}
             >
               {row.icon && <Icon name={row.icon} size={20} color={iconColor} />}
               <span className="ml-[9px] text-[18px] text-[#262626]">

@@ -7,10 +7,11 @@ import { AppLayout } from '@/host/layout/AppLayout'
 import { PageView } from '@/host/layout/PageView'
 import { pageRegistry } from '@/host/router/pageRegistry'
 import Overview from '@/host/components/Overview'
+import { WorkbenchThemeProvider } from '@/host/theme/workbenchTheme'
 
 function App() {
   return (
-    <>
+    <WorkbenchThemeProvider>
       <Routes>
         <Route element={<AppLayout />}>
           {/* 根路径: 平台首页总览(模块卡片 + 统计) */}
@@ -31,7 +32,7 @@ function App() {
         </Route>
       </Routes>
       {import.meta.env.DEV && <Agentation endpoint="http://localhost:4747" />}
-    </>
+    </WorkbenchThemeProvider>
   )
 }
 

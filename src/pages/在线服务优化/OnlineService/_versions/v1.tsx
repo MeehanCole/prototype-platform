@@ -147,7 +147,7 @@ function TableCard() {
                   </span>
                 </div>
                 <div>
-                  <span className="inline-flex h-[26px] items-center rounded bg-[#F0F9EB] px-[9px] text-[14px] text-[#67C23A]">私有发布</span>
+                  <span className="inline-flex h-[24px] items-center rounded-[4px] border border-[#d9ecff] bg-[#ecf5ff] px-[8px] text-[13px] text-[#409eff]">私有发布</span>
                 </div>
                 <div className={row.route === '–' ? 'text-[#949494]' : 'text-[#333]'}>{row.route}</div>
                 <div className="text-[#333]">{row.cache}</div>
@@ -210,7 +210,7 @@ export default function Page({ __showFeat = false }: { __showFeat?: boolean }) {
   const [docCode, setDocCode] = useState<string | null>(null)
   return (
     <DocProvider showFeat={__showFeat} features={FEATURES} onOpenDoc={setDocCode}>
-      <div className="relative h-[calc((100vh-57px)/0.9)] w-[calc(100%/0.9)] origin-top-left scale-[0.9] flex flex-col overflow-hidden bg-white text-[#1f2329] [font-family:'PingFang_SC','Helvetica_Neue',Arial,sans-serif]">
+      <div className="relative h-full w-full flex flex-col overflow-hidden bg-white text-[#1f2329] [font-family:'PingFang_SC','Helvetica_Neue',Arial,sans-serif]">
         <PlatformHeader />
         <div className="flex-1 min-h-0 flex">
           <SideNav />

@@ -36,6 +36,11 @@ export interface PageMeta {
   status?: PageStatus
   /** 最后更新时间 YYYY-MM-DD */
   updatedAt?: string
+  /**
+   * 是否从导航类列表（侧边栏 / 总览 / 搜索）隐藏。
+   * 隐藏后路由仍可用（可由其它页面逻辑跳转，如「在线服务」触发创建/详情页）。
+   */
+  hidden?: boolean
   /** 页面一句话描述 */
   description?: string
   defaultVersion?: string
@@ -134,10 +139,11 @@ function buildPageRegistry(): PageEntry[] {
 
 export const pageRegistry = buildPageRegistry()
 
-/** group by module, for Sidebar rendering */
+/** group by module, for Sidebar / Overview rendering (hidden pages excluded) */
 export function getPagesByModule(): Record<string, PageEntry[]> {
   const grouped: Record<string, PageEntry[]> = {}
   for (const page of pageRegistry) {
+    if (page.meta.hidden) continue
     const mod = page.meta.module
     if (!grouped[mod]) grouped[mod] = []
     grouped[mod].push(page)

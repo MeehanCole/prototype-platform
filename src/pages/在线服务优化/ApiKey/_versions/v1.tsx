@@ -431,7 +431,7 @@ export default function Page({ __showFeat = false }: { __showFeat?: boolean }) {
 
   return (
     <DocProvider showFeat={__showFeat} features={FEATURES} onOpenDoc={setDocCode}>
-      <div className="relative h-[calc((100vh-57px)/0.9)] w-[calc(100%/0.9)] origin-top-left scale-[0.9] flex flex-col overflow-hidden bg-white text-[#1f2329] [font-family:'PingFang_SC','Helvetica_Neue',Arial,sans-serif]">
+      <div className="relative h-full w-full flex flex-col overflow-hidden bg-white text-[#1f2329] [font-family:'PingFang_SC','Helvetica_Neue',Arial,sans-serif]">
         {/* 产品顶栏 */}
         <PlatformHeader />
 

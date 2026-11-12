@@ -1,25 +1,48 @@
-import prdRaw from './prd_v1.md?raw'
-import { pick, DocPanel, DocProvider, NewTag, type FeatureDoc } from '@/lib/feature-tags/core'
+/**
+ * API Key 管理页的功能点清单（本轮变更）。
+ *
+ * 页面本身是线上产品的 1:1 还原，但本轮在还原基础上做了若干交互与数据增强，
+ * 这里登记为「变更」类型，使其在 Host 层「本次变更」速览面板中可被看到，
+ * 并支持从面板「查看完整说明」跳到本页 DocPanel。
+ */
+import { DocPanel, DocProvider, NewTag, type FeatureDoc } from '@/lib/feature-tags/core'
 
 export { DocPanel, DocProvider, NewTag }
 
 export const FEATURES: Record<string, FeatureDoc> = {
   'F-01': {
-    type: '新增',
-    title: 'API Key 管理列表及 4 项核心交互弹窗 1:1 逆向还原',
+    type: '变更',
+    title: '白名单升级为 IP 白名单（支持 IPv4 / IPv6 / 网段 / 多地址）',
     changes: [
-      '1:1 还原 API Key 管理表格，包含名称、API Key 脱敏及复制/查看、限制额度、官方服务、私有服务、创建时间及操作列',
-      '1:1 还原【创建 API Key】弹窗：支持名称输入（默认自动生成时间戳名称）、字数计数器（20 / 32）与确定取消',
-      '1:1 还原【编辑 API Key】弹窗：支持修改名称及字符计数限制',
-      '1:1 还原【服务绑定】弹窗：提供「官方服务」与「私有服务」下拉选择器',
-      '1:1 还原【设置限流】弹窗：支持「启动Token额度」（总Token额度）与「启动Token限流（TPM）」（请求Token上限）双开关及表单联动',
+      '「设置白名单」弹窗将白名单内容升级为 IP 白名单：支持 IPv4、IPv6 单一地址，以及 CIDR 网段（如 192.168.0.0/24）',
+      '支持多个地址用逗号隔开一次性录入，列表内以「标签块」形式呈现，每个块右侧带独立的删除 X 按钮，可单独移除',
+      '列表「白名单」列沿用浅蓝标签样式展示',
     ],
     rules: [
-      { rule: 'API Key 创建与编辑', message: '名称为必填项（红星），带 32 字符计数限制，创建默认预填时间戳名称' },
-      { rule: '服务绑定', message: '支持独立下拉绑定官方预置推理服务与私有自建服务' },
-      { rule: '设置限流', message: '分别支持开启 Token 总额度限制与 TPM 请求频率限流（Tokens / 分钟）' },
+      { rule: 'IP 格式不合法（非 IPv4/IPv6/CIDR）', message: '校验失败并提示，禁止保存' },
+      { rule: '空白名单保存', message: '视为关闭白名单，列表该列显示「–」' },
+      { rule: '调用方源 IP 不在白名单中', message: '拒绝访问并返回错误提示「当前访问源 IP 不在白名单中，访问被拒绝」' },
     ],
-    prdRef: 'FR-1',
-    doc: pick(prdRaw, '**FR-1 密钥列表展示**'),
+  },
+  'F-03': {
+    type: '变更',
+    title: '新增启用 / 禁用切换（带确认弹窗）',
+    changes: [
+      '操作项中新增「启用 / 禁用」切换；执行前弹窗二次确认（启用、禁用分别给出对应提示），确认后才变更密钥状态',
+      '与列表既有「编辑 / 删除 / 服务绑定 / 设置限流 / 设置白名单」合并为统一操作集合，无多余操作项',
+    ],
+    rules: [
+      { rule: '禁用已启用的密钥', message: '弹窗提示「禁用后将立即使该密钥失效，调用方将无法鉴权」' },
+      { rule: '启用已禁用的密钥', message: '弹窗提示「启用后该密钥将恢复可用」' },
+      { rule: '使用已禁用的 API Key 发起调用', message: '拒绝访问并返回错误提示「该 API Key 已被禁用，访问被拒绝」' },
+    ],
+  },
+  'F-04': {
+    type: '变更',
+    title: '列表列顺序与操作项样式优化',
+    changes: [
+      '表格列顺序固定为：名称 → API Key → 描述 → 官方服务 → 私有服务 → 限额配置 → 白名单 → 创建时间 → 操作',
+      '操作列由平铺改为「编辑」+「服务绑定」直接展示、其余（设置限流 / 设置白名单 / 启用·禁用 / 删除）收进「···」气泡菜单，整体留白更紧凑',
+    ],
   },
 }

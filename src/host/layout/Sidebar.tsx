@@ -4,8 +4,9 @@
  */
 import { useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { ChevronRight, ChevronDown, PanelLeftClose, PanelLeftOpen, Search, LayoutGrid } from 'lucide-react'
+import { ChevronRight, ChevronDown, PanelLeftClose, PanelLeftOpen, Search, LayoutGrid, Sun, Moon } from 'lucide-react'
 import { getPagesByModule } from '@/host/router/pageRegistry'
+import { useWorkbenchTheme } from '@/host/theme/workbenchTheme'
 import { cn } from '@/lib/utils'
 
 export function Sidebar({
@@ -26,6 +27,7 @@ export function Sidebar({
     grouped[mod].some((p) => location.pathname.startsWith(p.path)),
   )
   const [expanded, setExpanded] = useState<Set<string>>(new Set(initialExpanded))
+  const { theme, toggleTheme } = useWorkbenchTheme()
 
   const toggle = (mod: string) => {
     if (collapsed) return
@@ -57,13 +59,22 @@ export function Sidebar({
           )}
         </div>
         {!collapsed && (
-          <button
-            onClick={onToggleCollapse}
-            title="收起导航栏"
-            className="ml-auto p-1 rounded-md text-sidebar-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-muted transition-colors"
-          >
-            <PanelLeftClose size={14} />
-          </button>
+          <div className="ml-auto flex items-center gap-0.5">
+            <button
+              onClick={toggleTheme}
+              title={theme === 'dark' ? '切换为浅色工作台' : '切换为深色工作台'}
+              className="p-1 rounded-md text-sidebar-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-muted transition-colors"
+            >
+              {theme === 'dark' ? <Sun size={13} /> : <Moon size={13} />}
+            </button>
+            <button
+              onClick={onToggleCollapse}
+              title="收起导航栏"
+              className="p-1 rounded-md text-sidebar-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-muted transition-colors"
+            >
+              <PanelLeftClose size={14} />
+            </button>
+          </div>
         )}
       </div>
       {collapsed && (
@@ -77,7 +88,7 @@ export function Sidebar({
       )}
 
       {/* search entry: opens global SearchPanel (Cmd+K) */}
-      <div className="px-2 pb-1">
+      <div className="px-2 pt-2 pb-1">
         <button
           onClick={onOpenSearch}
           title="搜索页面 / PRD (Cmd+K)"

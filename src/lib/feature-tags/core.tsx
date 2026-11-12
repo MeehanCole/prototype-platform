@@ -69,6 +69,14 @@ export function pick(raw: string, startMarker: string, endMarker?: string): stri
 
 // ─── Context ────────────────────────────────────────────────────────────────
 
+/** Host 侧「变更速览」面板跨组件打开当前页 DocPanel 的事件名 */
+export const OPEN_FEATURE_DOC_EVENT = 'feat:open-doc'
+
+/** 打开当前页面某个功能点的完整说明（由该页 DocProvider 响应） */
+export function openFeatureDoc(code: string) {
+  window.dispatchEvent(new CustomEvent(OPEN_FEATURE_DOC_EVENT, { detail: code }))
+}
+
 interface DocContextValue {
   showFeat: boolean
   features: FeatureMap
@@ -95,6 +103,17 @@ export function DocProvider({
   accent?: string
   children: ReactNode
 }) {
+  // 响应 Host 层「变更速览」的「查看完整说明」：只处理本页已有的功能点，
+  // 其他模块/页面的编号直接忽略，避免误开空面板。
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const code = (e as CustomEvent<string>).detail
+      if (typeof code === 'string' && features[code]) onOpenDoc(code)
+    }
+    window.addEventListener(OPEN_FEATURE_DOC_EVENT, handler)
+    return () => window.removeEventListener(OPEN_FEATURE_DOC_EVENT, handler)
+  }, [features, onOpenDoc])
+
   const inner = (
     <DocContext.Provider value={{ showFeat, features, openDoc: onOpenDoc }}>
       {children}

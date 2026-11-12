@@ -31,7 +31,9 @@ export function useSearch() {
 
   // build search index from page registry
   const fuse = useMemo(() => {
-    const docs: SearchDoc[] = pageRegistry.map((p) => ({
+    const docs: SearchDoc[] = pageRegistry
+      .filter((p) => !p.meta.hidden)
+      .map((p) => ({
       path: p.path,
       title: p.meta.title,
       module: p.meta.module,

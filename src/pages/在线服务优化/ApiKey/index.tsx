@@ -1,1 +1,3 @@
-export { default } from './_versions/v1'
+import ApiKey from './_versions/v1'
+
+export default ApiKey
