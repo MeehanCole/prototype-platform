@@ -1324,7 +1324,7 @@ export default function Page({ __showFeat = false }: { __showFeat?: boolean }) {
                   <div className="flex flex-col gap-[6px]">
                     <label className="text-[14px] text-[#333] select-none flex items-center gap-[6px]">
                       IP 地址
-                      <span className="text-[#999] text-[12px] font-normal">（支持 IPv4、IPv6、网段 CIDR，多个用逗号隔开）</span>
+                      <span className="text-[#999] text-[12px] font-normal">（支持 IPv4、IPv6、网段 CIDR，多个用英文逗号隔开）</span>
                     </label>
                     <div className="min-h-[96px] w-full rounded-[4px] border border-[#dcdfe6] px-[10px] py-[8px] focus-within:border-[#166EFF] transition-colors">
                       <div className="flex flex-wrap gap-[6px]">
