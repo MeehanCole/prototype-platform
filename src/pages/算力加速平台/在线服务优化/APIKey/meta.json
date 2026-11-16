@@ -1,0 +1,15 @@
+{
+  "title": "API Key 管理",
+  "module": "在线服务优化",
+  "source": "screenshot",
+  "status": "draft",
+  "updatedAt": "2026-11-16",
+  "tags": [],
+  "versions": [
+    "v1"
+  ],
+  "defaultVersion": "v1",
+  "versionSummary": "v1：1:1 还原 API Key 管理页面，包含 API Key 列表、新建、查看、修改、绑定服务、额度设置操作；补齐窄屏自适应：按主内容区宽度自动在表格与卡片列表间切换，宽屏表格空间充足时展示全部列，较窄时优先保留核心信息与操作；主内容不足 1050px 时切换为卡片，完整展示描述、白名单等全部字段与操作，不产生横向裁切；表头吸顶、工具栏与分页换行、弹窗宽高约束",
+  "product": "算力加速平台",
+  "requirement": "在线服务优化"
+}

@@ -27,8 +27,8 @@ function App() {
               )
             }
           />
-          {/* 动态路由: /:module/:page */}
-          <Route path=":module/:page" element={<PageView />} />
+          {/* 动态路由: /:product/:requirement/:page */}
+          <Route path=":product/:requirement/:page" element={<PageView />} />
         </Route>
       </Routes>
       {import.meta.env.DEV && <Agentation endpoint="http://localhost:4747" />}

@@ -9,7 +9,8 @@ import { pageRegistry, type PageEntry } from '@/host/router/pageRegistry'
 interface SearchDoc {
   path: string
   title: string
-  module: string
+  product: string
+  requirement: string
   tags: string[]
   /** flattened PRD content for search */
   prdContent: string
@@ -36,7 +37,8 @@ export function useSearch() {
       .map((p) => ({
       path: p.path,
       title: p.meta.title,
-      module: p.meta.module,
+      product: p.meta.product,
+      requirement: p.meta.requirement,
       tags: p.meta.tags || [],
       prdContent: Object.values(p.prdContents).join('\n'),
     }))
@@ -44,9 +46,10 @@ export function useSearch() {
     return new Fuse(docs, {
       keys: [
         { name: 'title', weight: 0.4 },
-        { name: 'module', weight: 0.2 },
-        { name: 'tags', weight: 0.2 },
-        { name: 'prdContent', weight: 0.2 },
+        { name: 'product', weight: 0.15 },
+        { name: 'requirement', weight: 0.15 },
+        { name: 'tags', weight: 0.15 },
+        { name: 'prdContent', weight: 0.15 },
       ],
       threshold: 0.3,
       includeMatches: true,

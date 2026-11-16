@@ -275,7 +275,7 @@ function ChangeDigest({
         <ListChecks size={15} className="mt-0.5 shrink-0 text-primary" />
         <div className="min-w-0 flex-1">
           <div className="text-[12px] font-semibold text-foreground">
-            本次变更 · {catalog.name}
+            本次变更 · {catalog.product} · {catalog.requirement}
           </div>
           <div className="mt-0.5 text-[10px] text-muted-foreground">
             {catalog.total} 个变动点 · 切换页面自动定位
@@ -430,9 +430,10 @@ export function PageView() {
   const params = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
 
-  const module = (params.module || '').toLowerCase()
+  const product = (params.product || '').toLowerCase()
+  const requirement = (params.requirement || '').toLowerCase()
   const page = (params.page || '').toLowerCase()
-  const routePath = `/${module}/${page}`
+  const routePath = `/${product}/${requirement}/${page}`
 
   const pageEntry = findPageByPath(routePath)
 

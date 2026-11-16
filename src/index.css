@@ -21,7 +21,8 @@
   --color-sidebar-foreground: hsl(0 0% 95%);
   --color-sidebar-muted: hsl(240 3.7% 15.9%);
   --color-sidebar-muted-foreground: hsl(240 5% 64.9%);
-  --color-sidebar-accent: hsl(243 75% 59%);
+  /* 选中态不用填充框，仅用左侧细高亮条 + 亮字表达，故 accent 仅作文字/细条色 */
+  --color-sidebar-accent: hsl(0 0% 100%);
   --color-sidebar-accent-foreground: hsl(0 0% 100%);
   --color-sidebar-border: hsl(240 3.7% 15.9%);
 
@@ -32,6 +33,11 @@
 
   /* easing */
   --ease-soft: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 平台外壳（src/lib/platform-shell）主题色：默认「算力加速平台」蓝，换品牌只改这里 */
+:root {
+  --shell-accent: #166eff;
 }
 
 :root[data-workbench-theme="dark"] {

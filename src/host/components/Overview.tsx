@@ -27,11 +27,12 @@ function StatusBadge({ status }: { status: PageStatus }) {
 
 export default function Overview() {
   const grouped = getPagesByModule()
-  const modules = Object.keys(grouped).sort()
   const pages = pageRegistry
+  const requirements = grouped.reduce((n, pg) => n + pg.requirements.length, 0)
 
   const stats = {
-    modules: modules.length,
+    products: grouped.length,
+    requirements,
     pages: pages.length,
     multiVersion: pages.filter((p) => (p.meta.versions?.length ?? 0) > 1).length,
     accepted: pages.filter((p) => p.meta.status === 'accepted').length,
@@ -53,13 +54,20 @@ export default function Overview() {
         </div>
 
         {/* stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
           <div className="bg-card border border-border rounded-lg p-4 shadow-soft">
             <div className="flex items-center gap-2 text-muted-foreground">
               <LayoutGrid size={14} />
-              <span className="text-xs">业务模块</span>
+              <span className="text-xs">产品</span>
             </div>
-            <div className="mt-1 text-2xl font-semibold tabular-nums">{stats.modules}</div>
+            <div className="mt-1 text-2xl font-semibold tabular-nums">{stats.products}</div>
+          </div>
+          <div className="bg-card border border-border rounded-lg p-4 shadow-soft">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <FileText size={14} />
+              <span className="text-xs">需求</span>
+            </div>
+            <div className="mt-1 text-2xl font-semibold tabular-nums">{stats.requirements}</div>
           </div>
           <div className="bg-card border border-border rounded-lg p-4 shadow-soft">
             <div className="flex items-center gap-2 text-muted-foreground">
@@ -84,67 +92,68 @@ export default function Overview() {
           </div>
         </div>
 
-        {/* module cards */}
-        {modules.length === 0 ? (
+        {/* 产品卡片: 每个产品一张卡, 内部按需求分组列出原型页面 */}
+        {grouped.length === 0 ? (
           <div className="text-muted-foreground text-sm text-center py-16 border border-dashed border-border rounded-lg">
             暂无页面, 请在 src/pages/ 下添加
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
-            {modules.map((mod) => {
-              const modPages = grouped[mod]
+            {grouped.map((pg) => {
+              const reqCount = pg.requirements.length
+              const pageCount = pg.pages.length
               return (
                 <div
-                  key={mod}
+                  key={pg.product}
                   className="bg-card border border-border rounded-lg shadow-soft overflow-hidden flex flex-col"
                 >
                   <div className="flex items-center justify-between px-4 py-3 border-b border-border">
                     <div className="flex items-center gap-2 min-w-0">
                       <div className="w-6 h-6 rounded-md bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shrink-0">
-                        {mod.charAt(0)}
+                        {pg.product.charAt(0)}
                       </div>
-                      <h3 className="text-sm font-semibold text-foreground truncate">{mod}</h3>
+                      <h3 className="text-sm font-semibold text-foreground truncate">{pg.product}</h3>
                     </div>
-                    <span className="text-[11px] text-muted-foreground shrink-0">{modPages.length} 个页面</span>
+                    <span className="text-[11px] text-muted-foreground shrink-0">
+                      {reqCount} 类需求 · {pageCount} 个页面
+                    </span>
                   </div>
-                  <div className="p-2 space-y-1 flex-1">
-                    {modPages.map((p) => (
-                      <Link
-                        key={p.path}
-                        to={p.path}
-                        className="block px-2.5 py-2 rounded-md hover:bg-accent transition-colors"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="text-[13px] font-medium text-foreground truncate">{p.meta.title}</span>
-                          {p.meta.status && <StatusBadge status={p.meta.status} />}
+                  <div className="p-3 space-y-3 flex-1">
+                    {pg.requirements.map((rg) => (
+                      <div key={rg.requirement}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-[12px] font-medium text-foreground">{rg.requirement}</span>
+                          <span className="text-[10px] text-muted-foreground">{rg.pages.length} 个原型</span>
                         </div>
-                        {p.meta.description && (
-                          <div className="mt-0.5 text-xs text-muted-foreground line-clamp-2">{p.meta.description}</div>
-                        )}
-                        <div className="mt-1.5 flex items-center gap-2 text-[11px] text-muted-foreground">
-                          {(p.meta.versions?.length ?? 0) > 1 && (
-                            <span className="px-1.5 py-0.5 rounded bg-muted">
-                              {p.meta.versions!.join(' / ')}
-                            </span>
-                          )}
-                          {p.meta.source && (
-                            <span className="px-1.5 py-0.5 rounded bg-muted">{p.meta.source}</span>
-                          )}
-                          {p.meta.updatedAt && <span className="ml-auto">{p.meta.updatedAt}</span>}
+                        <div className="space-y-1 pl-1 border-l border-border">
+                          {rg.pages.map((p) => (
+                            <Link
+                              key={p.path}
+                              to={p.path}
+                              className="block px-2.5 py-1.5 rounded-md hover:bg-accent transition-colors"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="text-[13px] font-medium text-foreground truncate">{p.meta.title}</span>
+                                {p.meta.status && <StatusBadge status={p.meta.status} />}
+                              </div>
+                              {p.meta.description && (
+                                <div className="mt-0.5 text-xs text-muted-foreground line-clamp-2">{p.meta.description}</div>
+                              )}
+                              <div className="mt-1.5 flex items-center gap-2 text-[11px] text-muted-foreground">
+                                {(p.meta.versions?.length ?? 0) > 1 && (
+                                  <span className="px-1.5 py-0.5 rounded bg-muted">
+                                    {p.meta.versions!.join(' / ')}
+                                  </span>
+                                )}
+                                {p.meta.source && (
+                                  <span className="px-1.5 py-0.5 rounded bg-muted">{p.meta.source}</span>
+                                )}
+                                {p.meta.updatedAt && <span className="ml-auto">{p.meta.updatedAt}</span>}
+                              </div>
+                            </Link>
+                          ))}
                         </div>
-                        {p.meta.tags && p.meta.tags.length > 0 && (
-                          <div className="mt-1.5 flex flex-wrap gap-1">
-                            {p.meta.tags.slice(0, 4).map((t) => (
-                              <span
-                                key={t}
-                                className="px-1.5 py-0.5 rounded bg-muted text-[10px] text-muted-foreground"
-                              >
-                                {t}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </Link>
+                      </div>
                     ))}
                   </div>
                 </div>

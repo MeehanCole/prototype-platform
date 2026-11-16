@@ -10,6 +10,7 @@
 | [`page-generator.md`](./page-generator.md) | 代码生成规范（目录约定、默认导出、样式系统、PRD 内嵌） | 生成新页面、Figma 转码、截图还原 |
 | [`design-workflow.md`](./design-workflow.md) | 设计工作流（正向/逆向/混合三种模式完整流程） | 需求分析、方案设计、版本迭代 |
 | [`templates.md`](./templates.md) | 代码模板（extractSection、DocPanel、NewTag、Changelog） | Mode C 多版本改造的代码脚手架 |
+| [`reusable-assets.md`](./reusable-assets.md) | 可复用素材规范（抽取时机、目录结构、抽取步骤、硬约束） | 想把某块 UI 抽成素材、跨页面复用、避免整段复制 |
 
 ## 跨 IDE / Agent 使用方式
 

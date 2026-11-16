@@ -272,7 +272,7 @@ return (
 ### 强制规则
 
 1. **禁止编辑 `src/host/` 下的任何文件**，即使任务描述中提到"全局"、"平台"、"Header"、"导航栏"等词
-2. **所有平台级 UI（Header、导航、面包屑、用户菜单）必须在原型页面内部实现**，作为 `_shared.tsx` 中的共享组件
+2. **所有平台级 UI（Header、导航、面包屑、用户菜单）必须在原型页面内部实现**：优先复用 `src/lib/` 下已抽好的素材（如 `src/lib/platform-shell`），没有再在 `_shared.tsx` 里实现
 3. **若用户要求修改外壳行为**（如平台级搜索、全局路由），必须先与用户确认，并明确告知这是外壳修改，需要单独处理
 4. **误改外壳的恢复方式**：`git checkout -- src/host/` 恢复所有外壳文件到 HEAD 状态
 
@@ -282,6 +282,19 @@ return (
 - [ ] 本次修改是否触及了 `src/host/` 下的文件？（应为否）
 - [ ] 平台级 Header/导航是否定义在原型页面的 `_shared.tsx` 中？
 - [ ] 是否修改了 `src/App.tsx` 或 `src/main.tsx`？（应为否）
+- [ ] 平台级 Header/导航是否优先复用了 `src/lib/` 下已有素材？（禁止重复实现）
+
+## 3.6 可复用素材（复用优先，禁止重复造）
+
+> 已抽好的通用 UI 放 `src/lib/<name>/`，页面直接 import；**禁止从别的页面整段复制组件**。
+
+- **已有素材**：
+  - `src/lib/platform-shell` —— 产品外壳（66px 顶栏 + 256px 侧栏 + 线性图标），预设见 `presets/calspeed.tsx`，说明见 `docs/PlatformShell/平台外壳素材.md`；
+  - `src/lib/product-nav` —— 9 宫格 5 列产品导航面板 `ProductNav` + 图标表 + 算力预设 `presets/calspeedNav.tsx`，说明见 `docs/ProductNav/产品导航面板.md`；
+  - `src/lib/feature-tags` —— 功能点标注。
+- **新素材**：只有当同一块 UI 已在 ≥ 2 处使用、且视觉已定稿时才抽，按 [`.skills/reusable-assets.md`](./reusable-assets.md) 的步骤执行。
+- **抽取不改视觉**：抽取前后尺寸、字号、间距逐像素一致；数据走 props / preset，跳转走回调，主题走 CSS 变量。
+- **薄适配层**：原页面 `_shared.tsx` 保留原导出名与 props 签名，内部改为调用素材，`_versions/*.tsx` 零改动。
 
 ## 4. 样式系统（强约束）
 

@@ -2,7 +2,7 @@
  * Sidebar - collapsible tree nav grouped by module, supports collapse to icon-only
  * dark surface for depth contrast against light content area
  */
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { ChevronRight, ChevronDown, PanelLeftClose, PanelLeftOpen, Search, LayoutGrid, Sun, Moon } from 'lucide-react'
 import { getPagesByModule } from '@/host/router/pageRegistry'
@@ -19,22 +19,66 @@ export function Sidebar({
   onOpenSearch: () => void
 }) {
   const grouped = getPagesByModule()
-  const modules = Object.keys(grouped).sort()
   const location = useLocation()
+  // 中文路由在 location.pathname 里是百分号编码的，直接 startsWith 比对永远不成立（活动态/自动展开会失效）
+  const pathname = (() => {
+    try {
+      return decodeURIComponent(location.pathname)
+    } catch {
+      return location.pathname
+    }
+  })()
 
-  // default expand the module containing the active page
-  const initialExpanded = modules.filter((mod) =>
-    grouped[mod].some((p) => location.pathname.startsWith(p.path)),
-  )
-  const [expanded, setExpanded] = useState<Set<string>>(new Set(initialExpanded))
+  // default expand the product + requirement containing the active page
+  const initialExpanded = new Set<string>()
+  for (const pg of grouped) {
+    if (pg.pages.some((p) => pathname.startsWith(p.path))) {
+      initialExpanded.add(pg.product)
+      for (const rg of pg.requirements) {
+        if (rg.pages.some((p) => pathname.startsWith(p.path))) {
+          initialExpanded.add(`${pg.product}/${rg.requirement}`)
+          break
+        }
+      }
+    }
+  }
+  // 上次展开过的产品/需求（localStorage）：刷新或换页后恢复用户的手动展开习惯
+  const STORAGE_KEY = 'prototype.sidebar.expanded'
+  const knownKeys = new Set<string>()
+  for (const pg of grouped) {
+    knownKeys.add(pg.product)
+    for (const rg of pg.requirements) knownKeys.add(`${pg.product}/${rg.requirement}`)
+  }
+  const [expanded, setExpanded] = useState<Set<string>>(() => {
+    const next = new Set(initialExpanded)
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')
+      if (Array.isArray(saved)) {
+        // 只恢复仍然存在的 key，产品/需求改名后被丢弃
+        for (const k of saved) if (typeof k === 'string' && knownKeys.has(k)) next.add(k)
+      }
+    } catch {
+      /* 忽略损坏的本地数据 */
+    }
+    return next
+  })
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify([...expanded]))
+    } catch {
+      /* 隐私模式等写入失败时不影响使用 */
+    }
+  }, [expanded])
+  // 每个产品按钮节点：收起态点击展开后把它滚到可视区（长列表时不至于跑到屏幕外）
+  const productRefs = useRef<Record<string, HTMLButtonElement | null>>({})
   const { theme, toggleTheme } = useWorkbenchTheme()
 
-  const toggle = (mod: string) => {
+  const toggle = (key: string) => {
     if (collapsed) return
     setExpanded((prev) => {
       const next = new Set(prev)
-      if (next.has(mod)) next.delete(mod)
-      else next.add(mod)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
       return next
     })
   }
@@ -53,7 +97,7 @@ export function Sidebar({
             <span className="text-[10px] font-bold text-primary-foreground">P</span>
           </div>
           {!collapsed && (
-            <span className="text-xs font-semibold tracking-wide text-sidebar-foreground truncate">
+            <span className="text-[13px] font-semibold tracking-wide text-sidebar-foreground truncate">
               原型协作台
             </span>
           )}
@@ -101,7 +145,7 @@ export function Sidebar({
           <Search size={13} className="shrink-0" />
           {!collapsed && (
             <>
-              <span className="flex-1 text-left text-xs truncate">搜索页面 / PRD...</span>
+              <span className="flex-1 text-left text-[13px] truncate">搜索页面 / PRD...</span>
               <kbd className="text-[10px] text-sidebar-muted-foreground/70 border border-sidebar-border rounded px-1 py-px shrink-0">
                 ⌘K
               </kbd>
@@ -122,78 +166,133 @@ export function Sidebar({
                 'w-full flex items-center gap-1.5 rounded-md transition-colors',
                 collapsed ? 'justify-center px-0 py-1.5' : 'px-2.5 py-1.5',
                 isActive
-                  ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-soft'
+                  ? 'text-sidebar-foreground font-medium'
                   : 'text-sidebar-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-muted',
               )
             }
           >
             <LayoutGrid size={14} className="shrink-0" />
-            {!collapsed && <span className="truncate text-xs">平台总览</span>}
+            {!collapsed && <span className="truncate text-[13px]">平台总览</span>}
           </NavLink>
         </div>
 
-        {modules.map((mod) => {
-          const isOpen = !collapsed && expanded.has(mod)
-          const pages = grouped[mod]
-          const hasActive = pages.some((p) => location.pathname.startsWith(p.path))
+        {grouped.map((pg) => {
+          const productKey = pg.product
+          const isProductOpen = !collapsed && expanded.has(productKey)
+          const productHasActive = pg.pages.some((p) => pathname.startsWith(p.path))
+          const totalCount = pg.pages.length
 
           return (
-            <div key={mod} className="mb-1.5">
+            <div key={productKey} className="mb-1.5">
               <button
-                onClick={() => toggle(mod)}
-                title={mod}
+                ref={(el) => {
+                  productRefs.current[productKey] = el
+                }}
+                onClick={() => {
+                  // 收起态下点一级菜单：先展开侧栏，并把该产品一并展开，避免"点一次没反应"
+                  if (collapsed) {
+                    onToggleCollapse()
+                    setExpanded((prev) => new Set(prev).add(productKey))
+                    requestAnimationFrame(() => {
+                      productRefs.current[productKey]?.scrollIntoView({ block: 'nearest' })
+                    })
+                    return
+                  }
+                  toggle(productKey)
+                }}
+                title={productKey}
+                aria-expanded={collapsed ? undefined : isProductOpen}
+                aria-current={productHasActive ? 'true' : undefined}
                 className={cn(
-                  'w-full flex items-center gap-1.5 rounded-md transition-colors',
+                  'relative w-full flex items-center gap-1.5 rounded-md transition-colors',
                   collapsed ? 'justify-center px-0 py-1.5' : 'px-2.5 py-1.5',
-                  hasActive
+                  productHasActive
                     ? 'text-sidebar-foreground font-medium'
                     : 'text-sidebar-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-muted',
                 )}
               >
+                {/* 收起态：当前页所属产品加一条高亮竖条，便于在图标条里定位 */}
+                {collapsed && productHasActive && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full bg-primary" />
+                )}
                 {!collapsed && (
                   <>
-                    {isOpen ? (
-                      <ChevronDown size={13} className="shrink-0 opacity-60" />
-                    ) : (
-                      <ChevronRight size={13} className="shrink-0 opacity-60" />
-                    )}
-                    <span className="truncate text-xs uppercase tracking-wider">{mod}</span>
+                    <span className="w-3 shrink-0 flex justify-center">
+                      {isProductOpen ? (
+                        <ChevronDown size={13} className="opacity-60" />
+                      ) : (
+                        <ChevronRight size={13} className="opacity-60" />
+                      )}
+                    </span>
+                    <span className="truncate text-[13px] font-semibold tracking-wide">{productKey}</span>
                     <span className="ml-auto text-[10px] text-sidebar-muted-foreground/60">
-                      {pages.length}
+                      {totalCount}
                     </span>
                   </>
                 )}
                 {collapsed && (
-                  <span className="text-xs font-semibold">{mod.charAt(0)}</span>
+                  <span className="text-[13px] font-semibold">{productKey.charAt(0)}</span>
                 )}
               </button>
 
-              {isOpen && (
-                <div className="mt-0.5 ml-2.5 border-l border-sidebar-border pl-1">
-                  {pages.map((page) => (
-                    <NavLink
-                      key={page.path}
-                      to={page.path}
-                      title={page.meta.title}
-                      className={({ isActive }) =>
-                        cn(
-                          'block px-2.5 py-1.5 rounded-md text-[13px] transition-colors truncate',
-                          isActive
-                            ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-soft'
+              {isProductOpen &&
+                pg.requirements.map((rg) => {
+                  const reqKey = `${pg.product}/${rg.requirement}`
+                  const isReqOpen = expanded.has(reqKey)
+                  const reqHasActive = rg.pages.some((p) => pathname.startsWith(p.path))
+
+                  return (
+                    <div key={reqKey} className="mt-0.5 ml-3 border-l border-sidebar-border pl-2">
+                      <button
+                        onClick={() => toggle(reqKey)}
+                        title={rg.requirement}
+                        className={cn(
+                          'w-full flex items-center gap-1.5 rounded-md transition-colors px-1.5 py-1.5',
+                          reqHasActive
+                            ? 'text-sidebar-foreground font-medium'
                             : 'text-sidebar-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-muted',
-                        )
-                      }
-                    >
-                      {page.meta.title}
-                    </NavLink>
-                  ))}
-                </div>
-              )}
+                        )}
+                      >
+                        <span className="w-3 shrink-0 flex justify-center">
+                          {isReqOpen ? (
+                            <ChevronDown size={12} className="opacity-50" />
+                          ) : (
+                            <ChevronRight size={12} className="opacity-50" />
+                          )}
+                        </span>
+                        <span className="truncate text-[13px]">{rg.requirement}</span>
+                        <span className="ml-auto text-[10px] text-sidebar-muted-foreground/50">
+                          {rg.pages.length}
+                        </span>
+                      </button>
+
+                      {isReqOpen &&
+                        rg.pages.map((page) => (
+                          <NavLink
+                            key={page.path}
+                            to={page.path}
+                            title={page.meta.title}
+                            className={({ isActive }) =>
+                              cn(
+                                'flex items-center gap-1.5 ml-3 border-l pl-2 pr-1.5 py-1.5 text-[12px] transition-colors truncate',
+                                isActive
+                                  ? 'border-primary text-sidebar-foreground font-medium'
+                                  : 'border-sidebar-border/60 text-sidebar-muted-foreground hover:text-sidebar-foreground hover:border-sidebar-border',
+                              )
+                            }
+                          >
+                            <span className="w-3 shrink-0" />
+                            {page.meta.title}
+                          </NavLink>
+                        ))}
+                    </div>
+                  )
+                })}
             </div>
           )
         })}
 
-        {modules.length === 0 && (
+        {grouped.length === 0 && (
           <div className="px-3 py-2 text-sm text-sidebar-muted-foreground">
             暂无页面,请在 src/pages/ 下添加
           </div>

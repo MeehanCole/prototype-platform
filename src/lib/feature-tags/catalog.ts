@@ -24,6 +24,10 @@ export interface CatalogPage {
 }
 
 export interface CatalogModule {
+  /** 产品名（一级） */
+  product: string
+  /** 需求名（二级），变更清单按需求聚合 */
+  requirement: string
   name: string
   pages: CatalogPage[]
   total: number
@@ -33,13 +37,13 @@ const featureModules = import.meta.glob('/src/pages/**/feature-tags.tsx', {
   eager: true,
 }) as Record<string, { FEATURES?: FeatureMap }>
 
-/** 取当前页面所属业务模块的变更目录；无 feature-tags 的模块返回 null */
+/** 取当前页面所属「需求(二级)」的变更目录；无 feature-tags 的需求返回 null */
 export function getModuleCatalog(routePath: string): CatalogModule | null {
   const current = pageRegistry.find((p) => p.path === routePath)
   if (!current) return null
 
   const pages: CatalogPage[] = pageRegistry
-    .filter((p) => p.meta.module === current.meta.module)
+    .filter((p) => p.meta.requirement === current.meta.requirement)
     .map((p) => {
       const mod = featureModules[`${p.dir}/feature-tags.tsx`]
       const features = mod?.FEATURES
@@ -55,7 +59,9 @@ export function getModuleCatalog(routePath: string): CatalogModule | null {
 
   if (pages.length === 0) return null
   return {
-    name: current.meta.module,
+    product: current.meta.product,
+    requirement: current.meta.requirement,
+    name: `${current.meta.product} · ${current.meta.requirement}`,
     pages,
     total: pages.reduce((n, p) => n + p.entries.length, 0),
   }

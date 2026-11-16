@@ -25,7 +25,15 @@ export type PageStatus = 'draft' | 'review' | 'accepted' | 'archived'
 
 export interface PageMeta {
   title: string
-  module: string
+  /** 一级产品, 如 算力加速平台 / 智能应用 / 统一运营平台 */
+  product: string
+  /** 二级需求（同一产品下的一类功能领域）, 如 弹性扩缩容 / 在线服务优化 / 智能诊断 */
+  requirement: string
+  /**
+   * 已废弃字段（兼容别名）：原侧边栏分组语义，现在等价于 requirement。
+   * 新页面请直接用 product + requirement。
+   */
+  module?: string
   /** 代码来源: ai / figma / screenshot / manual */
   source?: string
   /** 目标产品设计系统, 如 element-plus / ant-design / arco-design / naive-ui */
@@ -84,7 +92,7 @@ function buildPageRegistry(): PageEntry[] {
 
   for (const [metaPath, metaMod] of Object.entries(metas)) {
     const meta = (metaMod as { default: PageMeta }).default
-    if (!meta || !meta.title || !meta.module) continue
+    if (!meta || !meta.title || !meta.product || !meta.requirement) continue
 
     // derive route: /src/pages/CRM/Login/meta.json -> /crm/login
     const dir = metaPath.replace('/meta.json', '')
@@ -139,16 +147,44 @@ function buildPageRegistry(): PageEntry[] {
 
 export const pageRegistry = buildPageRegistry()
 
-/** group by module, for Sidebar / Overview rendering (hidden pages excluded) */
-export function getPagesByModule(): Record<string, PageEntry[]> {
-  const grouped: Record<string, PageEntry[]> = {}
+/**
+ * 三级分组（产品 → 需求 → 原型）, 供 Sidebar / Overview 渲染（隐藏页除外）。
+ * 顺序：按产品出现顺序（首次出现优先），需求与页面按注册顺序，保持稳定。
+ */
+export interface RequirementGroup {
+  requirement: string
+  pages: PageEntry[]
+}
+export interface ProductGroup {
+  product: string
+  requirements: RequirementGroup[]
+  /** 该产品下全部原型页面（便捷聚合，用于判断 active / 计数） */
+  pages: PageEntry[]
+}
+
+export function getPagesByModule(): ProductGroup[] {
+  const productOrder: string[] = []
+  const products: Record<string, Record<string, PageEntry[]>> = {}
+
   for (const page of pageRegistry) {
     if (page.meta.hidden) continue
-    const mod = page.meta.module
-    if (!grouped[mod]) grouped[mod] = []
-    grouped[mod].push(page)
+    const { product, requirement } = page.meta
+    if (!products[product]) {
+      products[product] = {}
+      productOrder.push(product)
+    }
+    if (!products[product][requirement]) products[product][requirement] = []
+    products[product][requirement].push(page)
   }
-  return grouped
+
+  return productOrder.map((product) => {
+    const reqEntries = Object.entries(products[product]).map(([requirement, pages]) => ({
+      requirement,
+      pages,
+    }))
+    const allPages = reqEntries.flatMap((r) => r.pages)
+    return { product, requirements: reqEntries, pages: allPages }
+  })
 }
 
 /** find page by route path */

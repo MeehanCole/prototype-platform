@@ -57,7 +57,11 @@ if (!existsSync(metaPath)) {
     meta = JSON.parse(readFileSync(metaPath, 'utf-8'))
     if (!meta.title) error('meta.json: missing "title" field')
     else pass(`meta.json: title = "${meta.title}"`)
-    if (!meta.module) error('meta.json: missing "module" field')
+    if (!meta.product) error('meta.json: missing "product" field')
+    else pass(`meta.json: product = "${meta.product}"`)
+    if (!meta.requirement) error('meta.json: missing "requirement" field')
+    else pass(`meta.json: requirement = "${meta.requirement}"`)
+    if (!meta.module) warn('meta.json: "module" field missing (deprecated alias of requirement; optional)')
     else pass(`meta.json: module = "${meta.module}"`)
     if (meta.versions && meta.versions.length > 1) {
       if (!meta.defaultVersion) warn('meta.json: multi-version but no "defaultVersion"')
@@ -74,7 +78,8 @@ if (!existsSync(entryPath)) {
   error('index.tsx is missing')
 } else {
   const entryContent = readFileSync(entryPath, 'utf-8')
-  if (!/export\s+default/.test(entryContent)) {
+  // 接受 `export default ...` 与多版本页面的 `export { default } from './_versions/...'`
+  if (!/export\s+default\b/.test(entryContent) && !/export\s*\{\s*default\s*\}\s*from/.test(entryContent)) {
     error('index.tsx: missing "export default" (must have default export)')
   } else {
     pass('index.tsx: has default export')

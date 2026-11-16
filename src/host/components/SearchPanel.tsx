@@ -88,8 +88,11 @@ export function SearchPanel({ open, onClose }: SearchPanelProps) {
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                    {item.meta.module}
+                  <span
+                    className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground"
+                    title={`${item.meta.product} / ${item.meta.requirement}`}
+                  >
+                    {item.meta.requirement}
                   </span>
                   <span className="text-sm font-medium text-foreground">
                     {item.meta.title}
