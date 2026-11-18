@@ -15,6 +15,8 @@
 - `src/host/design-systems/`、`src/host/hooks/`
 - `src/App.tsx`、`src/main.tsx`
 
+> **唯一例外（2026-11-16 项目负责人授权）**：开发态素材库 `src/dev/assets/`，以及它在 `src/App.tsx`、`src/host/layout/Sidebar.tsx` 中的 **DEV 条件挂载**。它属于开发工具，不是业务页面；维护时仍须单独确认，且不得把业务页面/业务组件放进 `src/dev/`。详见 [`docs/素材库/开发环境素材库.md`](../docs/素材库/开发环境素材库.md)。
+
 **所有"全局 Header"、"平台导航栏"、"面包屑"、"用户菜单"都是原型页面内部的一部分**，必须在 `src/pages/<Module>/<Page>/_shared.tsx` 中定义为 `PlatformShell` 等共享组件，由各页面 `index.tsx` 自行包裹。
 
 | 触发词 | 正确动作 |
@@ -22,8 +24,9 @@
 | "添加全局 Header" | 在 `_shared.tsx` 定义 `PlatformHeader`，页面内包裹 |
 | "添加平台导航" | 在 `_shared.tsx` 定义 `PlatformSidebar`，页面内包裹 |
 | "修改平台搜索" | 停下，告知用户这是外壳修改，需单独处理 |
+| "素材库加一个素材" | 只改 `src/dev/assets/registry.ts`（必要时 `Demos.tsx`）；素材实现仍放 `src/lib/`，说明书放 `docs/` |
 
-误改恢复：`git checkout -- src/host/ src/App.tsx src/main.tsx`
+误改恢复：按具体误改文件 `git checkout -- <file>`；**不要整目录 `git checkout -- src/host/`**，否则会回滚素材库的 DEV 条件挂载。
 
 详见 [page-generator.md §3.5](./page-generator.md#35-原型协作台外壳边界强约束)
 
@@ -437,8 +440,10 @@ Mode A/B/C 是完整工作流（非日常高频），关键节点都有**人工�
 
 ### 通用红线自检（所有模式必做）
 
-- [ ] **R1**：未修改 `src/host/` 下任何文件
+- [ ] **R1**：未修改 `src/host/` 下任何文件（唯一例外：素材库 DEV 条件挂载，见 R1）
 - [ ] **R1**：平台级 UI 定义在原型页面 `_shared.tsx` 中
+- [ ] **R1**：未把业务页面/业务组件放进 `src/dev/`（素材库是开发工具层）
+- [ ] **素材**：涉及外壳/导航/图标/批注时，已先在 `/__assets` 素材库确认是否有现成件
 - [ ] **R2**：未跨项目参考其他原型代码
 - [ ] **R3**：JSX 标签开闭配对，Vite 编译无 `PARSE_ERROR`
 - [ ] **R4**：调用 vision-mcp 前已检查服务状态

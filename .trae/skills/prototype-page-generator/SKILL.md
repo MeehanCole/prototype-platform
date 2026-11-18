@@ -42,6 +42,7 @@ For detailed rules, read `.skills/page-generator.md`. Key points:
 6. **Design system**: 5 presets (default/element-plus/ant-design/arco-design/naive-ui), ask user
 7. **Mode C mandatory**: PRD `**FR-X` markers, `?raw` import, `extractSection`, `FEATURES`, DocPanel with `createPortal`
 8. **Anti-patterns**: No `**/` in comments, no CJK punctuation, no inline DocPanel, keys must match 1:1, no `h-screen` from Figma, no flex item missing `min-w-0` under wide table
+9. **素材库**: 写外壳/导航/图标/批注前先看 `/__assets`（`npm run dev` 左侧「素材库 DEV」），有现成件直接 import `src/lib/`；新增素材在 `src/dev/assets/registry.ts` 登记
 
 ## Validation
 

@@ -1,15 +1,13 @@
-import { useMemo, useState } from 'react'
-import { Cloud, Download, Play, Square, Trash2, Upload } from 'lucide-react'
+import { useMemo, useRef, useState } from 'react'
+import { AlertCircle, CheckCircle2, Cloud, Download, FileCode2, Info, Play, Square, Trash2, Upload, X } from 'lucide-react'
 import {
   EnabledBadge,
-  FieldLabel,
   PrimaryButton,
   SettingsModal,
   SettingsPageHeader,
   SettingsPagination,
   SettingsSearch,
   SettingsToolbar,
-  inputClass,
 } from '../SettingsUI'
 
 interface SkillItem {
@@ -230,7 +228,7 @@ export function SkillManagementPage() {
       </SettingsToolbar>
 
       <div className="min-h-0 flex-1 overflow-y-auto bg-[#F5F7FA] px-[24px] py-[18px]">
-        <div className="grid grid-cols-1 gap-[16px] xl:grid-cols-2">
+        <div className="grid grid-cols-1 gap-[16px] md:grid-cols-2 xl:grid-cols-3">
           {pageItems.map((skill) => (
             <div
               key={skill.id}
@@ -324,6 +322,71 @@ export function SkillManagementPage() {
   )
 }
 
+const SKILL_NAME_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/
+const MAX_SKILL_SIZE = 10 * 1024 * 1024
+
+type ParsedImport = {
+  fileName: string
+  fileSize: number
+  name: string
+  description: string
+  content: string
+  instructionLines?: number
+  errors: string[]
+  warnings: string[]
+}
+
+function parseSkillMarkdown(
+  raw: string,
+  fallbackName: string,
+): { name: string; description: string; instructionLines: number; errors: string[]; warnings: string[] } {
+  const errors: string[] = []
+  const warnings: string[] = []
+  const fmMatch = raw.match(/^---\s*\r?\n([\s\S]*?)\r?\n---(?:\r?\n([\s\S]*))?$/)
+  if (!fmMatch) {
+    errors.push('SKILL.md 顶部缺少 YAML Frontmatter（--- ... ---）')
+    return { name: fallbackName, description: '', instructionLines: 0, errors, warnings }
+  }
+  const frontmatter = fmMatch[1]
+  const body = (fmMatch[2] ?? '').trim()
+  const instructionLines = body ? body.split(/\r?\n/).length : 0
+
+  const nameMatch = frontmatter.match(/^name:\s*(.+)$/m)
+  const descMatch = frontmatter.match(/^description:\s*(.+)$/m)
+  const compatMatch = frontmatter.match(/^compatibility:\s*(.+)$/m)
+  const name = (nameMatch?.[1] ?? '').trim().replace(/^['"]|['"]$/g, '')
+  const description = (descMatch?.[1] ?? '').trim().replace(/^['"]|['"]$/g, '')
+  const compatibility = (compatMatch?.[1] ?? '').trim().replace(/^['"]|['"]$/g, '')
+
+  if (!name) {
+    errors.push('Frontmatter 缺少必填字段 name')
+  } else if (name.length > 64 || !SKILL_NAME_RE.test(name)) {
+    errors.push('name 须为 1–64 位小写字母、数字或单连字符（不可连续 -- 或首尾为 -）')
+  }
+
+  if (!description) {
+    errors.push('Frontmatter 缺少必填字段 description')
+  } else if (description.length > 1024) {
+    errors.push('description 长度不可超过 1024 字符')
+  }
+
+  if (compatibility && compatibility.length > 500) {
+    errors.push('compatibility 长度不可超过 500 字符')
+  }
+
+  if (!body) {
+    errors.push('Frontmatter 之后缺少正文指令（instructions），不可为空')
+  } else if (instructionLines > 500) {
+    warnings.push(`正文指令共 ${instructionLines} 行，超出 AgentSkills 建议上限（500 行），建议拆入 references/`)
+  }
+
+  if (/(\/Users\/|\/home\/|[A-Za-z]:\\)/.test(body)) {
+    warnings.push('正文指令疑似包含本机绝对路径，建议使用相对路径（如 scripts/、references/）')
+  }
+
+  return { name: name || fallbackName, description, instructionLines, errors, warnings }
+}
+
 function ImportSkillModal({
   onClose,
   onSubmit,
@@ -331,74 +394,240 @@ function ImportSkillModal({
   onClose: () => void
   onSubmit: (skill: SkillItem) => void
 }) {
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [content, setContent] = useState('')
+  const [dragging, setDragging] = useState(false)
+  const [parsed, setParsed] = useState<ParsedImport | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleFile = async (file: File) => {
+    const lower = file.name.toLowerCase()
+    const isMd = lower.endsWith('.md')
+    const isZip = lower.endsWith('.zip')
+    const errors: string[] = []
+
+    if (!isMd && !isZip) {
+      setParsed({
+        fileName: file.name,
+        fileSize: file.size,
+        name: file.name,
+        description: '',
+        content: '',
+        errors: ['仅支持导入 SKILL.md（.md）或技能压缩包（.zip）'],
+        warnings: [],
+      })
+      return
+    }
+
+    if (file.size > MAX_SKILL_SIZE) {
+      errors.push('单个技能包大小不可超过 10MB')
+    }
+
+    if (isMd) {
+      const text = await file.text()
+      const baseName = file.name.replace(/\.md$/i, '')
+      const result = parseSkillMarkdown(text, baseName)
+      setParsed({
+        fileName: file.name,
+        fileSize: file.size,
+        name: result.name,
+        description: result.description,
+        content: text,
+        instructionLines: result.instructionLines,
+        errors: [...errors, ...result.errors],
+        warnings: result.warnings,
+      })
+      return
+    }
+
+    // .zip 技能包：校验包名符合 AgentSkills name 规范
+    const baseName = file.name.replace(/\.zip$/i, '')
+    if (!baseName || baseName.length > 64 || !SKILL_NAME_RE.test(baseName)) {
+      errors.push('技能包名（对应技能目录与 name）须为 1–64 位小写字母、数字或连字符')
+    }
+    setParsed({
+      fileName: file.name,
+      fileSize: file.size,
+      name: baseName,
+      description: `从技能包 ${file.name} 导入（含 SKILL.md 指令与关联资源）`,
+      content: `---\nname: ${baseName}\ndescription: 从技能包 ${file.name} 导入\n---\n`,
+      errors,
+      warnings: [],
+    })
+  }
+
+  const canSubmit = Boolean(parsed && parsed.errors.length === 0)
 
   return (
     <SettingsModal
       title="导入技能"
-      width="w-[600px]"
+      width="w-[640px] max-w-[92vw]"
       onClose={onClose}
       footer={
         <>
           <button
             type="button"
             onClick={onClose}
-            className="h-[32px] rounded-[3px] border border-[#D9DEE7] px-[14px] text-[13px] text-[#4E5969]"
+            className="h-[32px] rounded-[3px] border border-[#D9DEE7] px-[14px] text-[13px] text-[#4E5969] hover:bg-[#F7F8FA]"
           >
             取消
           </button>
           <button
             type="button"
-            disabled={!name.trim() || !description.trim()}
-            onClick={() =>
+            disabled={!canSubmit}
+            onClick={() => {
+              if (!parsed || parsed.errors.length > 0) return
               onSubmit({
                 id: `skill-${Date.now()}`,
-                name: name.trim(),
-                description: description.trim(),
-                content,
+                name: parsed.name,
+                description: parsed.description,
+                content: parsed.content,
                 updatedAt: new Date().toISOString().slice(0, 10),
                 enabled: true,
               })
-            }
+            }}
             className="h-[32px] rounded-[3px] bg-[#166EFF] px-[16px] text-[13px] text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
-            导入
+            确认导入
           </button>
         </>
       }
     >
       <div className="space-y-[16px]">
-        <div>
-          <FieldLabel required>技能名称</FieldLabel>
-          <input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="例如 search-product-docs"
-            className={inputClass}
-          />
+        {/* AgentSkills 规范约束提示 */}
+        <div className="rounded-[6px] border border-[#DCE8FF] bg-[#F4F8FF] px-[14px] py-[12px]">
+          <div className="flex items-center gap-[6px] text-[13px] font-medium text-[#1D2129]">
+            <Info className="h-[15px] w-[15px] shrink-0 text-[#166EFF]" />
+            <span>AgentSkills 导入规范约束</span>
+          </div>
+          <ul className="mt-[8px] list-disc space-y-[4px] pl-[20px] text-[12px] leading-[19px] text-[#4E5969]">
+            <li>
+              <strong>包结构与大小</strong>：支持 <code className="rounded bg-white/80 px-1 font-mono text-[11px]">.zip</code> 技能包（根目录须含 <code className="rounded bg-white/80 px-1 font-mono text-[11px]">SKILL.md</code>，可选 <code className="rounded bg-white/80 px-1 font-mono text-[11px]">scripts/</code>、<code className="rounded bg-white/80 px-1 font-mono text-[11px]">references/</code>、<code className="rounded bg-white/80 px-1 font-mono text-[11px]">assets/</code>）或单个 <code className="rounded bg-white/80 px-1 font-mono text-[11px]">SKILL.md</code>，单包 ≤ 10MB。
+            </li>
+            <li>
+              <strong>Frontmatter 必填</strong>：<code className="rounded bg-white/80 px-1 font-mono text-[11px]">name</code>（1–64 位小写字母、数字与单连字符，须与目录名一致）；<code className="rounded bg-white/80 px-1 font-mono text-[11px]">description</code>（1–1024 字符，说明功能边界与触发时机，供主 Agent 检索匹配）。
+            </li>
+            <li>
+              <strong>Frontmatter 可选</strong>：支持 <code className="rounded bg-white/80 px-1 font-mono text-[11px]">license</code>、<code className="rounded bg-white/80 px-1 font-mono text-[11px]">compatibility</code>（≤ 500 字符，环境与依赖要求）、<code className="rounded bg-white/80 px-1 font-mono text-[11px]">metadata</code>（键值扩展）及 <code className="rounded bg-white/80 px-1 font-mono text-[11px]">allowed-tools</code>。
+            </li>
+            <li>
+              <strong>Instructions（正文指令）限制</strong>：YAML 头部之后须包含非空 Markdown 指令；遵循渐进式披露，正文建议控制在 <strong>500 行 / 5000 tokens 以内</strong>（超长细节拆入 <code className="rounded bg-white/80 px-1 font-mono text-[11px]">references/</code>）；引用包内文件必须使用<strong>相对路径</strong>，禁止硬编码本机绝对路径或深层嵌套引用。
+            </li>
+          </ul>
         </div>
-        <div>
-          <FieldLabel required>技能描述</FieldLabel>
-          <textarea
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-            rows={3}
-            placeholder="说明技能适用场景与能力边界"
-            className="w-full rounded-[3px] border border-[#D9DEE7] px-[10px] py-[8px] text-[13px] leading-[20px] text-[#1D2129] outline-none placeholder:text-[#A9AEB8] focus:border-[#166EFF]"
-          />
+
+        {/* 拖拽上传区 */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".md,.zip"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0]
+            if (file) void handleFile(file)
+            event.target.value = ''
+          }}
+        />
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => fileInputRef.current?.click()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              fileInputRef.current?.click()
+            }
+          }}
+          onDragOver={(e) => {
+            e.preventDefault()
+            setDragging(true)
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault()
+            setDragging(false)
+            const file = e.dataTransfer.files?.[0]
+            if (file) void handleFile(file)
+          }}
+          className={`flex cursor-pointer flex-col items-center justify-center rounded-[6px] border-2 border-dashed px-6 py-8 text-center transition-colors ${
+            dragging
+              ? 'border-[#166EFF] bg-[#ECF5FF]/60'
+              : 'border-[#D9DEE7] bg-[#FAFBFD] hover:border-[#166EFF]/60 hover:bg-[#F5F8FF]/50'
+          }`}
+        >
+          <div className="flex h-[42px] w-[42px] items-center justify-center rounded-full bg-[#EAF2FF] text-[#166EFF]">
+            <Upload className="h-[20px] w-[20px]" />
+          </div>
+          <p className="mt-[10px] text-[13.5px] font-medium text-[#1D2129]">
+            将技能包（.zip）或 SKILL.md 拖拽到此处，或<span className="text-[#166EFF]">点击选择文件</span>
+          </p>
+          <p className="mt-[4px] text-[12px] text-[#86909C]">
+            自动解析 YAML Frontmatter 并校验 AgentSkills 规范
+          </p>
         </div>
-        <div>
-          <FieldLabel>SKILL.md 正文</FieldLabel>
-          <textarea
-            value={content}
-            onChange={(event) => setContent(event.target.value)}
-            rows={7}
-            placeholder="粘贴 SKILL.md 指令正文（可选）"
-            className="w-full rounded-[3px] border border-[#D9DEE7] px-[10px] py-[8px] font-mono text-[12px] leading-[20px] text-[#1D2129] outline-none placeholder:text-[#A9AEB8] focus:border-[#166EFF]"
-          />
-        </div>
+
+        {/* 解析与校验结果预览 */}
+        {parsed && (
+          <div
+            className={`rounded-[6px] border p-[12px] ${
+              parsed.errors.length === 0
+                ? 'border-[#B7EB8F] bg-[#F6FFED]'
+                : 'border-[#FFCCC7] bg-[#FFF2F0]'
+            }`}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex min-w-0 items-center gap-[8px]">
+                {parsed.errors.length === 0 ? (
+                  <CheckCircle2 className="h-[16px] w-[16px] shrink-0 text-[#00B42A]" />
+                ) : (
+                  <AlertCircle className="h-[16px] w-[16px] shrink-0 text-[#F53F3F]" />
+                )}
+                <FileCode2 className="h-[15px] w-[15px] shrink-0 text-[#4E5969]" />
+                <span className="truncate text-[13px] font-medium text-[#1D2129]">{parsed.fileName}</span>
+                <span className="shrink-0 text-[11.5px] text-[#86909C]">
+                  ({(parsed.fileSize / 1024).toFixed(1)} KB)
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setParsed(null)}
+                aria-label="清除已选文件"
+                className="text-[#86909C] hover:text-[#1D2129]"
+              >
+                <X className="h-[14px] w-[14px]" />
+              </button>
+            </div>
+
+            {parsed.errors.length === 0 ? (
+              <div className="mt-[8px] space-y-[4px] pl-[24px] text-[12.5px] text-[#4E5969]">
+                <div>
+                  <span className="text-[#86909C]">技能名称：</span>
+                  <span className="font-mono font-medium text-[#1D2129]">{parsed.name}</span>
+                  {typeof parsed.instructionLines === 'number' && parsed.instructionLines > 0 && (
+                    <span className="ml-2 text-[11.5px] text-[#86909C]">
+                      （指令 {parsed.instructionLines} 行）
+                    </span>
+                  )}
+                </div>
+                <div className="line-clamp-2">
+                  <span className="text-[#86909C]">技能描述：</span>
+                  {parsed.description}
+                </div>
+                {parsed.warnings.length > 0 && (
+                  <ul className="mt-1 list-disc space-y-[2px] pl-[16px] text-[11.5px] text-[#D46B08]">
+                    {parsed.warnings.map((warn, i) => (
+                      <li key={i}>{warn}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ) : (
+              <ul className="mt-[8px] list-disc space-y-[2px] pl-[40px] text-[12px] text-[#F53F3F]">
+                {parsed.errors.map((err, i) => (
+                  <li key={i}>{err}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
       </div>
     </SettingsModal>
   )

@@ -227,6 +227,7 @@ export { default } from './_versions/v2'
 | `src/host/hooks/` | 外壳层 | ❌ 禁止 |
 | `src/App.tsx` | 外壳层 | ❌ 禁止 |
 | `src/main.tsx` | 外壳层 | ❌ 禁止 |
+| `src/dev/` | 开发工具层（素材库） | ⚠️ 仅维护素材库时允许（仍需用户确认）；禁止放业务页面/组件 |
 | `src/pages/<Module>/<Page>/*.tsx` | 页面层 | ✅ 允许 |
 | `src/pages/<Module>/<Page>/*.md` | 页面层 | ✅ 允许 |
 | `src/pages/<Module>/<Page>/meta.json` | 页面层 | ✅ 允许 |
@@ -271,23 +272,26 @@ return (
 
 ### 强制规则
 
-1. **禁止编辑 `src/host/` 下的任何文件**，即使任务描述中提到"全局"、"平台"、"Header"、"导航栏"等词
+1. **禁止编辑 `src/host/` 下的任何文件**（R1 例外：素材库 DEV 条件挂载除外），即使任务描述中提到"全局"、"平台"、"Header"、"导航栏"等词
 2. **所有平台级 UI（Header、导航、面包屑、用户菜单）必须在原型页面内部实现**：优先复用 `src/lib/` 下已抽好的素材（如 `src/lib/platform-shell`），没有再在 `_shared.tsx` 里实现
 3. **若用户要求修改外壳行为**（如平台级搜索、全局路由），必须先与用户确认，并明确告知这是外壳修改，需要单独处理
-4. **误改外壳的恢复方式**：`git checkout -- src/host/` 恢复所有外壳文件到 HEAD 状态
+4. **误改外壳的恢复方式**：按具体误改文件 `git checkout -- <file>`；**不要整目录 `git checkout -- src/host/`**，否则会回滚素材库的 DEV 条件挂载
 
 ### 自检 Checklist
 
 生成/修改代码后必须自检：
-- [ ] 本次修改是否触及了 `src/host/` 下的文件？（应为否）
+- [ ] 本次修改是否触及了 `src/host/` 下的文件？（素材库 DEV 挂载除外，应为否）
 - [ ] 平台级 Header/导航是否定义在原型页面的 `_shared.tsx` 中？
-- [ ] 是否修改了 `src/App.tsx` 或 `src/main.tsx`？（应为否）
+- [ ] 是否修改了 `src/App.tsx` 或 `src/main.tsx`？（素材库 DEV 路由除外，应为否）
 - [ ] 平台级 Header/导航是否优先复用了 `src/lib/` 下已有素材？（禁止重复实现）
+- [ ] 涉及外壳/导航/图标/批注时，是否先看了 `/__assets` 素材库？
+- [ ] 是否把业务页面/业务组件误放进了 `src/dev/`？（应为否）
 
 ## 3.6 可复用素材（复用优先，禁止重复造）
 
 > 已抽好的通用 UI 放 `src/lib/<name>/`，页面直接 import；**禁止从别的页面整段复制组件**。
 
+- **先看素材库**：`npm run dev` → 左侧「素材库（DEV）」→ `/__assets`，可看实时预览、使用方、最小接入代码和文档；找素材、确认复用、抄用法都从这里开始。
 - **已有素材**：
   - `src/lib/platform-shell` —— 产品外壳（66px 顶栏 + 256px 侧栏 + 线性图标），预设见 `presets/calspeed.tsx`，说明见 `docs/PlatformShell/平台外壳素材.md`；
   - `src/lib/product-nav` —— 9 宫格 5 列产品导航面板 `ProductNav` + 图标表 + 算力预设 `presets/calspeedNav.tsx`，说明见 `docs/ProductNav/产品导航面板.md`；
@@ -295,6 +299,7 @@ return (
 - **新素材**：只有当同一块 UI 已在 ≥ 2 处使用、且视觉已定稿时才抽，按 [`.skills/reusable-assets.md`](./reusable-assets.md) 的步骤执行。
 - **抽取不改视觉**：抽取前后尺寸、字号、间距逐像素一致；数据走 props / preset，跳转走回调，主题走 CSS 变量。
 - **薄适配层**：原页面 `_shared.tsx` 保留原导出名与 props 签名，内部改为调用素材，`_versions/*.tsx` 零改动。
+- **素材库只展示**：`src/dev/assets/` 只 import 真实素材做预览，不复制视觉、不放业务页面；新增登记见 [`docs/素材库/开发环境素材库.md`](../docs/素材库/开发环境素材库.md)。
 
 ## 4. 样式系统（强约束）
 
@@ -993,7 +998,7 @@ return (
 - [ ] Mode C：`NewTag` 为 inline-flex 行内徽标，不占布局、无位移（⚠️ 不遮挡标题）
 - [ ] Mode C：`FEATURES`、PRD `**FR-X` 标记、`<NewTag code>` 三者 key 1:1
 - [ ] Mode C：DocPanel 配置 `rehypeMermaid`（strategy: 'img-svg'），PRD 中 Mermaid 流程图可渲染
-- [ ] 未修改 `src/host/` 下的任何外壳文件（见 §3.5）
+- [ ] 未修改 `src/host/` 下的任何外壳文件（素材库 DEV 挂载除外，见 §3.5）
 - [ ] 平台级 Header/导航定义在原型页面 `_shared.tsx` 中，非外壳层
 - [ ] PlatformShell 根用 `h-[calc(100vh-68px)]`（非 `flex-1`），页面填满视口、内部滚动（见 §3.5 高度说明）
 - [ ] 批量重构 JSX 后标签开闭配对，Vite 编译无 `PARSE_ERROR`（见 §9.1）

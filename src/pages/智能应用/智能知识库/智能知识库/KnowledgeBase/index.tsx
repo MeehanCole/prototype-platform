@@ -27,11 +27,13 @@ function KbCard({
   indexState,
   onOpen,
   onRebuild,
+  onDelete,
 }: {
   kb: KbRecord
   indexState?: KbIndexState
   onOpen: (name: string) => void
   onRebuild: (name: string) => void
+  onDelete: (kb: KbRecord) => void
 }) {
   const stat = (label: string, value: string) => (
     <div className="flex min-w-0 flex-col gap-1">
@@ -114,7 +116,15 @@ function KbCard({
           >
             进入知识库
           </a>
-          <a className="cursor-pointer text-[#F5222D]">删除</a>
+          <a
+            onClick={(e) => {
+              e.stopPropagation()
+              onDelete(kb)
+            }}
+            className="cursor-pointer text-[#F5222D] hover:underline"
+          >
+            删除
+          </a>
         </div>
       </div>
     </div>
@@ -125,12 +135,14 @@ export function KnowledgeBaseListPage({
   kbs,
   onOpen,
   onCreate,
+  onDelete,
   onRequestDefaultSetup,
   onNotify,
 }: {
   kbs: KbRecord[]
   onOpen: (name: string) => void
   onCreate: (payload: CreateKbPayload, enterAfterCreate: boolean) => void
+  onDelete: (name: string) => void
   onRequestDefaultSetup?: () => void
   onNotify?: (message: string) => void
 }) {
@@ -143,6 +155,7 @@ export function KnowledgeBaseListPage({
   const [createOpen, setCreateOpen] = useState(false)
   const [blockOpen, setBlockOpen] = useState(false)
   const [rebuildTargets, setRebuildTargets] = useState<string[] | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<KbRecord | null>(null)
 
   const filtered = useMemo(() => {
     const kw = keyword.trim().toLowerCase()
@@ -281,6 +294,7 @@ export function KnowledgeBaseListPage({
                   indexState={indexStates[kb.name]}
                   onOpen={onOpen}
                   onRebuild={(name) => setRebuildTargets([name])}
+                  onDelete={setDeleteTarget}
                 />
               ))}
             </div>
@@ -436,6 +450,71 @@ export function KnowledgeBaseListPage({
           </p>
         </SettingsModal>
       )}
+
+      {/* 删除知识库确认弹窗 */}
+      {deleteTarget && (() => {
+        const rebuilding = indexStates[deleteTarget.name]?.status === 'rebuilding'
+        const confirmDelete = () => {
+          if (rebuilding) return
+          const targetName = deleteTarget.name
+          const nextTotal = Math.max(0, filtered.length - 1)
+          const nextPages = Math.max(1, Math.ceil(nextTotal / pageSize))
+          if (page > nextPages) setPage(nextPages)
+          setDeleteTarget(null)
+          onDelete(targetName)
+        }
+        return (
+          <SettingsModal
+            title="删除知识库"
+            width="w-[460px]"
+            onClose={() => setDeleteTarget(null)}
+            footer={
+              <>
+                <button
+                  type="button"
+                  onClick={() => setDeleteTarget(null)}
+                  className="h-[32px] rounded-[3px] border border-[#D9DEE7] px-[14px] text-[13px] text-[#4E5969] hover:bg-[#F7F8FA]"
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  disabled={rebuilding}
+                  onClick={confirmDelete}
+                  className="h-[32px] rounded-[3px] bg-[#F5222D] px-[14px] text-[13px] text-white hover:bg-[#cf1322] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  确认删除
+                </button>
+              </>
+            }
+          >
+            <div className="flex items-start gap-[12px]">
+              <span className="mt-[2px] flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-full bg-[#FFF1F0]">
+                <AlertTriangle className="h-[15px] w-[15px] text-[#F5222D]" />
+              </span>
+              <div className="min-w-0 flex-1 space-y-[8px] text-[13px] leading-[21px] text-[#4E5969]">
+                {rebuilding ? (
+                  <p>
+                    知识库「<span className="font-medium text-[#1D2129]">{deleteTarget.name}</span>
+                    」正在重建向量索引，请等待重建完成后再删除。
+                  </p>
+                ) : deleteTarget.docs > 0 ? (
+                  <p>
+                    确定删除知识库「<span className="font-medium text-[#1D2129]">{deleteTarget.name}</span>
+                    」？删除后将同步清空库内 <span className="font-medium text-[#1D2129]">{deleteTarget.docs} 篇</span>
+                    文档、分块数据与向量索引，且不可恢复。
+                  </p>
+                ) : (
+                  <p>
+                    确定删除空知识库「<span className="font-medium text-[#1D2129]">{deleteTarget.name}</span>
+                    」？删除后不可恢复。
+                  </p>
+                )}
+              </div>
+            </div>
+          </SettingsModal>
+        )
+      })()}
 
       {/* 建库弹窗：基础信息 + 可选高级设置 */}
       {createOpen && (

@@ -4,7 +4,7 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { ChevronRight, ChevronDown, PanelLeftClose, PanelLeftOpen, Search, LayoutGrid, Sun, Moon } from 'lucide-react'
+import { ChevronRight, ChevronDown, PanelLeftClose, PanelLeftOpen, Search, LayoutGrid, Boxes, Sun, Moon } from 'lucide-react'
 import { getPagesByModule } from '@/host/router/pageRegistry'
 import { useWorkbenchTheme } from '@/host/theme/workbenchTheme'
 import { cn } from '@/lib/utils'
@@ -175,6 +175,35 @@ export function Sidebar({
             {!collapsed && <span className="truncate text-[13px]">平台总览</span>}
           </NavLink>
         </div>
+
+        {/* 素材库: 仅开发环境展示（npm run dev 才有入口，正式构建后整块消失） */}
+        {import.meta.env.DEV && (
+          <div className="mb-1.5">
+            <NavLink
+              to="/__assets"
+              title="素材库（仅开发环境）"
+              className={({ isActive }) =>
+                cn(
+                  'w-full flex items-center gap-1.5 rounded-md transition-colors',
+                  collapsed ? 'justify-center px-0 py-1.5' : 'px-2.5 py-1.5',
+                  isActive
+                    ? 'text-sidebar-foreground font-medium'
+                    : 'text-sidebar-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-muted',
+                )
+              }
+            >
+              <Boxes size={14} className="shrink-0" />
+              {!collapsed && (
+                <>
+                  <span className="truncate text-[13px]">素材库</span>
+                  <span className="ml-auto rounded bg-primary/15 px-1 py-px text-[9px] font-medium text-primary">
+                    DEV
+                  </span>
+                </>
+              )}
+            </NavLink>
+          </div>
+        )}
 
         {grouped.map((pg) => {
           const productKey = pg.product

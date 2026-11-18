@@ -310,3 +310,12 @@ export function syncKbDocs(name: string, docs: number) {
   store = { ...store, [name]: { ...entry, docs } }
   emit()
 }
+
+/** 删除知识库时同步清理其索引状态 */
+export function removeKbIndex(name: string) {
+  if (!(name in store)) return
+  const next = { ...store }
+  delete next[name]
+  store = next
+  emit()
+}

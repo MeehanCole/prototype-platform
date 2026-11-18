@@ -43,6 +43,8 @@ description: "Guides users through AI design workflows (Mode D incremental edits
 | B4 | Platform integration | `prototype-page-generator` skill |
 | B5 | Reverse PRD | This skill |
 
+> **A4 / B3 / C4 / D 开始前**：先在 `/__assets` 素材库确认是否有可复用件（外壳 / 导航 / 图标 / 批注 / token），优先 `import` `src/lib/`，不要重复实现。
+
 ## Mode C Special Requirements
 
 Mode C (hybrid/modification) has mandatory requirements beyond Mode A/B:

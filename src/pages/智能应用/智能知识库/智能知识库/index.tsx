@@ -18,7 +18,7 @@ import { KnowledgeBaseWorkspace } from './KnowledgeBase/Workspace'
 import { KB_RECORDS, type KbRecord } from './KnowledgeBase/model'
 import type { CreateKbPayload } from './KnowledgeBase/CreateDialog'
 import { useModelRegistry } from './ModelManagement/store'
-import { registerKbIndex } from './KnowledgeBase/indexState'
+import { registerKbIndex, removeKbIndex } from './KnowledgeBase/indexState'
 import { DocPanel, DocProvider, FEATURES } from './feature-tags'
 
 export default function IntelligentKnowledgeBaseApp({ __showFeat = false }: { __showFeat?: boolean }) {
@@ -72,6 +72,13 @@ export default function IntelligentKnowledgeBaseApp({ __showFeat = false }: { __
     if (enterAfterCreate) setOpenKb(record.name)
   }
 
+  const deleteKb = (name: string) => {
+    setKbs((prev) => prev.filter((kb) => kb.name !== name))
+    removeKbIndex(name)
+    if (openKb === name) setOpenKb(null)
+    setToast(`知识库「${name}」已删除`)
+  }
+
   const renderPage = () => {
     switch (activePage) {
       case 'kb': {
@@ -87,6 +94,7 @@ export default function IntelligentKnowledgeBaseApp({ __showFeat = false }: { __
             kbs={kbs}
             onOpen={setOpenKb}
             onCreate={createKb}
+            onDelete={deleteKb}
             onRequestDefaultSetup={requestDefaultSetup}
             onNotify={setToast}
           />
@@ -119,7 +127,7 @@ export default function IntelligentKnowledgeBaseApp({ __showFeat = false }: { __
       onOpenDoc={setDocCode}
     >
       <PlatformShell activePage={activePage} onPageChange={changePage}>
-        <FloatingChatButton />
+        <FloatingChatButton activeKb={activePage === 'kb' ? openKb : null} />
         {renderPage()}
         {toast && (
           <div className="pointer-events-none fixed bottom-[32px] left-1/2 z-[60] flex -translate-x-1/2 items-center gap-2 rounded-[6px] border border-[#e1f3d8] bg-[#f0f9eb] px-4 py-2.5 text-[13px] text-[#3f7a1f] shadow-[0_4px_16px_rgba(0,0,0,0.1)]">

@@ -9,12 +9,13 @@
  * 现统一到平台外壳素材，视觉与「算力加速平台」保持一致。
  * 模块清单 = 九宫格面板「智能中心」列的 1:1 投影：智能应用（智能知识库）+ 系统设置（模型/工具/技能/参数配置）。
  */
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { MessageSquare, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { PlatformHeader, SideNav, type ShellNavRow } from '@/lib/platform-shell'
 import { ProductNav, CALSPEED_PRODUCT_NAV } from '@/lib/product-nav'
-import { DiagnosisDialog } from './DiagnosisDialog'
+import { ChatInterface } from './ChatInterface'
+import aiChatAvatar from '@/assets/ai/ai-chat-avatar.png'
 
 // ─── 应用内子页面（单入口：状态切换，不注册路由）─────────────────────────────────
 
@@ -102,24 +103,240 @@ export function PlatformShell({
   )
 }
 
-// ─── 右侧浮动对话入口按钮 + 共享诊断对话框（scene 模式）───────────────────────────
+// ─── 浮动对话入口：默认半收在边缘，可拖动吸附 + 记住位置 ───────────────────────────
 
-export function FloatingChatButton() {
+const FAB_SIZE = 72
+const FAB_MARGIN = 20
+const FAB_STORAGE_KEY = 'aiops.kb.chatFab.v2'
+/** 收起时露出的宽度：72 / 2 = 36px，保持一半可点 */
+const FAB_PEEK = FAB_SIZE / 2
+
+type FabSide = 'left' | 'right'
+type FabAnchor = { side: FabSide; top: number }
+type Box = { width: number; height: number }
+
+/** fixed 元素若被带 transform 的祖先包裹，定位基准是那个祖先而不是 viewport */
+function getFixedContainingBlock(el: HTMLElement | null): HTMLElement | null {
+  let node = el?.parentElement ?? null
+  while (node) {
+    const cs = getComputedStyle(node)
+    if (
+      cs.transform !== 'none' ||
+      cs.perspective !== 'none' ||
+      cs.filter !== 'none' ||
+      cs.backdropFilter !== 'none' ||
+      /transform|perspective|filter/.test(cs.willChange || '') ||
+      /paint|layout|strict|content/.test(cs.contain || '')
+    ) {
+      return node
+    }
+    node = node.parentElement
+  }
+  return null
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), Math.max(min, max))
+}
+
+function readFabAnchor(): FabAnchor | null {
+  try {
+    const raw = localStorage.getItem(FAB_STORAGE_KEY)
+    if (!raw) return null
+    const value = JSON.parse(raw) as Partial<FabAnchor>
+    if (
+      (value.side === 'left' || value.side === 'right') &&
+      typeof value.top === 'number' &&
+      Number.isFinite(value.top)
+    ) {
+      return { side: value.side, top: value.top }
+    }
+  } catch {
+    // 本地存储不可用时走默认位置
+  }
+  return null
+}
+
+function saveFabAnchor(anchor: FabAnchor) {
+  try {
+    localStorage.setItem(FAB_STORAGE_KEY, JSON.stringify(anchor))
+  } catch {
+    // 忽略隐私模式等写入失败
+  }
+}
+
+type DragState = {
+  pointerId: number
+  startX: number
+  startY: number
+  offsetX: number
+  offsetY: number
+  moved: boolean
+  x: number
+  y: number
+}
+
+export function FloatingChatButton({ activeKb = null }: { activeKb?: string | null }) {
   const [open, setOpen] = useState(false)
+  const [anchor, setAnchor] = useState<FabAnchor | null>(readFabAnchor)
+  const [box, setBox] = useState<Box | null>(null)
+  const [hovered, setHovered] = useState(false)
+  const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const containerRef = useRef<HTMLElement | null>(null)
+  const dragRef = useRef<DragState | null>(null)
+  const skipClickRef = useRef(false)
+
+  // 量出真正的定位容器（项目外壳有 transform，fixed 以它为基准），并跟随尺寸变化
+  useEffect(() => {
+    const button = buttonRef.current
+    if (!button) return
+    const container = getFixedContainingBlock(button)
+    containerRef.current = container
+
+    // 用 clientWidth/Height（布局尺寸）而不是 rect：外层的淡入 transform 不会影响定位基准尺寸
+    const measure = () => {
+      const el = container ?? document.documentElement
+      const next = { width: el.clientWidth, height: el.clientHeight }
+      setBox((prev) =>
+        prev && prev.width === next.width && prev.height === next.height ? prev : next,
+      )
+    }
+
+    measure()
+    const observer = new ResizeObserver(measure)
+    if (container) observer.observe(container)
+    window.addEventListener('resize', measure)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', measure)
+    }
+  }, [])
+
+  const side: FabSide = anchor?.side ?? 'right'
+  const maxTop = box ? Math.max(FAB_MARGIN, box.height - FAB_SIZE - FAB_MARGIN) : FAB_MARGIN
+  const restTop = box ? Math.max(FAB_MARGIN, box.height - FAB_MARGIN - FAB_SIZE) : FAB_MARGIN
+  const top = dragPos?.y ?? clamp(anchor?.top ?? restTop, FAB_MARGIN, maxTop)
+  const expanded = hovered || dragPos !== null
+  const restX = box ? (side === 'right' ? box.width - FAB_PEEK : FAB_PEEK - FAB_SIZE) : 0
+  // 展开时贴住边缘：收起露出的那一半始终在按钮范围内，鼠标不会因按钮移开而抖动
+  const openX = box ? (side === 'right' ? box.width - FAB_SIZE : 0) : 0
+  const left = dragPos?.x ?? (expanded ? openX : restX)
+
+  const clampLocal = (x: number, y: number) => {
+    if (!box) return { x, y }
+    return {
+      x: clamp(x, 0, box.width - FAB_SIZE),
+      y: clamp(y, FAB_MARGIN, maxTop),
+    }
+  }
+
+  const localPoint = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const container = containerRef.current
+    const rect = (container ?? document.documentElement).getBoundingClientRect()
+    return {
+      x: event.clientX - rect.left - (container?.clientLeft ?? 0),
+      y: event.clientY - rect.top - (container?.clientTop ?? 0),
+    }
+  }
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return
+    if (!box) return
+    const point = localPoint(event)
+    const offsetX = point.x - left
+    const offsetY = point.y - top
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      offsetX,
+      offsetY,
+      moved: false,
+      x: left,
+      y: top,
+    }
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== event.pointerId || !box) return
+    if (!drag.moved) {
+      if (Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < 5) return
+      drag.moved = true
+    }
+    const point = localPoint(event)
+    const next = clampLocal(point.x - drag.offsetX, point.y - drag.offsetY)
+    drag.x = next.x
+    drag.y = next.y
+    setDragPos(next)
+  }
+
+  const finishDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    dragRef.current = null
+    if (!drag.moved) {
+      setDragPos(null)
+      return
+    }
+    const nextSide: FabSide = drag.x + FAB_SIZE / 2 < (box?.width ?? 0) / 2 ? 'left' : 'right'
+    const next: FabAnchor = { side: nextSide, top: drag.y }
+    setAnchor(next)
+    saveFabAnchor(next)
+    setDragPos(null)
+    setHovered(false)
+    // pointerup 之后浏览器还会补一个 click，拖动结束时不要误开对话
+    skipClickRef.current = true
+    window.setTimeout(() => {
+      skipClickRef.current = false
+    }, 0)
+  }
+
+  const handleClick = () => {
+    if (skipClickRef.current) {
+      skipClickRef.current = false
+      return
+    }
+    setOpen(true)
+  }
 
   return (
     <>
-      {/* 浮动按钮 */}
+      {/* 浮动按钮：品牌对话头像；默认半收，悬停/聚焦展开，拖动后吸附左/右边缘 */}
       <button
-        onClick={() => setOpen(true)}
-        className="fixed bottom-[24px] right-[24px] z-40 w-[48px] h-[48px] bg-[#409EFF] text-white rounded-full shadow-[0_4px_12px_rgba(64,158,255,0.4)] hover:bg-[#66B1FF] hover:shadow-[0_6px_16px_rgba(64,158,255,0.5)] transition-all flex items-center justify-center"
-        title="智能诊断"
+        ref={buttonRef}
+        type="button"
+        onClick={handleClick}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={finishDrag}
+        onPointerCancel={finishDrag}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        onFocus={() => setHovered(true)}
+        onBlur={() => setHovered(false)}
+        className="group fixed z-40 flex h-[72px] w-[72px] cursor-grab touch-none select-none items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#409EFF] focus-visible:ring-offset-2 active:cursor-grabbing"
+        style={{
+          left,
+          top,
+          visibility: box ? 'visible' : 'hidden',
+          transition: dragPos ? 'none' : 'left 220ms ease, top 220ms ease',
+        }}
+        title="智能对话（拖动可换边）"
+        aria-label="打开智能对话"
       >
-        <MessageSquare className="w-[22px] h-[22px]" />
+        <img
+          src={aiChatAvatar}
+          alt=""
+          draggable={false}
+          className="h-full w-full object-contain mix-blend-multiply transition-transform duration-200 group-hover:scale-[1.04]"
+        />
       </button>
 
-      {/* 共享诊断对话框：scene 模式（先选场景或手动输入，再走五阶段诊断） */}
-      {open && <DiagnosisDialog mode="scene" onClose={() => setOpen(false)} />}
+      {/* 对话页：抽屉式智能对话 */}
+      {open && <ChatInterface activeKb={activeKb} onClose={() => setOpen(false)} />}
     </>
   )
 }

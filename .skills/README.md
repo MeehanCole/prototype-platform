@@ -10,7 +10,15 @@
 | [`page-generator.md`](./page-generator.md) | 代码生成规范（目录约定、默认导出、样式系统、PRD 内嵌） | 生成新页面、Figma 转码、截图还原 |
 | [`design-workflow.md`](./design-workflow.md) | 设计工作流（正向/逆向/混合三种模式完整流程） | 需求分析、方案设计、版本迭代 |
 | [`templates.md`](./templates.md) | 代码模板（extractSection、DocPanel、NewTag、Changelog） | Mode C 多版本改造的代码脚手架 |
-| [`reusable-assets.md`](./reusable-assets.md) | 可复用素材规范（抽取时机、目录结构、抽取步骤、硬约束） | 想把某块 UI 抽成素材、跨页面复用、避免整段复制 |
+| [`reusable-assets.md`](./reusable-assets.md) | 可复用素材规范（抽取时机、目录结构、抽取步骤、硬约束、开发态素材库） | 想把某块 UI 抽成素材、跨页面复用、查现有素材、避免整段复制 |
+
+## 开发环境速查
+
+- **素材库**：`npm run dev` → 左侧导航「素材库（DEV）」→ `/__assets`。可看实时预览、使用方、最小接入代码、图标用法与规范文档。
+- 代码在 `src/dev/assets/`，**仅开发环境存在**；`npm run build` 后入口、路由、代码、内嵌文档全部不进入产物。
+- 素材库只做展示：素材实现仍在 `src/lib/`，说明书仍在 `docs/`；**禁止把业务页面/业务组件放进 `src/dev/`**。
+
+---
 
 ## 跨 IDE / Agent 使用方式
 
