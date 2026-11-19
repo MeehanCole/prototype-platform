@@ -78,7 +78,7 @@ export default function Page({ __showFeat = false }: { __showFeat?: boolean }) {
             <div className="h-[66px] border-b border-[#f0f0f0] flex items-center pl-[42px]">
               <button
                 aria-label="返回"
-                onClick={() => navigate('/算力加速平台/在线服务优化/onlineservice?v=v1')}
+                onClick={() => navigate('/算力加速平台/在线服务优化/在线服务?v=v1')}
                 className="cursor-pointer flex items-center"
               >
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#166EFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -115,7 +115,7 @@ export default function Page({ __showFeat = false }: { __showFeat?: boolean }) {
                     </button>
                   )}
                   <button
-                    onClick={() => navigate(`/算力加速平台/在线服务优化/onlineservicecreate?name=${encodeURIComponent(d.name)}&v=v1`)}
+                    onClick={() => navigate(`/算力加速平台/在线服务优化/创建在线服务?name=${encodeURIComponent(d.name)}&v=v1`)}
                     className="h-[38px] px-[22px] rounded border border-[#d9d9d9] bg-white text-[15px] text-[#333] cursor-pointer"
                   >
                     编辑

@@ -92,7 +92,7 @@ function TableCard() {
       {/* Toolbar: create + refresh */}
       <div className="h-[70px] shrink-0 flex items-center pl-[18px] pr-[24px]">
         <button
-          onClick={() => navigate('/算力加速平台/在线服务优化/onlineservicecreate?v=v1')}
+          onClick={() => navigate('/算力加速平台/在线服务优化/创建在线服务?v=v1')}
           className="h-[35px] pl-[18px] pr-[20px] flex items-center gap-[6px] rounded bg-[#166EFF] text-[15px] text-white cursor-pointer"
         >
           <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden>
@@ -132,7 +132,7 @@ function TableCard() {
               <div className={`w-full ${GRID_COLS} items-center text-[15px]`}>
                 <div>
                   <a
-                    onClick={() => navigate(`/算力加速平台/在线服务优化/onlineservicedetail?name=${encodeURIComponent(row.name)}&v=v1`)}
+                    onClick={() => navigate(`/算力加速平台/在线服务优化/在线服务详情?name=${encodeURIComponent(row.name)}&v=v1`)}
                     className="text-[#166EFF] cursor-pointer"
                   >
                     {row.name}
@@ -164,7 +164,7 @@ function TableCard() {
                 <div className="text-[#949494]">–</div>
                 <div className="sticky right-0 z-10 bg-white pl-3 flex items-center gap-[22px] text-[15px] whitespace-nowrap">
                   <a
-                    onClick={() => navigate(`/算力加速平台/在线服务优化/onlineservicecreate?name=${encodeURIComponent(row.name)}&v=v1`)}
+                    onClick={() => navigate(`/算力加速平台/在线服务优化/创建在线服务?name=${encodeURIComponent(row.name)}&v=v1`)}
                     className="text-[#166EFF] cursor-pointer"
                   >
                     编辑

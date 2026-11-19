@@ -411,8 +411,8 @@ function ServiceCard({ row }: { row: ServiceRow }) {
     setCopied(key)
     window.setTimeout(() => setCopied((c) => (c === key ? null : c)), 1500)
   }
-  const toDetail = () => navigate(`/算力加速平台/在线服务优化/onlineservicedetail?name=${encodeURIComponent(row.name)}&v=v2`)
-  const toEdit = () => navigate(`/算力加速平台/在线服务优化/onlineservicecreate?name=${encodeURIComponent(row.name)}&v=v2`)
+  const toDetail = () => navigate(`/算力加速平台/在线服务优化/在线服务详情?name=${encodeURIComponent(row.name)}&v=v2`)
+  const toEdit = () => navigate(`/算力加速平台/在线服务优化/创建在线服务?name=${encodeURIComponent(row.name)}&v=v2`)
 
   return (
     <div className="flex flex-col rounded-[8px] border border-[#e6e8eb] bg-white transition-shadow hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)]">
@@ -630,7 +630,7 @@ function TableCard() {
       {/* Toolbar: 创建 + 组合筛选器(布局1：左创建/中筛选) */}
       <div className="h-[70px] shrink-0 flex items-center gap-[18px] pl-[18px] pr-[24px] border-b border-[#f0f0f0]">
         <button
-          onClick={() => navigate('/算力加速平台/在线服务优化/onlineservicecreate?v=v2')}
+          onClick={() => navigate('/算力加速平台/在线服务优化/创建在线服务?v=v2')}
           className="h-[35px] shrink-0 pl-[18px] pr-[20px] flex items-center gap-[6px] rounded bg-[#166EFF] text-[15px] text-white cursor-pointer"
         >
           <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden>

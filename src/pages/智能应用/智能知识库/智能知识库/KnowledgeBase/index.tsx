@@ -9,7 +9,7 @@
  * 检索测试 / 设置；顶部用「返回 + 知识库详情」承接，不做面包屑。
  */
 import { useMemo, useState } from 'react'
-import { AlertTriangle, Library, Loader2, Plus, RefreshCw, Search, Settings2, X } from 'lucide-react'
+import { AlertTriangle, Library, Loader2, Plus, RefreshCw, Search, X } from 'lucide-react'
 import { CreateKbDialog, type CreateKbPayload } from './CreateDialog'
 import type { KbRecord } from './model'
 import { CAPABILITY_LABEL, missingCapabilities, useModelRegistry } from '../ModelManagement/store'
@@ -136,7 +136,6 @@ export function KnowledgeBaseListPage({
   onOpen,
   onCreate,
   onDelete,
-  onRequestDefaultSetup,
   onNotify,
 }: {
   kbs: KbRecord[]
@@ -409,30 +408,6 @@ export function KnowledgeBaseListPage({
           title="无法创建知识库"
           width="500px"
           onClose={() => setBlockOpen(false)}
-          footer={
-            <>
-              <button
-                type="button"
-                onClick={() => setBlockOpen(false)}
-                className="h-[32px] rounded-[3px] border border-[#D9DEE7] px-[14px] text-[13px] text-[#4E5969]"
-              >
-                知道了
-              </button>
-              {onRequestDefaultSetup && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setBlockOpen(false)
-                    onRequestDefaultSetup()
-                  }}
-                  className="flex h-[32px] items-center gap-[5px] rounded-[3px] bg-[#166EFF] px-[14px] text-[13px] text-white"
-                >
-                  <Settings2 className="h-[13px] w-[13px]" />
-                  前往设置默认模型
-                </button>
-              )}
-            </>
-          }
         >
           <p className="text-[13px] leading-[21px] text-[#4E5969]">
             知识库需要对话模型与向量模型完成问答与索引，以下必选默认配置尚未完成：

@@ -61,7 +61,7 @@ const INITIAL_API_KEYS: ApiKeyItem[] = [
     officialServices: [],
     privateServices: [
       { name: "e'e", model: '无', running: false },
-      { name: 'deepseek-test', model: 'deepseek-v3-pro', running: true, path: '/算力加速平台/在线服务优化/onlineservicedetail?name=deepseek-test&v=v2' },
+      { name: 'deepseek-test', model: 'deepseek-v3-pro', running: true, path: '/算力加速平台/在线服务优化/在线服务详情?name=deepseek-test&v=v2' },
     ],
     createdAt: '3 个月前',
     tokenQuotaEnabled: false,
@@ -77,7 +77,7 @@ const INITIAL_API_KEYS: ApiKeyItem[] = [
     limit: '–',
     officialServices: [],
     privateServices: [
-      { name: 'gtai-72b', model: 'Qwen2.5-72B-Instruct', running: true, path: '/算力加速平台/在线服务优化/onlineservicedetail?name=gtai-72b&v=v2' },
+      { name: 'gtai-72b', model: 'Qwen2.5-72B-Instruct', running: true, path: '/算力加速平台/在线服务优化/在线服务详情?name=gtai-72b&v=v2' },
     ],
     createdAt: '3 个月前',
     tokenQuotaEnabled: false,
@@ -129,10 +129,10 @@ const OFFICIAL_OPTIONS = [
 
 // 可供绑定的私有服务选项
 const PRIVATE_OPTIONS = [
-  { name: 'deepseek-test', model: 'deepseek-v3-pro', running: true, path: '/算力加速平台/在线服务优化/onlineservicedetail?name=deepseek-test&v=v2' },
-  { name: 'gtai-72b', model: 'Qwen2.5-72B-Instruct', running: true, path: '/算力加速平台/在线服务优化/onlineservicedetail?name=gtai-72b&v=v2' },
+  { name: 'deepseek-test', model: 'deepseek-v3-pro', running: true, path: '/算力加速平台/在线服务优化/在线服务详情?name=deepseek-test&v=v2' },
+  { name: 'gtai-72b', model: 'Qwen2.5-72B-Instruct', running: true, path: '/算力加速平台/在线服务优化/在线服务详情?name=gtai-72b&v=v2' },
   { name: "e'e", model: '无', running: false },
-  { name: 'component-test', model: 'deepseek-v3-pro', running: true, path: '/算力加速平台/在线服务优化/onlineservicedetail?name=component-test&v=v2' },
+  { name: 'component-test', model: 'deepseek-v3-pro', running: true, path: '/算力加速平台/在线服务优化/在线服务详情?name=component-test&v=v2' },
   { name: 'ctc', model: '无', running: false },
 ]
 

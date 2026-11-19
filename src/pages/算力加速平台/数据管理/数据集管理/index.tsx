@@ -1,657 +1,779 @@
 /**
  * 算力加速平台-数据管理 - 数据集管理
- * 单入口: 顶栏 + 左导航 + 数据集列表（统计卡 / 筛选搜索 / 表格 / 分页 / 新建弹窗 / 详情抽屉）
- *
- * 当前为 Mock 版本：数据来自 ./mock.ts，结构待设计稿确认后按图还原。
+ * 按 Axure 设计稿还原：标题 + 说明 + 列表面板（创建数据集 / 搜索 / 表格 / 分页）+ 删除、重命名、详情等弹层
  */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
+  Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Database,
-  Eye,
-  HardDrive,
+  Loader2,
+  Pencil,
   Plus,
   Search,
   Trash2,
-  Upload,
+  UploadCloud,
   X,
 } from 'lucide-react'
 import { PlatformHeader, SideNav } from './_shared'
 import {
-  buildStats,
-  FORMAT_OPTIONS,
-  MOCK_DATASETS,
-  SOURCE_OPTIONS,
-  TYPE_OPTIONS,
+  NAME_MAX_LENGTH,
+  PAGE_SIZES,
+  SEARCH_FIELDS,
+  nextVersion,
+  nowStamp,
 } from './mock'
-import type {
-  Dataset,
-  DatasetFormat,
-  DatasetSource,
-  DatasetStatus,
-  DatasetType,
-} from './mock'
+import type { Dataset, DatasetStatus, SearchField } from './mock'
+import { markRemoved, readDatasets, writeDatasets } from './store'
+import { isSpaceReady } from './storage'
+import { SpaceBlockedState } from './space-notice'
 
-const PAGE_SIZE = 6
+const BLUE = 'text-[#166eff]'
 
-const STATUS_STYLE: Record<DatasetStatus, string> = {
-  就绪: 'bg-[#e8f7ee] text-[#1a9c53] border-[#bfe8cf]',
-  解析中: 'bg-[#eef4ff] text-[#166eff] border-[#c7d9ff]',
-  上传中: 'bg-[#fff6e6] text-[#c47f00] border-[#ffe0a6]',
-  已归档: 'bg-[#f2f3f5] text-[#8c8c8c] border-[#e4e6eb]',
+const DIALOG_WIDTH_CLASS: Record<number, string> = {
+  420: 'w-[420px]',
+  520: 'w-[520px]',
+  640: 'w-[640px]',
 }
 
-const TYPE_STYLE: Record<DatasetType, string> = {
-  微调训练: 'bg-[#eef4ff] text-[#166eff]',
-  模型评测: 'bg-[#f4edff] text-[#7a3ff2]',
-  知识库: 'bg-[#e8f7ee] text-[#1a9c53]',
-  多模态: 'bg-[#fff6e6] text-[#c47f00]',
+/** 创建数据集为目标表单页而非弹窗 */
+const CREATE_PATH = '/算力加速平台/数据管理/创建数据集'
+/** 详情为独立详情页，携带数据集 id */
+const DETAIL_PATH = '/算力加速平台/数据管理/数据集详情'
+
+/** 列表页工具条常量 */
+
+/* ---------------------------------- 小组件 --------------------------------- */
+
+/** 文件大小展示：9.43KB / 1.2MB */
+function formatFileSize(bytes: number) {
+  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(2)}MB`
+  return `${(bytes / 1024).toFixed(2)}KB`
 }
 
-function formatNumber(value: number) {
-  return value.toLocaleString('en-US')
-}
+function StatusCell({ dataset }: { dataset: Dataset }) {
+  const status: DatasetStatus = dataset.status
 
-function formatSize(sizeGB: number) {
-  return sizeGB >= 1 ? `${sizeGB.toFixed(1)} GB` : `${Math.round(sizeGB * 1024)} MB`
-}
-
-/** 右侧详情 / 新建共用的小标题 */
-function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex items-start gap-3 py-2 text-[13px]">
-      <span className="w-[76px] shrink-0 text-muted-foreground">{label}</span>
-      <span className="min-w-0 flex-1 break-words text-foreground">{children}</span>
-    </div>
-  )
-}
+    <div className="group relative inline-flex items-center gap-2">
+      {status === '导入成功' && (
+        <span className="flex h-[14px] w-[14px] items-center justify-center rounded-full bg-[#5ab98d]">
+          <Check size={9} strokeWidth={3.5} className="text-white" />
+        </span>
+      )}
+      {status === '初始化' && (
+        <span className="h-[10px] w-[10px] rounded-full bg-[#94bfff]" />
+      )}
+      {status === '导入中' && <Loader2 size={14} className="animate-spin text-[#166eff]" />}
+      {status === '导入失败' && (
+        <span className="flex h-[14px] w-[14px] items-center justify-center rounded-full bg-[#e95a54] text-[10px] font-bold leading-none text-white">
+          !
+        </span>
+      )}
+      <span className="whitespace-nowrap text-[13px] text-[#565656]">{status}</span>
+      {/* 客户端上传过程中，导入中阶段附带传输进度 */}
+      {status === '导入中' && dataset.upload && (
+        <span className="whitespace-nowrap text-[12px] tabular-nums text-[#86909c]">
+          {dataset.upload.filesExpected
+            ? `${dataset.upload.filesReceived}/${dataset.upload.filesExpected}`
+            : dataset.upload.filesReceived}
+        </span>
+      )}
 
-function StatusBadge({ status }: { status: DatasetStatus }) {
-  return (
-    <span
-      className={`inline-flex h-[22px] items-center rounded-[4px] border px-2 text-[12px] leading-none ${STATUS_STYLE[status]}`}
-    >
-      {status}
-    </span>
-  )
-}
-
-/** 通用下拉（原生 select，保持与页面其它控件一致的高度/边框） */
-function Select({
-  value,
-  onChange,
-  options,
-  placeholder,
-  widthClass = 'w-full',
-}: {
-  value: string
-  onChange: (value: string) => void
-  options: readonly string[]
-  placeholder: string
-  /** 外层宽度类，不传时撑满父容器 */
-  widthClass?: string
-}) {
-  return (
-    <div className={`relative shrink-0 ${widthClass}`}>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-[34px] w-full appearance-none rounded-[4px] border border-border bg-card pl-3 pr-7 text-[13px] text-foreground outline-none focus:border-[#166eff]"
-        aria-label={placeholder}
-      >
-        <option value="">{placeholder}</option>
-        {options.map((opt) => (
-          <option key={opt} value={opt}>
-            {opt}
-          </option>
-        ))}
-      </select>
-      <ChevronRight
-        size={14}
-        className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rotate-90 text-muted-foreground"
-      />
-    </div>
-  )
-}
-
-function StatCards({ stats }: { stats: ReturnType<typeof buildStats> }) {
-  const icons: Record<string, ReactNode> = {
-    total: <Database size={18} />,
-    size: <HardDrive size={18} />,
-    finetune: <Upload size={18} />,
-    ready: <Eye size={18} />,
-  }
-  return (
-    <div className="grid shrink-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      {stats.map((stat) => (
-        <div
-          key={stat.key}
-          className="flex items-center justify-between rounded-[8px] border border-border bg-card px-4 py-3"
-        >
-          <div>
-            <div className="text-[12px] text-muted-foreground">{stat.label}</div>
-            <div className="mt-1 flex items-baseline gap-1">
-              <span className="text-[22px] font-semibold leading-none text-foreground">{stat.value}</span>
-              <span className="text-[12px] text-muted-foreground">{stat.suffix}</span>
-            </div>
-          </div>
-          <span className="flex h-9 w-9 items-center justify-center rounded-[8px] bg-[#166eff]/10 text-[#166eff]">
-            {icons[stat.key]}
+      {dataset.errorMessage && (
+        <span className="pointer-events-none absolute left-0 top-full z-20 mt-3 hidden group-hover:block">
+          <span className="absolute -top-[5px] left-4 h-2.5 w-2.5 rotate-45 bg-[#1d2129]" />
+          <span className="relative block whitespace-nowrap rounded-[4px] bg-[#1d2129] px-3 py-1.5 text-[13px] leading-5 text-white shadow-[0_4px_12px_rgba(0,0,0,0.18)]">
+            {dataset.errorMessage}
           </span>
-        </div>
-      ))}
+        </span>
+      )}
     </div>
   )
 }
 
-/** 新建数据集弹窗 */
-function CreateDialog({
-  onClose,
-  onCreate,
+/** 表格通用操作链接 */
+function RowLink({
+  children,
+  onClick,
+  tone = 'blue',
+  disabled = false,
+  title,
 }: {
-  onClose: () => void
-  onCreate: (dataset: Dataset) => void
+  children: ReactNode
+  onClick: () => void
+  tone?: 'blue' | 'red'
+  /** 存储空间未开通等阻断态：置灰不可点，避免反复弹窗 */
+  disabled?: boolean
+  title?: string
 }) {
-  const [name, setName] = useState('')
-  const [type, setType] = useState<DatasetType>('微调训练')
-  const [format, setFormat] = useState<DatasetFormat>('JSONL')
-  const [source, setSource] = useState<DatasetSource>('本地文件')
-  const [description, setDescription] = useState('')
-
-  const canSubmit = name.trim().length > 0
-
-  function handleSubmit() {
-    if (!canSubmit) return
-    const now = new Date()
-    const stamp = `${now.getFullYear()}-${`${now.getMonth() + 1}`.padStart(2, '0')}-${`${now.getDate()}`.padStart(2, '0')} ${`${now.getHours()}`.padStart(2, '0')}:${`${now.getMinutes()}`.padStart(2, '0')}`
-    onCreate({
-      id: `ds-${Date.now()}`,
-      name: name.trim(),
-      type,
-      format,
-      samples: 0,
-      sizeGB: 0,
-      status: '解析中',
-      updatedAt: stamp,
-      creator: 'admin',
-      description: description.trim() || '—',
-      source,
-      location: '待上传',
-      fields: [],
-      versions: [{ version: 'v1', note: '初始导入，等待解析', samples: 0, createdAt: stamp }],
-      usedBy: [],
-    })
-  }
-
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/35" onClick={onClose}>
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      className={
+        disabled
+          ? 'cursor-not-allowed text-[13px] leading-5 text-[#c9cdd4]'
+          : `text-[13px] leading-5 hover:underline ${tone === 'red' ? 'text-[#f53f3f]' : 'text-[#166eff]'}`
+      }
+    >
+      {children}
+    </button>
+  )
+}
+
+/** 弹窗骨架：标题 + 关闭 + 内容 + 底部按钮 */
+function Dialog({
+  title,
+  width = 520,
+  onClose,
+  children,
+  footer,
+  footerLeft,
+}: {
+  title: string
+  width?: number
+  onClose: () => void
+  children: ReactNode
+  footer: ReactNode
+  footerLeft?: ReactNode
+}) {
+  return (
+    <div className="absolute inset-0 z-50 flex items-start justify-center bg-black/25 pt-[10vh]" onClick={onClose}>
       <div
-        className="w-[520px] max-w-[92vw] overflow-hidden rounded-[8px] border border-border bg-card shadow-[0_12px_40px_rgba(0,0,0,0.16)]"
+        className={`max-h-[80vh] max-w-[92vw] overflow-y-auto rounded-[4px] bg-white shadow-[0_8px_32px_rgba(0,0,0,0.18)] ${DIALOG_WIDTH_CLASS[width] ?? 'w-[520px]'}`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex h-[52px] items-center justify-between border-b border-border px-5">
-          <h2 className="text-[15px] font-semibold text-foreground">新建数据集</h2>
+        <div className="flex h-[52px] items-center justify-between border-b border-[#e5e6eb] px-6">
+          <h2 className="text-[16px] font-bold text-[#323232]">{title}</h2>
           <button
             onClick={onClose}
-            className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-muted"
             aria-label="关闭"
+            className="text-[#a7acb3] transition-colors hover:text-[#323232]"
           >
-            <X size={16} />
+            <X size={18} />
           </button>
         </div>
-
-        <div className="space-y-4 px-5 py-4">
-          <div>
-            <label className="mb-1.5 block text-[13px] text-foreground">
-              数据集名称 <span className="text-[#e5484d]">*</span>
-            </label>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="请输入数据集名称，如 qwen3-35b-指令微调集"
-              className="h-[34px] w-full rounded-[4px] border border-border bg-card px-3 text-[13px] outline-none placeholder:text-muted-foreground focus:border-[#166eff]"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="mb-1.5 block text-[13px] text-foreground">数据集类型</label>
-              <Select
-                value={type}
-                onChange={(v) => setType(v as DatasetType)}
-                options={TYPE_OPTIONS}
-                placeholder="请选择类型"
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-[13px] text-foreground">数据格式</label>
-              <Select
-                value={format}
-                onChange={(v) => setFormat(v as DatasetFormat)}
-                options={FORMAT_OPTIONS}
-                placeholder="请选择格式"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-[13px] text-foreground">数据来源</label>
-            <div className="flex gap-2">
-              {SOURCE_OPTIONS.map((opt) => (
-                <button
-                  key={opt}
-                  onClick={() => setSource(opt)}
-                  className={`h-[32px] rounded-[4px] border px-3 text-[13px] ${
-                    source === opt
-                      ? 'border-[#166eff] bg-[#eef4ff] text-[#166eff]'
-                      : 'border-border bg-card text-foreground hover:bg-muted'
-                  }`}
-                >
-                  {opt}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-[13px] text-foreground">描述</label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              placeholder="说明数据用途、来源与标注方式"
-              className="w-full resize-none rounded-[4px] border border-border bg-card px-3 py-2 text-[13px] outline-none placeholder:text-muted-foreground focus:border-[#166eff]"
-            />
-          </div>
-
-          <div className="rounded-[4px] border border-dashed border-border bg-muted/50 px-3 py-4 text-center">
-            <Upload size={18} className="mx-auto text-muted-foreground" />
-            <p className="mt-1 text-[12px] text-muted-foreground">
-              拖拽文件到此处，或 <span className="text-[#166eff]">点击上传</span>（Mock 仅演示，不实际传输）
-            </p>
-          </div>
-        </div>
-
-        <div className="flex h-[56px] items-center justify-end gap-2 border-t border-border px-5">
-          <button
-            onClick={onClose}
-            className="h-[32px] rounded-[4px] border border-border px-4 text-[13px] text-foreground hover:bg-muted"
-          >
-            取消
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={!canSubmit}
-            className="h-[32px] rounded-[4px] bg-[#166eff] px-4 text-[13px] text-white disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            创建数据集
-          </button>
+        <div className="px-6 py-5">{children}</div>
+        <div className="flex items-center justify-between gap-3 px-6 pb-6">
+          <div className="text-[12px] leading-5 text-[#a7acb3]">{footerLeft}</div>
+          <div className="flex items-center gap-3">{footer}</div>
         </div>
       </div>
     </div>
   )
 }
 
-/** 数据集详情抽屉 */
-function DetailDrawer({ dataset, onClose }: { dataset: Dataset; onClose: () => void }) {
+function Button({
+  children,
+  onClick,
+  variant = 'default',
+  disabled,
+}: {
+  children: ReactNode
+  onClick?: () => void
+  variant?: 'primary' | 'default'
+  disabled?: boolean
+}) {
   return (
-    <div className="absolute inset-0 z-50 bg-black/30" onClick={onClose}>
-      <aside
-        className="absolute right-0 top-0 flex h-full w-[440px] max-w-[94vw] flex-col border-l border-border bg-card shadow-[-8px_0_24px_rgba(0,0,0,0.08)]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex h-[52px] shrink-0 items-center justify-between border-b border-border px-5">
-          <div className="min-w-0">
-            <div className="truncate text-[15px] font-semibold text-foreground">{dataset.name}</div>
-            <div className="truncate font-mono text-[11px] text-muted-foreground">{dataset.id}</div>
-          </div>
-          <button
-            onClick={onClose}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted"
-            aria-label="关闭"
-          >
-            <X size={16} />
-          </button>
-        </div>
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={
+        variant === 'primary'
+          ? 'h-8 min-w-[64px] rounded-[2px] bg-[#166eff] px-4 text-[13px] text-white transition-colors hover:bg-[#0d5fe0] disabled:cursor-not-allowed disabled:bg-[#a3c4ff]'
+          : 'h-8 min-w-[64px] rounded-[2px] border border-[#e5e6eb] bg-white px-4 text-[13px] text-[#1d2129] transition-colors hover:border-[#166eff] hover:text-[#166eff]'
+      }
+    >
+      {children}
+    </button>
+  )
+}
 
-        <div className="flex-1 overflow-y-auto px-5 py-4">
-          <div className="flex items-center gap-2">
-            <span className={`rounded-[4px] px-2 py-[3px] text-[12px] ${TYPE_STYLE[dataset.type]}`}>
-              {dataset.type}
-            </span>
-            <StatusBadge status={dataset.status} />
-            <span className="text-[12px] text-muted-foreground">{dataset.format}</span>
-          </div>
-          <p className="mt-3 text-[13px] leading-6 text-foreground">{dataset.description}</p>
-
-          <h3 className="mt-5 border-b border-border pb-2 text-[13px] font-semibold text-foreground">
-            基础信息
-          </h3>
-          <div className="divide-y divide-border/60">
-            <Field label="样本量">{formatNumber(dataset.samples)} 条</Field>
-            <Field label="占用存储">{formatSize(dataset.sizeGB)}</Field>
-            <Field label="数据来源">{dataset.source}</Field>
-            <Field label="存储路径">
-              <span className="font-mono text-[12px]">{dataset.location}</span>
-            </Field>
-            <Field label="创建人">{dataset.creator}</Field>
-            <Field label="更新时间">{dataset.updatedAt}</Field>
-            <Field label="字段">
-              {dataset.fields.length > 0 ? (
-                <span className="flex flex-wrap gap-1">
-                  {dataset.fields.map((field) => (
-                    <span
-                      key={field}
-                      className="rounded-[3px] bg-muted px-1.5 py-[2px] font-mono text-[11px] text-foreground"
-                    >
-                      {field}
-                    </span>
-                  ))}
-                </span>
-              ) : (
-                '解析后生成'
-              )}
-            </Field>
-          </div>
-
-          <h3 className="mt-5 border-b border-border pb-2 text-[13px] font-semibold text-foreground">
-            版本记录
-          </h3>
-          <ul className="mt-1">
-            {dataset.versions.map((version, index) => (
-              <li key={version.version} className="flex gap-3 py-2">
-                <span
-                  className={`mt-[5px] h-2 w-2 shrink-0 rounded-full ${
-                    index === 0 ? 'bg-[#166eff]' : 'bg-[#d9d9d9]'
-                  }`}
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 text-[13px]">
-                    <span className="font-medium text-foreground">{version.version}</span>
-                    {index === 0 && (
-                      <span className="rounded-[3px] bg-[#eef4ff] px-1.5 text-[11px] text-[#166eff]">
-                        当前
-                      </span>
-                    )}
-                    <span className="ml-auto text-[12px] text-muted-foreground">
-                      {formatNumber(version.samples)} 条
-                    </span>
-                  </div>
-                  <p className="mt-0.5 text-[12px] text-muted-foreground">{version.note}</p>
-                  <p className="text-[11px] text-muted-foreground/80">{version.createdAt}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-
-          <h3 className="mt-5 border-b border-border pb-2 text-[13px] font-semibold text-foreground">
-            引用关系
-          </h3>
-          {dataset.usedBy.length > 0 ? (
-            <ul className="mt-1 space-y-1.5">
-              {dataset.usedBy.map((item) => (
-                <li
-                  key={item}
-                  className="rounded-[4px] border border-border bg-muted/40 px-2.5 py-1.5 text-[12px] text-foreground"
-                >
-                  {item}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-2 text-[12px] text-muted-foreground">暂未被服务或评测任务引用</p>
-          )}
-        </div>
-      </aside>
+/** 带字数统计的文本输入 */
+function NameInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="flex h-9 items-center rounded-[2px] border border-[#e5e6eb] bg-white px-3 focus-within:border-[#166eff]">
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value.slice(0, NAME_MAX_LENGTH))}
+        placeholder="请输入数据集名称"
+        className="h-full min-w-0 flex-1 bg-transparent text-[13px] text-[#1d2129] outline-none placeholder:text-[#c9cdd4]"
+      />
+      <span className="ml-2 shrink-0 text-[12px] text-[#c9cdd4]">
+        {value.length}/{NAME_MAX_LENGTH}
+      </span>
     </div>
   )
 }
 
-export default function DatasetPage() {
-  const [datasets, setDatasets] = useState<Dataset[]>(MOCK_DATASETS)
-  const [tab, setTab] = useState<'全部' | DatasetType>('全部')
-  const [keyword, setKeyword] = useState('')
-  const [format, setFormat] = useState('')
-  const [status, setStatus] = useState('')
-  const [page, setPage] = useState(1)
-  const [createOpen, setCreateOpen] = useState(false)
-  const [activeId, setActiveId] = useState<string | null>(null)
+/* --------------------------------- 各类弹层 -------------------------------- */
 
-  const stats = useMemo(() => buildStats(datasets), [datasets])
+function RenameDialog({
+  dataset,
+  onClose,
+  onRename,
+}: {
+  dataset: Dataset
+  onClose: () => void
+  onRename: (name: string) => void
+}) {
+  const [name, setName] = useState(dataset.name)
 
-  const filtered = useMemo(() => {
-    const kw = keyword.trim().toLowerCase()
-    return datasets.filter((dataset) => {
-      if (tab !== '全部' && dataset.type !== tab) return false
-      if (format && dataset.format !== format) return false
-      if (status && dataset.status !== status) return false
-      if (!kw) return true
-      return [dataset.name, dataset.id, dataset.description, dataset.creator]
-        .join(' ')
-        .toLowerCase()
-        .includes(kw)
-    })
-  }, [datasets, tab, keyword, format, status])
+  return (
+    <Dialog
+      title="编辑数据集名称"
+      width={420}
+      onClose={onClose}
+      footer={
+        <>
+          <Button onClick={onClose}>取消</Button>
+          <Button variant="primary" disabled={!name.trim()} onClick={() => onRename(name.trim())}>
+            确定
+          </Button>
+        </>
+      }
+    >
+      <div className="flex items-center gap-3">
+        <label className="shrink-0 text-[13px] text-[#1d2129]">
+          数据集名称 <span className="text-[#f53f3f]">*</span>
+        </label>
+        <div className="min-w-0 flex-1">
+          <NameInput value={name} onChange={setName} />
+        </div>
+      </div>
+    </Dialog>
+  )
+}
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-  const currentPage = Math.min(page, totalPages)
-  const pageRows = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
-  const active = datasets.find((dataset) => dataset.id === activeId) ?? null
+function DeleteDialog({
+  dataset,
+  onClose,
+  onConfirm,
+}: {
+  dataset: Dataset
+  onClose: () => void
+  onConfirm: () => void
+}) {
+  return (
+    <Dialog
+      title="删除数据集"
+      width={520}
+      onClose={onClose}
+      footer={
+        <>
+          <Button onClick={onClose}>取消</Button>
+          <Button variant="primary" onClick={onConfirm}>
+            确定
+          </Button>
+        </>
+      }
+    >
+      <div className="flex items-start gap-3">
+        <span className="mt-[2px] flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border border-[#ff9a2e] text-[12px] font-bold leading-none text-[#ff9a2e]">
+          !
+        </span>
+        <p className="text-[14px] leading-6 text-[#1d2129]">
+          数据集 <span className="font-medium">{dataset.name}</span> 将会被彻底删除，请谨慎操作
+        </p>
+      </div>
+    </Dialog>
+  )
+}
 
-  const tabs: Array<'全部' | DatasetType> = ['全部', ...TYPE_OPTIONS]
+/** 「新增版本」确认弹窗：版本号自动递进 */
+function NewVersionDialog({
+  dataset,
+  onClose,
+  onConfirm,
+}: {
+  dataset: Dataset
+  onClose: () => void
+  onConfirm: () => void
+}) {
+  const next = nextVersion(dataset.latestVersion)
 
-  function countOf(key: '全部' | DatasetType) {
-    return key === '全部' ? datasets.length : datasets.filter((d) => d.type === key).length
-  }
+  return (
+    <Dialog
+      title="新建版本"
+      onClose={onClose}
+      footer={
+        <>
+          <Button onClick={onClose}>取消</Button>
+          <Button variant="primary" onClick={onConfirm}>
+            确定
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        <p className="text-[14px] leading-6 text-[#323232]">
+          即将为数据集「<span className="font-medium">{dataset.name}</span>」创建新版本{' '}
+          <span className="font-medium">{next}</span>，是否确定创建？
+        </p>
+        <p className="text-[12px] leading-5 text-[#a7acb3]">版本号根据已有版本递进自动进行生成</p>
+      </div>
+    </Dialog>
+  )
+}
 
-  function resetPage() {
-    setPage(1)
-  }
+/**
+ * 客户端上传：三步骤命令脚本
+ *
+ * 该弹窗用于已存在的数据集，存储路径与凭证均已分配，因此命令带出真实路径：
+ * 桶路径由数据集 location 推导，版本目录取「下一个版本号」。
+ */
+function buildClientUploadSteps(dataset: Dataset) {
+  const version = nextVersion(dataset.latestVersion)
+  /** obs://llm-data/eval/fin-qa-v2 -> llm-data/eval/fin-qa（去掉末尾版本段后统一拼版本目录） */
+  const basePath = dataset.location
+    .replace(/^obs:\/\//, '')
+    .replace(/[-/]v\d+$/i, '')
+  const bucketPath = `myjfs/datasets-pool/${basePath}/${version.toLowerCase()}/`
+  return [
+    {
+      title: '1. 配置凭证与 Endpoint',
+      lines: [
+        'mc alias set myjfs http://s3-gateway.ai-platform.internal:9000 ak_tenant_081293819238 sk_98f7a6b5c4d3e21',
+      ],
+    },
+    {
+      title: '2. 上传单个文件：',
+      lines: [`mc cp ./my_dataset.jsonl ${bucketPath}`],
+    },
+    {
+      title: '3. 上传整个本地文件夹（数据集文件需要平铺，不支持子目录）',
+      lines: [`mc mirror ./my_dataset_dir/ ${bucketPath}`],
+    },
+  ]
+}
 
-  function handleCreate(dataset: Dataset) {
-    setDatasets((prev) => [dataset, ...prev])
-    setCreateOpen(false)
-    setTab('全部')
-    setKeyword('')
-    setPage(1)
-    setActiveId(dataset.id)
-  }
+function UploadDialog({
+  dataset,
+  onClose,
+  onConfirm,
+}: {
+  dataset: Dataset
+  onClose: () => void
+  onConfirm: (tab: 'server' | 'client', files: File[]) => void
+}) {
+  const [tab, setTab] = useState<'server' | 'client'>('server')
+  const [files, setFiles] = useState<File[]>([])
+  const [error, setError] = useState('')
+  const next = nextVersion(dataset.latestVersion)
 
-  function handleDelete(dataset: Dataset) {
-    setDatasets((prev) => prev.filter((d) => d.id !== dataset.id))
-    if (activeId === dataset.id) setActiveId(null)
+  function pickFiles(list: FileList | null) {
+    if (!list) return
+    const MAX_FILE_SIZE = 2048 * 1024 * 1024
+    const accepted = Array.from(list).filter((file) => file.size <= MAX_FILE_SIZE)
+    if (accepted.length < list.length) {
+      setError(`单个文件不能超过 2048M，已忽略 ${list.length - accepted.length} 个文件`)
+    } else {
+      setError('')
+    }
+    setFiles((prev) => [...prev, ...accepted].slice(0, 20))
   }
 
   return (
-    <div className="relative flex h-full w-full flex-col overflow-hidden bg-[#f0f2f5] text-[#1f2329] [font-family:'PingFang_SC','Helvetica_Neue',Arial,sans-serif]">
+    <Dialog
+      title="上传文件"
+      width={640}
+      onClose={onClose}
+      footer={
+        <>
+          <Button onClick={onClose}>取消</Button>
+          <Button
+            variant="primary"
+            disabled={tab === 'server' && files.length === 0}
+            onClick={() => onConfirm(tab, files)}
+          >
+            确定
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-5">
+        <div>
+          <label className="mb-2 block text-[13px] text-[#323232]">
+            新版本号 <span className="text-[#d91e00]">*</span>
+          </label>
+          <div className="flex h-9 w-[320px] max-w-full items-center rounded-[2px] border border-[#e5e6eb] px-3 text-[13px] text-[#323232]">
+            {next}
+          </div>
+        </div>
+
+        <div>
+          <label className="mb-2 block text-[13px] text-[#323232]">
+            上传数据文件 <span className="text-[#d91e00]">*</span>
+          </label>
+
+          <div className="mb-4 flex items-center gap-2">
+            {(
+              [
+                ['server', '普通上传'],
+                ['client', '客户端上传'],
+              ] as const
+            ).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setTab(key)}
+                className={`h-9 px-5 text-[13px] transition-colors ${
+                  tab === key
+                    ? 'rounded-[2px] bg-[#1890ff] text-white'
+                    : 'rounded-[2px] text-[#323232] hover:text-[#1890ff]'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {tab === 'server' ? (
+            <div className="space-y-3">
+              <label
+                onDragOver={(e) => {
+                  e.preventDefault()
+                }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  pickFiles(e.dataTransfer.files)
+                }}
+                className="flex cursor-pointer flex-col items-center justify-center rounded-[2px] border border-dashed border-[#d9d7d2] bg-[#f8f9fc] py-8"
+              >
+                <input
+                  type="file"
+                  multiple
+                  accept=".jsonl"
+                  className="hidden"
+                  onChange={(e) => {
+                    pickFiles(e.target.files)
+                    e.target.value = ''
+                  }}
+                />
+                <UploadCloud size={22} className="text-[#a7acb3]" />
+                <span className="mt-2 text-[13px] text-[#323232]">
+                  拖拽文件到此处，或 <span className="text-[#377df5]">点击上传</span>
+                </span>
+                <span className="mt-2 text-center text-[12px] leading-5 text-[#a7acb3]">
+                  支持，jsonl 格式，最多上传 20 个文件，单个文件大小
+                  <br />
+                  不超过 2048M
+                </span>
+              </label>
+
+              {error && <p className="text-[12px] text-[#d91e00]">{error}</p>}
+
+              {files.length > 0 && (
+                <ul className="border-y border-[#e9e9e9]">
+                  {files.map((file, index) => (
+                    <li
+                      key={`${file.name}-${index}`}
+                      className="flex items-center gap-3 border-b border-[#e9e9e9] py-3 last:border-b-0"
+                    >
+                      <span className="min-w-0 flex-1 truncate text-[13px] text-[#323232]">{file.name}</span>
+                      <span className="shrink-0 text-[12px] text-[#a7acb3]">{formatFileSize(file.size)}</span>
+                      <button
+                        onClick={() => setFiles((prev) => prev.filter((_, i) => i !== index))}
+                        aria-label={`移除 ${file.name}`}
+                        className="shrink-0 text-[#a7acb3] transition-colors hover:text-[#f53f3f]"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-3 rounded-[2px] bg-[#f8f9fc] px-4 py-4">
+                {buildClientUploadSteps(dataset).map((step) => (
+                  <div key={step.title} className="space-y-1">
+                    <p className="text-[13px] text-[#323232]">{step.title}</p>
+                    {step.lines.map((line) => (
+                      <p
+                        key={line}
+                        className="break-all font-mono text-[12px] leading-5 text-[#323232]"
+                      >
+                        {line}
+                      </p>
+                    ))}
+                  </div>
+                ))}
+                <p className="text-[12px] text-[#a7acb3]">命令根据实际调用 juicefs s3Gateway 命令进行修改</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </Dialog>
+  )
+}
+
+/* ---------------------------------- 页面主体 -------------------------------- */
+
+export default function DatasetPage({ __forceNoSpace = false }: { __forceNoSpace?: boolean } = {}) {
+  const navigate = useNavigate()
+  const [params] = useSearchParams()
+  /**
+   * 数据存储空间未配置时（含 ?noSpace=1 演示开关、或 __forceNoSpace 由独立页面注入），
+   * 所有写入类操作被阻断。
+   */
+  const spaceReady = useMemo(
+    () => isSpaceReady(__forceNoSpace || params.get('noSpace') === '1'),
+    [__forceNoSpace, params],
+  )
+  /** 首次加载读取本地存储，兼容从「创建数据集」表单页返回；未开通数据空间时没有可读数据 */
+  const [datasets, setDatasets] = useState<Dataset[]>(() => (spaceReady ? readDatasets() : []))
+  /** 搜索框内的草稿值，点击放大镜或回车后才生效 */
+  const [searchField, setSearchField] = useState<SearchField>('名称')
+  const [keyword, setKeyword] = useState('')
+  const [appliedField, setAppliedField] = useState<SearchField>('名称')
+  const [appliedKeyword, setAppliedKeyword] = useState('')
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState<number>(10)
+
+  const [renameTarget, setRenameTarget] = useState<Dataset | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Dataset | null>(null)
+  const [newVersionTarget, setNewVersionTarget] = useState<Dataset | null>(null)
+  const [uploadTarget, setUploadTarget] = useState<Dataset | null>(null)
+
+  const filtered = useMemo(() => {
+    const kw = appliedKeyword.trim().toLowerCase()
+    if (!kw) return datasets
+    return datasets.filter((dataset) => {
+      const value =
+        appliedField === '名称' ? dataset.name : appliedField === '创建者' ? dataset.creator : dataset.type
+      return value.toLowerCase().includes(kw)
+    })
+  }, [datasets, appliedKeyword, appliedField])
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
+  const currentPage = Math.min(page, totalPages)
+  const pageRows = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+
+  function updateDataset(id: string, patch: Partial<Dataset>) {
+    setDatasets((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)))
+  }
+
+  /** 列表数据变更后写回本地存储；未开通数据空间时列表为空，不能覆盖已有存储 */
+  useEffect(() => {
+    if (!spaceReady) return
+    writeDatasets(datasets)
+  }, [datasets, spaceReady])
+
+  function handleRename(name: string) {
+    if (!renameTarget) return
+    updateDataset(renameTarget.id, { name })
+    setRenameTarget(null)
+  }
+
+  function handleDelete() {
+    if (!deleteTarget) return
+    /** 登记删除，避免 Mock 基线在下次读取时把它补回来 */
+    markRemoved(deleteTarget.id)
+    setDatasets((prev) => prev.filter((item) => item.id !== deleteTarget.id))
+    setDeleteTarget(null)
+    setPage(1)
+  }
+
+  /** 新增版本确认后进入上传弹窗 */
+  function handleNewVersionConfirm() {
+    if (!newVersionTarget) return
+    setUploadTarget(newVersionTarget)
+    setNewVersionTarget(null)
+  }
+
+  function handleUpload(tab: 'server' | 'client', files: File[]) {
+    if (!uploadTarget) return
+    const stamp = nowStamp()
+    const version = nextVersion(uploadTarget.latestVersion)
+    const nextStatus = tab === 'client' ? '初始化' : '导入中'
+    const note =
+      tab === 'client'
+        ? '客户端上传，等待写入存储'
+        : files.length > 0
+          ? `上传 ${files.length} 个文件，正在解析导入`
+          : '新增版本数据导入中'
+    updateDataset(uploadTarget.id, {
+      latestVersion: version,
+      status: nextStatus,
+      errorMessage: undefined,
+      createdAt: stamp,
+      versions: [
+        { version, note, createdAt: stamp, samples: 0, status: nextStatus },
+        ...uploadTarget.versions,
+      ],
+    })
+    setUploadTarget(null)
+  }
+
+  /** 数据存储空间未配置时拦截写入类操作，改为弹出提示 */
+  /** 执行搜索：把草稿条件提交为生效条件 */
+  function handleSearch() {
+    setAppliedField(searchField)
+    setAppliedKeyword(keyword)
+    setPage(1)
+  }
+
+  return (
+    <div className="relative flex h-full w-full flex-col overflow-hidden bg-white [font-family:'PingFang_SC','Microsoft_YaHei',Arial,sans-serif]">
       <PlatformHeader />
       <div className="flex min-h-0 flex-1">
         <SideNav activeKey="数据集管理" />
 
-        <main className="flex min-w-0 flex-1 flex-col gap-3 overflow-hidden px-6 pb-4 pt-4">
-          {/* 页面标题 */}
-          <div className="flex shrink-0 items-start justify-between gap-4">
-            <div>
-              <h1 className="text-[20px] font-bold leading-[30px] text-[#000]">数据集管理</h1>
-              <p className="text-[13px] text-[#6c6c6c]">
-                管理用于微调训练、模型评测与知识库的数据集，查看样本量、存储占用与版本记录。
-              </p>
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
-              <button
-                className="flex h-[34px] items-center gap-1.5 rounded-[4px] border border-border bg-card px-3 text-[13px] text-foreground hover:bg-muted"
-                onClick={() => setCreateOpen(true)}
-              >
-                <Upload size={15} />
-                导入数据
-              </button>
-              <button
-                className="flex h-[34px] items-center gap-1.5 rounded-[4px] bg-[#166eff] px-3.5 text-[13px] text-white"
-                onClick={() => setCreateOpen(true)}
-              >
-                <Plus size={15} />
-                新建数据集
-              </button>
-            </div>
-          </div>
+        <main className="min-w-0 flex-1 overflow-auto bg-white px-6 pb-8 pt-6">
+          <h1 className="text-[28px] font-bold leading-10 text-[#323232]">数据集管理</h1>
+          <p className="mt-2 text-[14px] leading-6 text-[#aaaaaa]">
+            集中管理大模型微调训练与评测所需的数据资产，为底层算力任务提供基础挂载能力。
+          </p>
 
-          <StatCards stats={stats} />
+          {spaceReady ? (
+          <section className="mt-6 flex min-h-[620px] flex-col rounded-[2px] border border-[#e5e6eb] bg-white p-5">
+            {/* 工具栏 */}
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <button
+                onClick={() => navigate(CREATE_PATH)}
+                disabled={!spaceReady}
+                title={spaceReady ? undefined : '未开通数据存储空间，暂不可创建数据集'}
+                className="flex h-10 items-center gap-2 rounded-[2px] bg-[#166eff] px-4 text-[14px] text-white transition-colors hover:bg-[#0d5fe0] disabled:cursor-not-allowed disabled:bg-[#a3c4ff] disabled:hover:bg-[#a3c4ff]"
+              >
+                <Plus size={16} strokeWidth={2.6} />
+                创建数据集
+              </button>
 
-          {/* 列表卡 */}
-          <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[8px] border border-border bg-card">
-            {/* Tab + 筛选 */}
-            <div className="shrink-0 border-b border-border">
-              <div className="flex items-center gap-1 px-4 pt-1">
-                {tabs.map((item) => (
-                  <button
-                    key={item}
-                    onClick={() => {
-                      setTab(item)
-                      resetPage()
-                    }}
-                    className={`relative h-[42px] px-3 text-[13px] ${
-                      tab === item ? 'font-medium text-[#166eff]' : 'text-[#4e5969] hover:text-foreground'
-                    }`}
+              <div className="flex shrink-0 items-center gap-2">
+                <div className="relative">
+                  <select
+                    value={searchField}
+                    onChange={(e) => setSearchField(e.target.value as SearchField)}
+                    aria-label="搜索字段"
+                    className="h-10 w-[92px] whitespace-nowrap appearance-none rounded-[2px] border border-[#e5e6eb] bg-white pl-3 pr-6 text-[13px] leading-10 text-[#3d3d3d] outline-none focus:border-[#166eff]"
                   >
-                    {item}
-                    <span className="ml-1 text-[12px] text-muted-foreground">{countOf(item)}</span>
-                    {tab === item && (
-                      <span className="absolute bottom-0 left-2 right-2 h-[2px] rounded-full bg-[#166eff]" />
-                    )}
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2 px-4 pb-3 pt-1">
-                <div className="relative w-[260px]">
-                  <Search
+                    {SEARCH_FIELDS.map((field) => (
+                      <option key={field} value={field}>
+                        {field}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown
                     size={14}
-                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                  />
-                  <input
-                    value={keyword}
-                    onChange={(e) => {
-                      setKeyword(e.target.value)
-                      resetPage()
-                    }}
-                    placeholder="搜索数据集名称、ID 或创建人"
-                    className="h-[34px] w-full rounded-[4px] border border-border bg-card pl-8 pr-3 text-[13px] outline-none placeholder:text-muted-foreground focus:border-[#166eff]"
+                    className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#86909c]"
                   />
                 </div>
-                <Select
-                  value={format}
-                  onChange={(v) => {
-                    setFormat(v)
-                    resetPage()
+
+                <input
+                  value={keyword}
+                  onChange={(e) => setKeyword(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSearch()
                   }}
-                  options={FORMAT_OPTIONS}
-                  placeholder="全部格式"
-                  widthClass="w-[124px]"
+                  aria-label="搜索关键字"
+                  className="h-10 w-[200px] max-w-[46vw] rounded-[2px] border border-[#e5e6eb] bg-white px-3 text-[13px] text-[#1d2129] outline-none focus:border-[#166eff]"
                 />
-                <Select
-                  value={status}
-                  onChange={(v) => {
-                    setStatus(v)
-                    resetPage()
-                  }}
-                  options={['就绪', '解析中', '上传中', '已归档']}
-                  placeholder="全部状态"
-                  widthClass="w-[124px]"
-                />
-                {(keyword || format || status || tab !== '全部') && (
-                  <button
-                    className="h-[34px] px-2 text-[13px] text-[#166eff] hover:underline"
-                    onClick={() => {
-                      setKeyword('')
-                      setFormat('')
-                      setStatus('')
-                      setTab('全部')
-                      resetPage()
-                    }}
-                  >
-                    重置
-                  </button>
-                )}
-                <span className="ml-auto text-[12px] text-muted-foreground">
-                  共 {filtered.length} 个数据集
-                </span>
+
+                <button
+                  onClick={handleSearch}
+                  aria-label="搜索"
+                  className="flex h-10 w-10 items-center justify-center rounded-[2px] border border-[#e5e6eb] bg-[#f6f8fa] text-[#4e5969] transition-colors hover:border-[#166eff] hover:text-[#166eff]"
+                >
+                  <Search size={16} />
+                </button>
               </div>
             </div>
 
             {/* 表格 */}
-            <div className="min-h-0 flex-1 overflow-auto">
-              <table className="w-full min-w-[980px] border-collapse text-[13px]">
-                <thead className="sticky top-0 z-10 bg-[#fafafa] text-left text-[12px] text-[#6c6c6c]">
-                  <tr>
-                    <th className="w-[300px] px-4 py-2.5 font-normal">数据集</th>
-                    <th className="px-3 py-2.5 font-normal">类型</th>
-                    <th className="px-3 py-2.5 font-normal">格式</th>
-                    <th className="px-3 py-2.5 text-right font-normal">样本量</th>
-                    <th className="px-3 py-2.5 text-right font-normal">存储</th>
-                    <th className="px-3 py-2.5 font-normal">状态</th>
-                    <th className="px-3 py-2.5 font-normal">更新时间</th>
-                    <th className="px-3 py-2.5 font-normal">创建人</th>
-                    <th className="w-[132px] px-4 py-2.5 text-right font-normal">操作</th>
+            <div className="mt-6 flex-1">
+              <table className="w-full table-fixed border-collapse text-left">
+                <thead>
+                  <tr className="bg-[#f5f5f7] text-[14px] text-[#5c70b5]">
+                    <th className="w-[20%] whitespace-nowrap px-3 py-4 font-bold">数据集名称</th>
+                    <th className="w-[8%] whitespace-nowrap px-2 py-4 font-bold">最新版本</th>
+                    <th className="w-[11.5%] whitespace-nowrap px-2 py-4 font-bold">数据集类型</th>
+                    <th className="w-[12.5%] whitespace-nowrap px-2 py-4 font-bold">状态</th>
+                    <th className="w-[9%] whitespace-nowrap px-2 py-4 font-bold">创建者</th>
+                    <th className="w-[15.5%] whitespace-nowrap px-2 py-4 font-bold">创建时间</th>
+                    <th className="w-[23.5%] whitespace-nowrap px-2 py-4 font-bold">操作</th>
                   </tr>
                 </thead>
                 <tbody>
                   {pageRows.map((dataset) => (
-                    <tr key={dataset.id} className="border-t border-border/70 hover:bg-[#fafcff]">
-                      <td className="px-4 py-3">
-                        <button
-                          className="block max-w-full truncate text-left font-medium text-foreground hover:text-[#166eff]"
-                          onClick={() => setActiveId(dataset.id)}
-                          title={dataset.name}
-                        >
-                          {dataset.name}
-                        </button>
-                        <div className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
-                          {dataset.id}
-                        </div>
-                      </td>
-                      <td className="px-3 py-3">
-                        <span className={`rounded-[4px] px-2 py-[3px] text-[12px] ${TYPE_STYLE[dataset.type]}`}>
-                          {dataset.type}
+                    <tr key={dataset.id}>
+                      <td className="px-3 py-4">
+                        <span className="inline-flex min-w-0 max-w-full items-center gap-1">
+                          <button
+                            onClick={() => navigate(`${DETAIL_PATH}?id=${dataset.id}`)}
+                            className={`min-w-0 truncate text-[13px] hover:underline ${BLUE}`}
+                            title={dataset.name}
+                          >
+                            {dataset.name}
+                          </button>
+                          <button
+                            onClick={() => setRenameTarget(dataset)}
+                            aria-label="编辑数据集名称"
+                            title="编辑数据集名称"
+                            className="shrink-0 text-[#c0c4cc] hover:text-[#166eff]"
+                          >
+                            <Pencil size={13} strokeWidth={2} />
+                          </button>
                         </span>
                       </td>
-                      <td className="px-3 py-3 text-foreground">{dataset.format}</td>
-                      <td className="px-3 py-3 text-right tabular-nums text-foreground">
-                        {formatNumber(dataset.samples)}
+                      <td className="px-3 py-4">
+                        <span className="inline-flex h-6 min-w-[52px] items-center justify-center rounded-[2px] bg-[#f6f6f6] px-2 text-[12px] text-[#3d3d3d]">
+                          {dataset.latestVersion}
+                        </span>
                       </td>
-                      <td className="px-3 py-3 text-right tabular-nums text-foreground">
-                        {formatSize(dataset.sizeGB)}
+                      <td className="whitespace-nowrap px-3 py-4 text-[13px] text-[#3d3d3d]">{dataset.type}</td>
+                      <td className="px-3 py-4 text-[13px]">
+                        <StatusCell dataset={dataset} />
                       </td>
-                      <td className="px-3 py-3">
-                        <StatusBadge status={dataset.status} />
-                      </td>
-                      <td className="px-3 py-3 text-[12px] text-muted-foreground">{dataset.updatedAt}</td>
-                      <td className="px-3 py-3 text-foreground">{dataset.creator}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            className="flex h-7 items-center gap-1 whitespace-nowrap rounded px-2 text-[12px] text-[#166eff] hover:bg-[#eef4ff]"
-                            onClick={() => setActiveId(dataset.id)}
+                      <td className="whitespace-nowrap px-3 py-4 text-[13px] text-[#3d3d3d]">{dataset.creator}</td>
+                      <td className="whitespace-nowrap px-3 py-4 text-[12px] tabular-nums text-[#3d3d3d]">{dataset.createdAt}</td>
+                      <td className="px-2 py-4">
+                        <div className="flex items-center gap-x-2 whitespace-nowrap text-[13px]">
+                          <RowLink onClick={() => navigate(`${DETAIL_PATH}?id=${dataset.id}`)}>详情</RowLink>
+                          <RowLink
+                            disabled={!spaceReady || dataset.status !== '导入成功'}
+                            title={
+                              dataset.status !== '导入成功'
+                                ? '仅导入成功的数据集可新增版本'
+                                : !spaceReady
+                                  ? '未开通数据存储空间，暂不可新增版本'
+                                  : undefined
+                            }
+                            onClick={() => setNewVersionTarget(dataset)}
                           >
-                            <Eye size={13} />
-                            查看
-                          </button>
-                          <button
-                            className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-[#e5484d]"
-                            onClick={() => handleDelete(dataset)}
-                            aria-label={`删除 ${dataset.name}`}
+                            新增版本
+                          </RowLink>
+                          <RowLink
+                            disabled={!spaceReady || dataset.status !== '导入成功'}
+                            title={
+                              dataset.status !== '导入成功'
+                                ? '仅导入成功的数据集可上传文件'
+                                : !spaceReady
+                                  ? '未开通数据存储空间，暂不可上传文件'
+                                  : undefined
+                            }
+                            onClick={() => setUploadTarget(dataset)}
                           >
-                            <Trash2 size={13} />
-                          </button>
+                            上传文件
+                          </RowLink>
+                          <RowLink tone="red" onClick={() => setDeleteTarget(dataset)}>
+                            删除
+                          </RowLink>
                         </div>
                       </td>
                     </tr>
                   ))}
+
                   {pageRows.length === 0 && (
                     <tr>
-                      <td colSpan={9} className="px-4 py-16 text-center text-[13px] text-muted-foreground">
-                        没有匹配的数据集，调整筛选条件或新建一个
+                      <td colSpan={7} className="px-6 py-20 text-center text-[14px] text-[#86909c]">
+                        暂无数据集，点击左上角「创建数据集」开始
                       </td>
                     </tr>
                   )}
@@ -659,52 +781,82 @@ export default function DatasetPage() {
               </table>
             </div>
 
-            {/* 分页 */}
-            <div className="flex h-[52px] shrink-0 items-center justify-between border-t border-border px-4">
-              <span className="text-[12px] text-muted-foreground">
-                第 {currentPage} / {totalPages} 页，共 {filtered.length} 条
-              </span>
+            {/* 分页：无数据时隐藏 */}
+            {filtered.length > 0 && (
+              <div className="mt-6 flex items-center justify-end gap-3">
               <div className="flex items-center gap-1">
                 <button
-                  className="flex h-7 w-7 items-center justify-center rounded border border-border text-foreground disabled:opacity-40"
                   disabled={currentPage <= 1}
                   onClick={() => setPage(currentPage - 1)}
                   aria-label="上一页"
+                  className="flex h-8 w-8 items-center justify-center rounded-[2px] border border-[#e5e6eb] text-[#4e5969] disabled:text-[#c9cdd4]"
                 >
-                  <ChevronLeft size={14} />
+                  <ChevronLeft size={16} />
                 </button>
-                {Array.from({ length: totalPages }).map((_, index) => {
-                  const pageNumber = index + 1
-                  return (
-                    <button
-                      key={pageNumber}
-                      onClick={() => setPage(pageNumber)}
-                      className={`h-7 min-w-7 rounded border px-2 text-[12px] ${
-                        pageNumber === currentPage
-                          ? 'border-[#166eff] text-[#166eff]'
-                          : 'border-border text-foreground hover:bg-muted'
-                      }`}
-                    >
-                      {pageNumber}
-                    </button>
-                  )
-                })}
                 <button
-                  className="flex h-7 w-7 items-center justify-center rounded border border-border text-foreground disabled:opacity-40"
+                  onClick={() => setPage(currentPage)}
+                  className="flex h-8 min-w-8 items-center justify-center rounded-[2px] border border-[#166eff] bg-[#ebf1ff] px-2 text-[13px] text-[#166eff]"
+                >
+                  {currentPage}
+                </button>
+                <button
                   disabled={currentPage >= totalPages}
                   onClick={() => setPage(currentPage + 1)}
                   aria-label="下一页"
+                  className="flex h-8 w-8 items-center justify-center rounded-[2px] border border-[#e5e6eb] text-[#4e5969] disabled:text-[#c9cdd4]"
                 >
-                  <ChevronRight size={14} />
+                  <ChevronRight size={16} />
                 </button>
               </div>
+
+              <div className="relative">
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value))
+                    setPage(1)
+                  }}
+                  aria-label="每页条数"
+                  className="h-8 appearance-none rounded-[2px] border border-[#e5e6eb] bg-white pl-3 pr-8 text-[13px] text-[#4e5969] outline-none"
+                >
+                  {PAGE_SIZES.map((size) => (
+                    <option key={size} value={size}>
+                      {size} 条/页
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  size={13}
+                  className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#86909c]"
+                />
+              </div>
             </div>
+            )}
           </section>
+          ) : (
+            <div className="mt-6">
+              <SpaceBlockedState />
+            </div>
+          )}
         </main>
       </div>
 
-      {createOpen && <CreateDialog onClose={() => setCreateOpen(false)} onCreate={handleCreate} />}
-      {active && <DetailDrawer dataset={active} onClose={() => setActiveId(null)} />}
+      {renameTarget && (
+        <RenameDialog dataset={renameTarget} onClose={() => setRenameTarget(null)} onRename={handleRename} />
+      )}
+      {deleteTarget && (
+        <DeleteDialog dataset={deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={handleDelete} />
+      )}
+      {newVersionTarget && (
+        <NewVersionDialog
+          dataset={newVersionTarget}
+          onClose={() => setNewVersionTarget(null)}
+          onConfirm={handleNewVersionConfirm}
+        />
+      )}
+      {uploadTarget && (
+        <UploadDialog dataset={uploadTarget} onClose={() => setUploadTarget(null)} onConfirm={handleUpload} />
+      )}
     </div>
   )
 }
