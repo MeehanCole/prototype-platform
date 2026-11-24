@@ -24,6 +24,10 @@ import {
 import { cn } from '@/lib/utils'
 import { copyText } from './clipboard'
 import { TablePagination } from '@/lib/table-pagination'
+import {
+  ResourceQuotaBoard,
+  type ResourceQuotaCluster,
+} from '@/lib/resource-quota'
 import aiChatAvatar from '@/assets/ai/ai-chat-avatar.png'
 
 const SHELL_ROWS = CALSPEED_SHELL.rows('在线服务')
@@ -384,6 +388,48 @@ export function FeatureTagDemo() {
 
       <DocPanel code={code} onClose={() => setCode(null)} />
     </DocProvider>
+  )
+}
+
+// ─── 资源配额卡片 ────────────────────────────────────────────────────────────
+
+const RESOURCE_QUOTA_CLUSTERS: ResourceQuotaCluster[] = [
+  {
+    id: 'changsha-dc-cluster',
+    name: '长沙智算中心',
+    code: 'changsha-dc-cluster',
+    rows: [
+      { key: 'cpuLimit', label: 'CPU 限制', kind: 'cpu', used: 96, quota: 128, icon: 'cpu' },
+      { key: 'cpuRequest', label: 'CPU 请求', kind: 'cpu', used: 48, quota: 64, icon: null },
+      { key: 'memLimit', label: '内存限制', kind: 'mem', used: 320, quota: 512, icon: 'mem' },
+      { key: 'memRequest', label: '内存请求', kind: 'mem', used: 160, quota: 256, icon: null },
+    ],
+  },
+  {
+    id: 'host-cluster',
+    name: '长沙实验室',
+    code: 'host-cluster',
+    rows: [
+      { key: 'cpuLimit', label: 'CPU 限制', kind: 'cpu', used: 8, quota: null, icon: 'cpu' },
+      { key: 'cpuRequest', label: 'CPU 请求', kind: 'cpu', used: 4, quota: null, icon: null },
+      { key: 'memLimit', label: '内存限制', kind: 'mem', used: 32, quota: null, icon: 'mem' },
+      { key: 'memRequest', label: '内存请求', kind: 'mem', used: 16, quota: null, icon: null },
+    ],
+  },
+]
+
+export function ResourceQuotaDemo() {
+  return (
+    <div className="rounded-lg border border-border bg-white p-5">
+      <ResourceQuotaBoard
+        title="租户配额"
+        description="用于管理和分配租户中所有项目的资源使用总量。"
+        clusters={RESOURCE_QUOTA_CLUSTERS}
+        refreshedAt="10:28"
+        onRefresh={() => {}}
+        onEdit={() => {}}
+      />
+    </div>
   )
 }
 

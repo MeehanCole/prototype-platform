@@ -21,6 +21,7 @@ import {
   FeatureTagDemo,
   IconsDemo,
   ProductNavDemo,
+  ResourceQuotaDemo,
   ShellDemo,
   TablePaginationDemo,
 } from './Demos'
@@ -254,6 +255,8 @@ function AssetDemo({ id }: { id: string }) {
       return <DesignTokensDemo />
     case 'table-pagination':
       return <TablePaginationDemo />
+    case 'resource-quota':
+      return <ResourceQuotaDemo />
     default:
       return null
   }

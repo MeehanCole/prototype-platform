@@ -134,6 +134,43 @@ import { CALSPEED_SHELL } from '@/lib/platform-shell/presets/calspeed'
 />`,
   },
   {
+    id: 'resource-quota',
+    kind: '组件素材',
+    name: '资源配额卡片',
+    summary:
+      '「资源类型 / 已使用 / 配额 / 余量」四列表格与集群卡片：支持不限制形态、80% 用量告警、刷新与编辑入口，业务只传数据和回调。',
+    status: 'stable',
+    importPath: '@/lib/resource-quota',
+    usage: ['租户配额（隐藏页）'],
+    tags: ['配额', '集群', 'CPU', '内存', '表格', '卡片'],
+    docs: [{ id: 'doc-resource-quota' }],
+    snippet: `import {
+  ResourceQuotaBoard,
+  type ResourceQuotaCluster,
+} from '@/lib/resource-quota'
+
+const clusters: ResourceQuotaCluster[] = [
+  {
+    id: 'cluster-a',
+    name: '长沙智算中心',
+    code: 'changsha-dc-cluster',
+    rows: [
+      { key: 'cpuLimit', label: 'CPU 限制', kind: 'cpu', used: 96, quota: 128 },
+      { key: 'cpuRequest', label: 'CPU 请求', kind: 'cpu', used: 48, quota: 64 },
+      { key: 'memLimit', label: '内存限制', kind: 'mem', used: 320, quota: 512 },
+      { key: 'memRequest', label: '内存请求', kind: 'mem', used: 160, quota: 256 },
+    ],
+  },
+]
+
+<ResourceQuotaBoard
+  title="资源配额"
+  clusters={clusters}
+  onRefresh={() => console.log('refresh')}
+  onEdit={(cluster) => console.log(cluster.id)}
+/>`,
+  },
+  {
     id: 'icons',
     kind: '设计规范',
     name: '图标集',
@@ -218,6 +255,13 @@ export const DOCS: DocEntry[] = [
     file: '/docs/TablePagination/表格分页.md',
     summary: '一行式分页的视觉规格表、页码折叠规则、props 清单与换品牌色方法',
     tags: ['分页', '规格'],
+  },
+  {
+    id: 'doc-resource-quota',
+    name: '资源配额卡片素材',
+    file: '/docs/ResourceQuota/资源配额素材.md',
+    summary: '组成、视觉规格、props 清单、最小接入与变更规则',
+    tags: ['配额', '规格'],
   },
   {
     id: 'doc-assets-rule',

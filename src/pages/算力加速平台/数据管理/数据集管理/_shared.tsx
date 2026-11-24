@@ -17,7 +17,7 @@ import type { ShellNavRow } from '@/lib/platform-shell'
 
 const PAGE_PATH = '/算力加速平台/数据管理/数据集管理'
 
-/** 在「模型仓库」之后插入「数据集管理」菜单项 */
+/** 在「基础资源」分组末尾插入「数据集管理」菜单项 */
 function buildRows(activeKey?: string): ShellNavRow[] {
   const rows = CALSPEED_SHELL.rows(activeKey)
   const entry: ShellNavRow = {
@@ -28,11 +28,15 @@ function buildRows(activeKey?: string): ShellNavRow[] {
     active: activeKey === '数据集管理',
     path: PAGE_PATH,
   }
-  const index = rows.findIndex(
-    (row) => row.kind !== 'section' && row.label === '模型仓库',
+  const sectionIndex = rows.findIndex(
+    (row) => row.kind === 'section' && row.label === '基础资源',
   )
-  if (index < 0) return [...rows, entry]
-  return [...rows.slice(0, index + 1), entry, ...rows.slice(index + 1)]
+  if (sectionIndex < 0) return [...rows, entry]
+  const nextSectionIndex = rows.findIndex(
+    (row, i) => i > sectionIndex && row.kind === 'section',
+  )
+  const insertAt = nextSectionIndex < 0 ? rows.length : nextSectionIndex
+  return [...rows.slice(0, insertAt), entry, ...rows.slice(insertAt)]
 }
 
 export function PlatformHeader() {

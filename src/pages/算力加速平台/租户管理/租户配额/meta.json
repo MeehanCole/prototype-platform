@@ -5,6 +5,7 @@
   "module": "租户管理",
   "source": "screenshot",
   "status": "draft",
+  "hidden": true,
   "updatedAt": "2026-11-19",
   "description": "算力加速平台-租户管理 · 租户配额：按集群展示 CPU 限制/请求、内存限制/请求的已使用、配额与余量，支持「编辑配额」弹窗（支持不限制）与刷新；外壳复用平台外壳通用件，左侧菜单为设计稿的租户管理一级菜单；Mock 数据",
   "tags": [

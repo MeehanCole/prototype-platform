@@ -17,6 +17,7 @@ import {
   Building2,
   Clock3,
   Container,
+  HardDrive,
   House,
   IdCard,
   MemoryStick,
@@ -41,7 +42,7 @@ import { DocPanel, DocProvider, FEATURES, NewTag } from './feature-tags'
 interface QuotaRow {
   key: string
   label: string
-  icon: 'cpu' | 'mem' | 'pod' | 'service' | 'stateful' | 'daemon'
+  icon: 'cpu' | 'mem' | 'pod' | 'service' | 'stateful' | 'daemon' | 'storage'
   /** 计量单位，不限制行不展示 */
   unit: string
   /** 已使用量，null 表示无数据（展示 -） */
@@ -79,6 +80,7 @@ const INITIAL_PROJECT_ROWS: QuotaRow[] = [
   { key: 'services', label: '服务', icon: 'service', unit: '', used: 44, quota: null },
   { key: 'statefulSets', label: '有状态副本集', icon: 'stateful', unit: '', used: 7, quota: null },
   { key: 'daemonSets', label: '守护进程集', icon: 'daemon', unit: '', used: 2, quota: null },
+  { key: 'storage', label: '数据存储', icon: 'storage', unit: 'GB', used: null, quota: null },
 ]
 
 const INITIAL_PROJECT: ProjectInfo = {
@@ -154,6 +156,8 @@ function ResourceGlyph({ kind }: { kind: QuotaRow['icon'] }) {
       return <Rocket {...common} />
     case 'stateful':
       return <SquarePlay {...common} />
+    case 'storage':
+      return <HardDrive {...common} />
     default:
       return <SquareArrowUp {...common} />
   }
@@ -271,6 +275,7 @@ function rowsToDraft(rows: QuotaRow[]): QuotaDraft {
     cpuLimit: pick('cpuLimit'),
     memReserve: pick('memRequest'),
     memLimit: pick('memLimit'),
+    storage: pick('storage'),
     apps: APP_ROWS.map((row) => ({ ...row })),
   }
 }
@@ -301,7 +306,7 @@ function containerToRows(rows: QuotaRow[], draft: QuotaDraft): QuotaRow[] {
   return rows.map((row) => (row.key in map ? { ...row, quota: map[row.key] } : row))
 }
 
-/** 弹窗草稿 → 页面行：只回写 CPU / 内存 四项，应用资源仅弹窗内演示 */
+/** 弹窗草稿 → 页面行：CPU / 内存 / 数据存储回写卡片，应用资源仅弹窗内演示 */
 function draftToRows(rows: QuotaRow[], draft: QuotaDraft): QuotaRow[] {
   const num = (value: string) => (value.trim() ? Number(value) : null)
   const quotaMap: Record<string, number | null> = {
@@ -309,6 +314,7 @@ function draftToRows(rows: QuotaRow[], draft: QuotaDraft): QuotaRow[] {
     cpuLimit: num(draft.cpuLimit),
     memRequest: num(draft.memReserve),
     memLimit: num(draft.memLimit),
+    storage: num(draft.storage),
   }
   return rows.map((row) => (row.key in quotaMap ? { ...row, quota: quotaMap[row.key] } : row))
 }
