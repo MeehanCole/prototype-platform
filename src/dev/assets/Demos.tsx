@@ -23,6 +23,7 @@ import {
 } from '@/lib/feature-tags/core'
 import { cn } from '@/lib/utils'
 import { copyText } from './clipboard'
+import { TablePagination } from '@/lib/table-pagination'
 import aiChatAvatar from '@/assets/ai/ai-chat-avatar.png'
 
 const SHELL_ROWS = CALSPEED_SHELL.rows('在线服务')
@@ -383,5 +384,61 @@ export function FeatureTagDemo() {
 
       <DocPanel code={code} onClose={() => setCode(null)} />
     </DocProvider>
+  )
+}
+
+// ─── 表格分页 ────────────────────────────────────────────────────────────────
+
+export function TablePaginationDemo() {
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+  const [page2, setPage2] = useState(6)
+
+  return (
+    <div className="space-y-4 rounded-lg border border-border bg-card p-4">
+      <div>
+        <p className="mb-3 text-[11px] text-muted-foreground">默认态 · 共 5 条</p>
+        <TablePagination
+          total={5}
+          page={page}
+          pageSize={pageSize}
+          onChange={({ page: p, pageSize: s }) => {
+            setPage(p)
+            setPageSize(s)
+          }}
+        />
+      </div>
+
+      <div className="border-t border-border pt-4">
+        <p className="mb-3 text-[11px] text-muted-foreground">
+          多页折叠态 · 当前第 {page2} 页 / 共 20 页（超过 7 页自动省略）
+        </p>
+        <TablePagination
+          total={200}
+          page={page2}
+          pageSize={10}
+          onChange={({ page: p }) => setPage2(p)}
+        />
+      </div>
+
+      <div className="border-t border-border pt-4">
+        <p className="mb-3 text-[11px] text-muted-foreground">
+          隐藏条数选择器 + 右侧插槽
+        </p>
+        <TablePagination
+          total={48}
+          page={1}
+          pageSize={10}
+          showPageSize={false}
+          extra={<span className="text-[11px] text-muted-foreground">最后更新 10:28</span>}
+          onChange={() => {}}
+        />
+      </div>
+
+      <p className="text-[11px] leading-5 text-muted-foreground">
+        当前页与条数选择器聚焦描边取 <code className="font-mono text-foreground">var(--shell-accent)</code>，
+        改一个 CSS 变量即可与顶栏/侧栏一起换品牌色。
+      </p>
+    </div>
   )
 }

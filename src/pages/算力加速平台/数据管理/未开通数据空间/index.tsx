@@ -12,6 +12,6 @@
  */
 import DatasetPage from '../数据集管理'
 
-export default function NoSpacePage() {
-  return <DatasetPage __forceNoSpace />
+export default function NoSpacePage({ __showFeat = false }: { __showFeat?: boolean } = {}) {
+  return <DatasetPage __forceNoSpace __showFeat={__showFeat} />
 }

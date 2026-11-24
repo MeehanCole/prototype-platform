@@ -54,7 +54,7 @@ const SERVICE_ROWS: ServiceRow[] = [
     fallbackOn: false,
     fallbackModels: [],
     rpmOn: true,
-    rpm: '5000 RPM',
+    rpm: '5000',
   },
   {
     name: '测试外部服务',
@@ -89,8 +89,8 @@ const SERVICE_ROWS: ServiceRow[] = [
     cacheOn: false,
     backend: '内部推理实例',
     instances: [
-      { label: 'kt服务-蓝组', running: true, weight: 100, model: 'QwQ-32B' },
-      { label: 'kt服务-绿组', running: true, weight: 0, model: 'QwQ-32B' },
+      { label: 'kt服务-1', running: true, weight: 100, model: 'QwQ-32B' },
+      { label: 'kt服务2', running: true, weight: 0, model: 'QwQ-32B' },
     ],
     apiUrl: API_BASE,
     totalTokens: '89.2k',
@@ -127,7 +127,7 @@ const SERVICE_ROWS: ServiceRow[] = [
     fallbackOn: true,
     fallbackModels: ['vllm验证'],
     rpmOn: true,
-    rpm: '2000 RPM',
+    rpm: '2000',
   },
   {
     name: '验证缓存设置',
@@ -170,7 +170,7 @@ const SERVICE_ROWS: ServiceRow[] = [
     fallbackOn: false,
     fallbackModels: [],
     rpmOn: true,
-    rpm: '1000 RPM',
+    rpm: '1000',
   },
 ]
 
@@ -486,16 +486,19 @@ function ServiceCard({ row }: { row: ServiceRow }) {
       <div className="px-5 mt-4 flex-1">
         <div className="mb-2 flex items-center gap-2 text-[13px] text-[#8c8c8c]">
           <span className="text-[#333] font-medium">{row.backend}</span>
-          <span>·</span>
-          <span>{row.route !== '–' ? row.route : '默认路由'}</span>
+          {/* 未配置路由时不再展示「默认路由」占位：卡片上只保留有信息量的字段 */}
+          {row.route !== '–' && (
+            <>
+              <span>·</span>
+              <span>{row.route}</span>
+            </>
+          )}
           <span>·</span>
           <span>{row.instances.length} 个实例</span>
           <InstanceHealthTip />
         </div>
         <div className="flex flex-col gap-2">
           {row.instances.map((ins) => {
-            const isBlueGreen = row.route === '蓝绿发布'
-            const isActiveBg = isBlueGreen && (ins.weight ?? 0) > 0
             return (
               <div key={ins.label} className="flex items-center gap-2">
                 <span
@@ -507,23 +510,13 @@ function ServiceCard({ row }: { row: ServiceRow }) {
                   {ins.label}
                 </span>
                 {ins.model && <span className="shrink-0 text-[12px] text-[#999]">({ins.model})</span>}
-                {isBlueGreen ? (
-                  <span
-                    className={`ml-auto shrink-0 text-[12px] ${
-                      isActiveBg ? 'text-[#166EFF] font-medium' : 'text-[#999]'
-                    }`}
-                  >
-                    {isActiveBg ? '主用' : '备用'}
-                  </span>
-                ) : (
-                  ins.weight != null && (
-                    <>
-                      <div className="flex-1 h-[6px] rounded bg-[#f0f0f0] overflow-hidden">
-                        <div className="h-full bg-[#166EFF]" style={{ width: `${ins.weight}%` }} />
-                      </div>
-                      <span className="w-[34px] shrink-0 text-right text-[12px] text-[#666]">{ins.weight}%</span>
-                    </>
-                  )
+                {ins.weight != null && (
+                  <>
+                    <div className="flex-1 h-[6px] rounded bg-[#f0f0f0] overflow-hidden">
+                      <div className="h-full bg-[#166EFF]" style={{ width: `${ins.weight}%` }} />
+                    </div>
+                    <span className="w-[34px] shrink-0 text-right text-[12px] text-[#666]">{ins.weight}%</span>
+                  </>
                 )}
               </div>
             )
@@ -554,7 +547,7 @@ function ServiceCard({ row }: { row: ServiceRow }) {
             row.rpmOn ? 'bg-[#F6FFED] text-[#52C41A]' : 'bg-[#f5f5f5] text-[#999]'
           }`}
         >
-          ⏱ {row.rpmOn ? `限流 ${row.rpm}` : '不限流'}
+          ⏱ {row.rpmOn ? `限流 ${row.rpm} 次/分钟` : '不限流'}
         </span>
       </div>
 

@@ -474,6 +474,150 @@ function FallbackServiceSelect({
 
 type RouteStrategyType = '按权重分发' | '金丝雀发布' | '蓝绿发布'
 
+/* 权重输入步进器（表格单元格内复用；样式对齐设计稿：输入框 84px + 26px 上下按钮） */
+function WeightStepper({
+  value,
+  onInput,
+  onInc,
+  onDec,
+  readOnly,
+}: {
+  value: string
+  onInput: (next: string) => void
+  onInc: () => void
+  onDec: () => void
+  readOnly?: boolean
+}) {
+  return (
+    <span className="inline-flex h-[32px] items-stretch">
+      <input
+        value={value}
+        readOnly={readOnly}
+        onChange={(e) => onInput(e.target.value)}
+        className={`h-full w-[84px] rounded-l-[4px] border border-[#d9d9d9] text-center text-[14px] outline-none ${
+          readOnly ? 'bg-[#fafafa] text-[#8c8c8c]' : 'bg-white text-[#333]'
+        }`}
+      />
+      <span className="flex w-[24px] flex-col rounded-r-[4px] border border-l-0 border-[#d9d9d9] bg-[#fafafa]">
+        <button
+          type="button"
+          aria-label="增加"
+          onClick={onInc}
+          className="flex flex-1 cursor-pointer items-center justify-center"
+        >
+          <svg width="9" height="9" viewBox="0 0 10 10" fill="none" aria-hidden>
+            <path d="M2 6.5 5 3.5 8 6.5" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+        <span className="mx-[2px] h-px bg-[#d9d9d9]" />
+        <button
+          type="button"
+          aria-label="减少"
+          onClick={onDec}
+          className="flex flex-1 cursor-pointer items-center justify-center"
+        >
+          <svg width="9" height="9" viewBox="0 0 10 10" fill="none" aria-hidden>
+            <path d="m2 3.5 3 3 3-3" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      </span>
+    </span>
+  )
+}
+
+/* 分段控件的策略图标：金丝雀 = 大小两个流量块；蓝绿 = 两个互补色块 */
+function CanaryIcon({ active }: { active: boolean }) {
+  const color = active ? '#166EFF' : '#8a8f99'
+  return (
+    <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden>
+      <rect x="1" y="2.5" width="8" height="9" rx="1.6" stroke={color} strokeWidth="1.2" />
+      <rect x="10" y="5" width="3" height="6.5" rx="1.2" fill={color} opacity={active ? 0.9 : 0.55} />
+    </svg>
+  )
+}
+
+function BlueGreenIcon({ active }: { active: boolean }) {
+  const color = active ? '#166EFF' : '#8a8f99'
+  return (
+    <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden>
+      <rect x="1" y="2.5" width="5.5" height="9" rx="1.6" fill={color} opacity={active ? 0.9 : 0.55} />
+      <rect x="7.5" y="2.5" width="5.5" height="9" rx="1.6" stroke={color} strokeWidth="1.2" />
+    </svg>
+  )
+}
+
+/* 常规路由策略图标：两条按比例分配的流量条 */
+function WeightSplitIcon({ active }: { active: boolean }) {
+  const color = active ? '#166EFF' : '#8a8f99'
+  return (
+    <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden>
+      <rect x="1" y="3" width="7" height="3" rx="1.5" fill={color} opacity={active ? 0.9 : 0.55} />
+      <rect x="9.5" y="3" width="3.5" height="3" rx="1.5" fill={color} opacity={0.35} />
+      <rect x="1" y="8" width="3.5" height="3" rx="1.5" fill={color} opacity={0.35} />
+      <rect x="6" y="8" width="7" height="3" rx="1.5" fill={color} opacity={active ? 0.9 : 0.55} />
+    </svg>
+  )
+}
+
+/* 表格底部提示条图标 */
+function RedWarnIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="shrink-0" aria-hidden>
+      <circle cx="8" cy="8" r="6.6" stroke="#c9302c" strokeWidth="1.1" />
+      <path d="M8 4.7v4" stroke="#c9302c" strokeWidth="1.3" strokeLinecap="round" />
+      <circle cx="8" cy="11" r="0.8" fill="#c9302c" />
+    </svg>
+  )
+}
+
+
+/* 策略分段控件：常规路由与灰度发布共用同一套外观，保证两种策略的切换器一致
+   - 单项（常规路由）不可交互，仅作为「当前策略」标签，视觉上与灰度选中态完全一致
+   - 多项（灰度）互斥切换，role=tablist/tab */
+function StrategySegmented({
+  items,
+  ariaLabel,
+}: {
+  items: {
+    label: string
+    selected: boolean
+    interactive?: boolean
+    onSelect: () => void
+    icon: (active: boolean) => React.ReactNode
+  }[]
+  ariaLabel: string
+}) {
+  return (
+    <div role="tablist" aria-label={ariaLabel} className="inline-flex items-center gap-[3px] rounded-[8px] bg-[#f2f3f7] p-[3px]">
+      {items.map((item) => {
+        const clickable = item.interactive !== false
+        return (
+          <button
+            key={item.label}
+            type="button"
+            role="tab"
+            aria-selected={item.selected}
+            tabIndex={clickable ? undefined : -1}
+            onClick={() => {
+              if (clickable) item.onSelect()
+            }}
+            className={`flex h-[30px] items-center gap-[6px] rounded-[6px] px-[14px] text-[14px] transition-all ${
+              clickable ? 'cursor-pointer' : 'cursor-default'
+            } ${
+              item.selected
+                ? 'bg-white font-medium text-[#166EFF] shadow-[0_1px_3px_rgba(0,0,0,0.1)]'
+                : 'text-[#5b6478] hover:text-[#1f2329]'
+            }`}
+          >
+            {item.icon(item.selected)}
+            {item.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 /* 流量分发策略卡片（常规路由：按权重分发 / 灰度发布：金丝雀发布、蓝绿发布） */
 function RouteCard({
   category,
@@ -538,247 +682,196 @@ function RouteCard({
     return 0
   })
 
-  const [dropdownOpen, setDropdownOpen] = useState(false)
-  const dropdownRef = useRef<HTMLSpanElement>(null)
-  useOutsideClose(dropdownRef, () => setDropdownOpen(false))
-
-  const dropdownOptions: RouteStrategyType[] =
-    category === 'routine' ? ['按权重分发'] : ['金丝雀发布', '蓝绿发布']
-
   const grayInstances =
     instances.length >= 2
       ? instances.slice(0, 2)
       : [instances[0] || '待选择实例 1', instances[1] || '待选择实例 2']
 
   return (
-    <div className="w-[617px] rounded-[4px] border border-[#e4e6eb] p-[20px]">
-      {/* 卡片顶栏：原版 327px 下拉框（常规路由展示「按权重分发」；灰度发布单选「金丝雀发布 / 蓝绿发布」） */}
-      <div className="flex items-center">
-        <span ref={dropdownRef} className="relative inline-block w-[327px]">
-          <span
-            onClick={() => setDropdownOpen((o) => !o)}
-            className={`h-[40px] flex items-center justify-between rounded border px-3 text-[15px] cursor-pointer ${
-              dropdownOpen ? 'border-[#166EFF] text-[#333]' : 'border-[#d9d9d9] text-[#333]'
-            }`}
-          >
-            {activeStrategy}
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 12 12"
-              fill="none"
-              aria-hidden
-              className={`transition-transform ${dropdownOpen ? 'rotate-180' : ''}`}
+    <div className="w-[617px] overflow-hidden rounded-[8px] border border-[#e4e6eb]">
+      {/* 面板顶栏：策略分段控件。策略切换与权重行合并进同一容器，
+          不再是「选择框 + 表格」两块独立组件拼接 */}
+      <div className="flex h-[48px] items-center gap-[10px] bg-[#fafbfc] px-[16px]">
+        {category === 'routine' ? (
+          <StrategySegmented
+            ariaLabel="常规路由策略"
+            items={[
+              {
+                label: '按权重分发',
+                selected: true,
+                interactive: false,
+                onSelect: () => {},
+                icon: (active) => <WeightSplitIcon active={active} />,
+              },
+            ]}
+          />
+        ) : (
+          <StrategySegmented
+            ariaLabel="灰度发布策略"
+            items={[
+              {
+                label: '金丝雀发布',
+                selected: grayStrategy === '金丝雀发布',
+                onSelect: () => setGrayStrategy('金丝雀发布'),
+                icon: (active) => <CanaryIcon active={active} />,
+              },
+              {
+                label: '蓝绿发布',
+                selected: grayStrategy === '蓝绿发布',
+                onSelect: () => setGrayStrategy('蓝绿发布'),
+                icon: (active) => <BlueGreenIcon active={active} />,
+              },
+            ]}
+          />
+        )}
+      </div>
+
+      <div className="h-px bg-[#eef0f4]" />
+
+      {/* 两策略共用表头：后端推理实例 / 权重比例 */}
+      <div className="flex h-[38px] items-center bg-[#fafbfc] px-[16px] text-[13px] text-[#8c8c8c]">
+        <span className="min-w-0 flex-1 pl-[27px]">后端推理实例</span>
+        <span className="w-[132px] shrink-0 text-right">权重比例</span>
+      </div>
+      <div className="h-px bg-[#eef0f4]" />
+
+      <div className="divide-y divide-[#f2f3f7]">
+        {/* 空态：未选择后端推理实例时给出引导 */}
+        {instances.length === 0 && (
+          <div className="flex h-[56px] items-center justify-center text-[14px] text-[#b0b4bd]">
+            请先在上方选择后端推理实例
+          </div>
+        )}
+
+        {/* 1. 常规路由（按权重分发） */}
+        {activeStrategy === '按权重分发' &&
+          instances.map((name) => (
+            <div
+              key={name}
+              className="flex h-[56px] items-center gap-[12px] px-[16px] transition-colors hover:bg-[#fafbfe]"
             >
-              <path d="m2.5 4.5 3.5 3.5 3.5-3.5" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </span>
-          {dropdownOpen && (
-            <span className="absolute left-0 top-[47px] z-30 w-full rounded-[4px] border border-[#e4e6eb] bg-white shadow-[0_4px_16px_rgba(0,0,0,0.08)]">
-              <span className="absolute -top-[5px] left-[70px] h-[10px] w-[10px] rotate-45 border-l border-t border-[#e4e6eb] bg-white" />
-              <span className="block py-[4px]">
-                {dropdownOptions.map((item) => (
-                  <span
-                    key={item}
-                    onClick={() => {
-                      if (item === '金丝雀发布' || item === '蓝绿发布') {
-                        setGrayStrategy(item)
-                      }
-                      setDropdownOpen(false)
-                    }}
-                    className={`flex h-[41px] items-center px-[26px] cursor-pointer ${
-                      activeStrategy === item ? 'bg-[#f5f7fa] text-[#166EFF]' : 'text-[#333] hover:bg-[#f5f7fa]'
-                    }`}
-                  >
-                    <span className="text-[15px]">{item}</span>
+              <span className="min-w-0 flex-1 truncate pl-[27px] text-[15px] text-[#1f2329]" title={name}>
+                {name}
+              </span>
+              <span className="flex w-[132px] shrink-0 items-center justify-end gap-[8px]">
+                <WeightStepper
+                  value={weights[name] ?? '0'}
+                  onInput={(v) => {
+                    // 单实例权重上限 100%：输入超过 100 时截断，避免出现「已超出 9899%」这类无意义提示
+                    const next = v.replace(/[^\d]/g, '')
+                    setWeights((w2) => ({ ...w2, [name]: next === '' ? '' : String(Math.min(100, Number(next))) }))
+                  }}
+                  onInc={() => setWeights((w2) => ({ ...w2, [name]: String((Number(w2[name]) || 0) + 1) }))}
+                  onDec={() => setWeights((w2) => ({ ...w2, [name]: String(Math.max(0, (Number(w2[name]) || 0) - 1)) }))}
+                />
+                <span className="w-[12px] text-[14px] text-[#8c8c8c]">%</span>
+              </span>
+            </div>
+          ))}
+
+        {/* 2. 灰度发布 · 金丝雀发布（基线 / 金丝雀自动互补） */}
+        {activeStrategy === '金丝雀发布' &&
+          grayInstances.map((name, idx) => {
+            const isFirst = idx === 0
+            const isSecond = idx === 1
+            const val = isFirst ? baselineWeight : isSecond ? canaryWeight : 0
+            const updateVal = (nextVal: number) => {
+              const clamped = Math.min(100, Math.max(0, nextVal))
+              if (isFirst) setCanaryWeight(100 - clamped)
+              else if (isSecond) setCanaryWeight(clamped)
+            }
+            return (
+              <div
+                key={`${name}-${idx}`}
+                className="flex h-[56px] items-center gap-[12px] px-[16px] transition-colors hover:bg-[#fafbfe]"
+              >
+                <span className="flex min-w-0 flex-1 items-center gap-[8px] pl-[27px]">
+                  <span className="truncate text-[15px] text-[#1f2329]" title={name}>
+                    {name}
                   </span>
-                ))}
-              </span>
-            </span>
-          )}
-        </span>
-      </div>
+                </span>
+                <span className="flex w-[132px] shrink-0 items-center justify-end gap-[8px]">
+                  <WeightStepper
+                    value={String(val)}
+                    readOnly={!isFirst && !isSecond}
+                    onInput={(v) => updateVal(Number(v.replace(/[^\d]/g, '')) || 0)}
+                    onInc={() => updateVal(val + 5)}
+                    onDec={() => updateVal(val - 5)}
+                  />
+                  <span className="w-[12px] text-[14px] text-[#8c8c8c]">%</span>
+                </span>
+              </div>
+            )
+          })}
 
-      {/* 下方统一「权重配置」区域：左对齐顶栏下拉框，常规路由与 v1 样式完全一致 */}
-      <div className="mt-[24px] flex items-start text-left">
-        <span className="shrink-0 text-left text-[16px] font-semibold text-[#1f2329]">权重配置</span>
-        <span className="ml-[32px] flex-1 text-left">
-          {/* 1. 常规路由（按权重分发）—— 与 v1 保持 100% 一致 */}
-          {activeStrategy === '按权重分发' && (
-            <>
-              <span className="flex flex-col gap-[10px]">
-                {instances.map((name) => (
-                  <div key={name} className="flex items-center">
-                    <span className="w-[240px] shrink-0 text-left text-[15px] text-[#333] truncate pr-2" title={name}>
-                      {name}
-                    </span>
-                    <span className="inline-flex items-stretch h-[40px]">
-                      <input
-                        value={weights[name] ?? '0'}
-                        onChange={(e) => setWeights((w) => ({ ...w, [name]: e.target.value.replace(/[^\d]/g, '') }))}
-                        className="w-[120px] h-full rounded-l border border-[#d9d9d9] text-center text-[14px] text-[#333] outline-none"
-                      />
-                      <span className="w-[26px] border border-l-0 border-[#d9d9d9] rounded-r flex flex-col bg-[#fafafa]">
-                        <button
-                          type="button"
-                          className="flex-1 flex items-center justify-center cursor-pointer"
-                          aria-label="增加"
-                          onClick={() => setWeights((w) => ({ ...w, [name]: String((Number(w[name]) || 0) + 1) }))}
-                        >
-                          <svg width="9" height="9" viewBox="0 0 10 10" fill="none" aria-hidden>
-                            <path d="M2 6.5 5 3.5 8 6.5" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        </button>
-                        <span className="h-px bg-[#d9d9d9] mx-[2px]" />
-                        <button
-                          type="button"
-                          className="flex-1 flex items-center justify-center cursor-pointer"
-                          aria-label="减少"
-                          onClick={() => setWeights((w) => ({ ...w, [name]: String(Math.max(0, (Number(w[name]) || 0) - 1)) }))}
-                        >
-                          <svg width="9" height="9" viewBox="0 0 10 10" fill="none" aria-hidden>
-                            <path d="m2 3.5 3 3 3-3" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        </button>
-                      </span>
-                    </span>
-                    <span className="ml-3 text-[14px] text-[#333]">%</span>
-                  </div>
-                ))}
-              </span>
-              <span className="mt-[10px] flex items-center text-[15px] text-[#F5222D]">
-                <svg width="15" height="15" viewBox="0 0 16 16" fill="none" className="mr-1.5 shrink-0" aria-hidden>
-                  <circle cx="8" cy="8" r="7" fill="#F5222D" />
-                  <text x="8" y="12" textAnchor="middle" fontSize="10" fill="#fff" fontStyle="italic" fontWeight="bold">
-                    i
-                  </text>
-                </svg>
-                权重之和：{weightSum}%（必须等于100%）
-              </span>
-            </>
-          )}
-
-          {/* 2. 灰度发布 · 金丝雀发布（同构 Stepper 输入框 + 基线/金丝雀自动互补） */}
-          {activeStrategy === '金丝雀发布' && (
-            <>
-              <span className="flex flex-col gap-[10px]">
-                {grayInstances.map((name, idx) => {
-                  const isFirst = idx === 0
-                  const isSecond = idx === 1
-                  const val = isFirst ? baselineWeight : isSecond ? canaryWeight : 0
-                  const updateVal = (nextVal: number) => {
-                    const clamped = Math.min(100, Math.max(0, nextVal))
-                    if (isFirst) setCanaryWeight(100 - clamped)
-                    else if (isSecond) setCanaryWeight(clamped)
+        {/* 3. 灰度发布 · 蓝绿发布（整行单选 + 状态徽章）
+            - 行加 role=radio + 键盘可操作，避免只有鼠标能选 */}
+        {activeStrategy === '蓝绿发布' &&
+          grayInstances.map((name, idx) => {
+            const isActive = idx === blueGreenActiveIdx
+            return (
+              <div
+                key={`${name}-${idx}`}
+                role="radio"
+                aria-checked={isActive}
+                tabIndex={0}
+                onClick={() => setBlueGreenActiveIdx(idx)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    setBlueGreenActiveIdx(idx)
                   }
-                  return (
-                    <div key={`${name}-${idx}`} className="flex items-center">
-                      <span className="w-[240px] shrink-0 text-left text-[15px] text-[#333] truncate pr-2" title={name}>
-                        {name}
-                      </span>
-                      <span className="inline-flex items-stretch h-[40px]">
-                        <input
-                          value={String(val)}
-                          readOnly={!isFirst && !isSecond}
-                          onChange={(e) => updateVal(Number(e.target.value.replace(/[^\d]/g, '')) || 0)}
-                          className="w-[120px] h-full rounded-l border border-[#d9d9d9] text-center text-[14px] text-[#333] outline-none"
-                        />
-                        <span className="w-[26px] border border-l-0 border-[#d9d9d9] rounded-r flex flex-col bg-[#fafafa]">
-                          <button
-                            type="button"
-                            className="flex-1 flex items-center justify-center cursor-pointer"
-                            aria-label="增加"
-                            onClick={() => updateVal(val + 5)}
-                          >
-                            <svg width="9" height="9" viewBox="0 0 10 10" fill="none" aria-hidden>
-                              <path d="M2 6.5 5 3.5 8 6.5" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                          </button>
-                          <span className="h-px bg-[#d9d9d9] mx-[2px]" />
-                          <button
-                            type="button"
-                            className="flex-1 flex items-center justify-center cursor-pointer"
-                            aria-label="减少"
-                            onClick={() => updateVal(val - 5)}
-                          >
-                            <svg width="9" height="9" viewBox="0 0 10 10" fill="none" aria-hidden>
-                              <path d="m2 3.5 3 3 3-3" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                          </button>
-                        </span>
-                      </span>
-                      <span className="ml-3 text-[14px] text-[#333]">%</span>
-                    </div>
-                  )
-                })}
-              </span>
-
-              <span className="mt-[10px] flex items-center text-[15px] text-[#8c8c8c]">
-                <svg width="15" height="15" viewBox="0 0 16 16" fill="none" className="mr-1.5 shrink-0" aria-hidden>
-                  <circle cx="8" cy="8" r="7" fill="#8c8c8c" />
-                  <text x="8" y="12" textAnchor="middle" fontSize="10" fill="#fff" fontStyle="italic" fontWeight="bold">
-                    i
-                  </text>
-                </svg>
-                两实例权重自动互补（权重之和：100%）
-              </span>
-            </>
-          )}
-
-          {/* 3. 灰度发布 · 蓝绿发布（Radio 单选承载全部流量的实例 + 状态徽章，无百分比输入框） */}
-          {activeStrategy === '蓝绿发布' && (
-            <>
-              <span className="flex flex-col gap-[10px]">
-                {grayInstances.map((name, idx) => {
-                  const isActive = idx === blueGreenActiveIdx
-                  return (
-                    <div
-                      key={`${name}-${idx}`}
-                      className={`flex h-[40px] w-[420px] cursor-pointer items-center rounded-[4px] border px-3 ${
-                        isActive ? 'border-[#166EFF] bg-[#f0f6ff]' : 'border-[#e4e6eb] bg-white hover:border-[#b6c6e3]'
-                      }`}
-                      onClick={() => setBlueGreenActiveIdx(idx)}
-                    >
-                      <span
-                        className={`inline-flex items-center justify-center w-[15px] h-[15px] rounded-full border ${
-                          isActive ? 'border-[#166EFF] bg-[#166EFF]' : 'border-[#d9d9d9] bg-white'
-                        }`}
-                      >
-                        {isActive && <span className="w-[5px] h-[5px] rounded-full bg-white block" />}
-                      </span>
-                      <span
-                        className={`ml-2 flex-1 text-left text-[15px] truncate pr-2 ${isActive ? 'text-[#166EFF]' : 'text-[#333]'}`}
-                        title={name}
-                      >
-                        {name}
-                      </span>
-                      <span
-                        className={`shrink-0 rounded-[10px] px-2 py-[1px] text-[12px] leading-[18px] ${
-                          isActive
-                            ? 'bg-[#e6f4ea] text-[#16a34a]'
-                            : 'bg-[#f2f3f5] text-[#8c8c8c]'
-                        }`}
-                      >
-                        {isActive ? '主用 (100%)' : '备用 (0%)'}
-                      </span>
-                    </div>
-                  )
-                })}
-              </span>
-
-              <span className="mt-[10px] flex items-center text-[15px] text-[#8c8c8c]">
-                <svg width="15" height="15" viewBox="0 0 16 16" fill="none" className="mr-1.5 shrink-0" aria-hidden>
-                  <circle cx="8" cy="8" r="7" fill="#8c8c8c" />
-                  <text x="8" y="12" textAnchor="middle" fontSize="10" fill="#fff" fontStyle="italic" fontWeight="bold">
-                    i
-                  </text>
-                </svg>
-                选中实例承载 100% 流量，另一实例不接收流量（0%）
-              </span>
-            </>
-          )}
-        </span>
+                }}
+                className={`relative flex h-[56px] cursor-pointer items-center gap-[12px] px-[16px] outline-none transition-colors focus-visible:bg-[#f5f9ff] ${
+                  isActive ? 'bg-[#f5f9ff]' : 'hover:bg-[#fafbfe]'
+                }`}
+              >
+                <span
+                  className={`absolute left-[16px] inline-flex h-[15px] w-[15px] items-center justify-center rounded-full border ${
+                    isActive ? 'border-[#166EFF] bg-[#166EFF]' : 'border-[#d9d9d9] bg-white'
+                  }`}
+                  aria-hidden
+                >
+                  {isActive && <span className="block h-[5px] w-[5px] rounded-full bg-white" />}
+                </span>
+                <span className="flex min-w-0 flex-1 items-center gap-[8px] pl-[27px]">
+                  <span
+                    className={`truncate text-[15px] ${isActive ? 'font-medium text-[#166EFF]' : 'text-[#1f2329]'}`}
+                    title={name}
+                  >
+                    {name}
+                  </span>
+                </span>
+                <span
+                  className={`w-[132px] shrink-0 text-right text-[14px] tabular-nums ${
+                    isActive ? 'text-[#1f2329]' : 'text-[#8c8c8c]'
+                  }`}
+                >
+                  {isActive ? 100 : 0}%
+                </span>
+              </div>
+            )
+          })}
       </div>
+
+      {/* 底部校验条：已选择实例且权重不满足 100% 时提示差多少；空实例态不渲染 */}
+      {activeStrategy === '按权重分发' && instances.length > 0 && weightSum !== 100 && (
+        <div className="flex items-center gap-[6px] border-t border-[#ffd8d4] bg-[#fff4f2] px-[16px] py-[9px] text-[13px] leading-[20px]">
+          <RedWarnIcon />
+          <span className="text-[#8c5a52]">
+            {weightSum < 100 ? (
+              <>
+                还差 <span className="font-semibold text-[#c9302c]">{100 - weightSum}%</span>
+              </>
+            ) : (
+              <>
+                已超出 <span className="font-semibold text-[#c9302c]">{weightSum - 100}%</span>
+              </>
+            )}
+            ，各实例权重之和必须等于 100%
+          </span>
+        </div>
+      )}
     </div>
   )
 }
@@ -1061,11 +1154,6 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
                           setRouteOn((v) => !v)
                         }}
                       />
-                      <span className="ml-3 text-[14px] text-[#8c8c8c]">
-                        {instances.length >= 2
-                          ? '选择多个后端推理实例时，必须配置流量分发策略'
-                          : '开启后可对已选后端推理实例配置常规路由（按权重分发）或灰度发布（金丝雀 / 蓝绿）策略'}
-                      </span>
                     </span>
                     <NewTag compact code="F-06" className="ml-2" />
                   </div>
@@ -1086,9 +1174,6 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
                             disabled={instances.length !== 2}
                             onChange={() => setRouteCategory('grayscale')}
                           />
-                          {instances.length !== 2 && (
-                            <span className="text-[13px] text-[#8c8c8c]">（灰度发布需选择 2 个后端推理实例）</span>
-                          )}
                         </div>
                       </div>
 

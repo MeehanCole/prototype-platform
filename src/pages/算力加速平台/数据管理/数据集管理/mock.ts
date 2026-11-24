@@ -14,7 +14,21 @@
  * 不对「上传」单独设状态，避免出现「上传完成却没有上传成功」的断头路。
  */
 export type DatasetStatus = '导入成功' | '初始化' | '导入中' | '导入失败'
-export type DatasetType = '评测数据集' | '训练数据集' | '知识库数据集'
+
+/**
+ * 数据集标签（选填，最多 3 个）
+ *
+ * 平台不对数据集内容做类型约束：任何格式的文件都能原样存入存储桶，
+ * 并作为容器卷挂载使用。标签只是给使用方的一个检索提示，
+ * 不参与任何导入校验，也不影响挂载能力。
+ */
+export type DatasetTag = string
+
+export const PRESET_TAGS: DatasetTag[] = ['训练语料', '评测集', '知识库', '图片素材', '音频素材', '其他']
+
+export const MAX_TAGS = 3
+
+export const TAG_MAX_LENGTH = 8
 
 /**
  * 客户端上传的探测进度（模拟 ListObjectsV2 轮询结果）
@@ -52,7 +66,8 @@ export interface Dataset {
   /** 数据集描述，创建时选填，最长 300 字 */
   description?: string
   latestVersion: string
-  type: DatasetType
+  /** 数据集标签（选填，≤3 个），仅用于检索与展示，不参与导入校验 */
+  tags: DatasetTag[]
   status: DatasetStatus
   creator: string
   createdAt: string
@@ -66,20 +81,8 @@ export interface Dataset {
   upload?: UploadProbe
 }
 
-export const TYPE_OPTIONS: DatasetType[] = ['评测数据集', '训练数据集', '知识库数据集']
-
-/** 创建弹窗中每个数据集类型的说明文案 */
-export const TYPE_DESCRIPTIONS: Record<DatasetType, string> = {
-  评测数据集: '用于模型性能评估，包括 QA 标准答案和打分维度，支持自动评测。',
-  训练数据集: '用于模型微调训练，包含指令与回复样本，支持增量迭代。',
-  知识库数据集: '用于知识库检索与问答，包含文档语料与分块索引。',
-}
-
 export const NAME_MAX_LENGTH = 56
 export const DESC_MAX_LENGTH = 300
-
-export const SEARCH_FIELDS = ['名称', '创建者', '类型'] as const
-export type SearchField = (typeof SEARCH_FIELDS)[number]
 
 export const PAGE_SIZES = [10, 20, 50] as const
 
@@ -88,7 +91,7 @@ export const MOCK_DATASETS: Dataset[] = [
     id: 'ds-fin-qa',
     name: '金融QA数据集',
     latestVersion: 'V2',
-    type: '评测数据集',
+    tags: ['评测集', '问答'],
     status: '导入成功',
     creator: 'lihang',
     createdAt: '2026-04-07 14:32:21',
@@ -116,7 +119,7 @@ export const MOCK_DATASETS: Dataset[] = [
     id: 'ds-law-qa',
     name: '法律QA数据集',
     latestVersion: 'V1',
-    type: '评测数据集',
+    tags: ['评测集'],
     status: '初始化',
     creator: 'licheng',
     createdAt: '2026-04-07 14:29:00',
@@ -137,7 +140,7 @@ export const MOCK_DATASETS: Dataset[] = [
     id: 'ds-sft-general',
     name: '通用指令微调数据集',
     latestVersion: 'V1',
-    type: '训练数据集',
+    tags: ['训练语料', '指令微调'],
     status: '导入中',
     creator: 'wangqiang',
     createdAt: '2026-04-08 09:15:42',
@@ -158,7 +161,7 @@ export const MOCK_DATASETS: Dataset[] = [
     id: 'ds-medical-qa',
     name: '医疗问答数据集',
     latestVersion: 'V1',
-    type: '评测数据集',
+    tags: ['评测集', '医疗'],
     status: '导入中',
     creator: 'sunyu',
     createdAt: '2026-04-08 10:36:18',
@@ -191,7 +194,7 @@ export const MOCK_DATASETS: Dataset[] = [
     id: 'ds-manual-kb',
     name: '产品手册知识库',
     latestVersion: 'V3',
-    type: '知识库数据集',
+    tags: ['知识库', '文档'],
     status: '导入成功',
     creator: 'zhaomin',
     createdAt: '2026-04-06 16:48:09',
@@ -226,7 +229,7 @@ export const MOCK_DATASETS: Dataset[] = [
     id: 'ds-custom',
     name: '自定义数据集',
     latestVersion: 'V1',
-    type: '评测数据集',
+    tags: [],
     status: '导入失败',
     creator: 'huangyufu',
     createdAt: '2026-04-07 14:20:21',

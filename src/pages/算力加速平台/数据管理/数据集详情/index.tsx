@@ -4,7 +4,7 @@
  * 包含弹窗交互：
  * 1. 删除数据集确认弹窗
  * 2. 编辑数据集名称弹窗（56 字以内）
- * 3. 编辑描述弹窗（500 字以内，无额外校验约束）
+ * 3. 编辑数据集描述弹窗（500 字以内，无额外校验约束）
  * 4. 删除数据集文件确认弹窗（支持单文件删除与批量删除）
  * 5. 新建版本确认弹窗 -> 确定后进入「上传文件」弹窗
  * 6. 上传文件弹窗（只读新版本号 + 普通上传/客户端上传双页签）
@@ -14,6 +14,7 @@ import type { ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Check, Copy, Download, Loader2, SquarePen, Trash2, X } from 'lucide-react'
 import { PlatformHeader, SideNav } from '../数据集管理/_shared'
+import { TagChips } from '../数据集管理/tags'
 import { NAME_MAX_LENGTH, nextVersion, nowStamp } from '../数据集管理/mock'
 import type { Dataset, DatasetStatus, UploadProbe } from '../数据集管理/mock'
 import { markRemoved, readDatasets, writeDatasets } from '../数据集管理/store'
@@ -78,7 +79,7 @@ function buildClientUploadSteps(dataset: Dataset, version: string) {
     },
     {
       title: '2. 上传单个文件：',
-      command: `mc cp ./my_dataset.jsonl ${bucketPath}`,
+      command: `mc cp ./my_file ${bucketPath}`,
     },
     {
       title: '3. 上传整个本地文件夹（数据集文件需要平铺，不支持子目录）',
@@ -91,6 +92,20 @@ function formatFileSize(bytes: number) {
   if (bytes >= 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024 / 1024).toFixed(0)}GB`
   if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(2)}MB`
   return `${(bytes / 1024).toFixed(2)}KB`
+}
+
+/** 可在线预览的文本类扩展名（平台不做内容解析，仅文本类文件能预览） */
+const TEXT_EXTS = ['jsonl', 'json', 'txt', 'csv', 'md', 'tsv', 'yaml', 'yml', 'log']
+
+/** 取文件扩展名用于「文件类型」列 */
+function fileExtension(name: string) {
+  if (!name.includes('.')) return '未知'
+  return name.split('.').pop()!.toUpperCase()
+}
+
+function isPreviewable(name: string) {
+  if (!name.includes('.')) return false
+  return TEXT_EXTS.includes(name.split('.').pop()!.toLowerCase())
 }
 
 function buildInitialGroups(dataset: Dataset | undefined): VersionGroup[] {
@@ -117,8 +132,8 @@ function buildInitialGroups(dataset: Dataset | undefined): VersionGroup[] {
         index === 0
           ? [
               { name: 'part_01.jsonl', sizeText: '40GB' },
-              { name: 'part_02.jsonl', sizeText: '40GB' },
-              { name: 'part_03.jsonl', sizeText: '40GB' },
+              { name: 'images_2026q1.tar', sizeText: '40GB' },
+              { name: 'readme.md', sizeText: '12KB' },
             ]
           : [{ name: 'part_01.jsonl', sizeText: '80GB' }],
     }
@@ -191,11 +206,11 @@ function UploadTrayIcon() {
   )
 }
 
-/** 文件行左侧 Json 图标 */
-function JsonFileIcon() {
+/** 文件行左侧扩展名图标：不再固定 Json */
+function FileExtIcon({ fileName }: { fileName: string }) {
   return (
-    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[4px] bg-[#f2f3f5] text-[10px] font-bold tracking-tight text-[#86909c]">
-      Json
+    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[4px] bg-[#f2f3f5] text-[10px] font-bold uppercase tracking-tight text-[#86909c]">
+      {fileExtension(fileName).slice(0, 4)}
     </div>
   )
 }
@@ -399,7 +414,7 @@ function RenameDatasetModal({
   )
 }
 
-/** 3. 编辑描述弹窗（不加校验约束） */
+/** 3. 编辑数据集描述弹窗（不加校验约束） */
 function EditDescModal({
   initialDesc,
   onClose,
@@ -413,7 +428,7 @@ function EditDescModal({
 
   return (
     <Modal
-      title="编辑描述"
+      title="编辑数据集描述"
       widthClass="w-[440px]"
       alignFooter="center"
       onClose={onClose}
@@ -427,7 +442,7 @@ function EditDescModal({
       }
     >
       <div className="flex items-start gap-4">
-        <label className="shrink-0 pt-1.5 text-[13px] text-[#1d2129]">描述</label>
+        <label className="shrink-0 pt-1.5 text-[13px] text-[#1d2129]">数据集描述</label>
         <div className="relative min-w-0 flex-1 rounded-[4px] border border-[#e5e6eb] bg-white px-3 pb-6 pt-2 focus-within:border-[#1890ff]">
           <textarea
             value={value}
@@ -617,7 +632,6 @@ function UploadFilesModal({
                 <input
                   type="file"
                   multiple
-                  accept=".jsonl"
                   className="hidden"
                   onChange={(e) => {
                     pickFiles(e.target.files)
@@ -629,7 +643,7 @@ function UploadFilesModal({
                   拖拽文件到此处，或<span className="text-[#1890ff]">点击上传</span>
                 </span>
                 <span className="mt-1.5 text-center text-[12px] leading-5 text-[#a7acb3]">
-                  支持 .jsonl格式，最多上传20个文件，单个文件大小不超过2048M
+                  不限文件格式，按原样存入存储目录；最多 20 个文件，单个文件不超过 2048M
                 </span>
               </label>
 
@@ -642,7 +656,7 @@ function UploadFilesModal({
                       key={`${file.name}-${index}`}
                       className="flex items-center gap-3 rounded-[4px] border border-[#e5e6eb] bg-white px-4 py-2.5"
                     >
-                      <JsonFileIcon />
+                      <FileExtIcon fileName={file.name} />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-[13px] leading-5 text-[#1d2129]">{file.name}</p>
                         <p className="text-[11px] leading-4 text-[#a7acb3]">
@@ -900,19 +914,19 @@ export default function DatasetDetailPage() {
                 <InfoItem label="状态：">
                   <StatusDisplay status={activeStatus} errorMessage={activeError} />
                 </InfoItem>
-                <InfoItem label="数据集类型：">
-                  <span className="whitespace-nowrap">{dataset.type}</span>
+                <InfoItem label="数据集标签：">
+                  <TagChips tags={dataset.tags} />
                 </InfoItem>
 
                 <InfoItem label="创建者：">
                   <span className="whitespace-nowrap">{dataset.creator}</span>
                 </InfoItem>
-                <InfoItem label="描述：">
+                <InfoItem label="数据集描述：">
                   <span className="inline-flex items-center gap-2">
                     <span className="line-clamp-1">{dataset.description ?? '-'}</span>
                     <button
                       type="button"
-                      aria-label="编辑描述"
+                      aria-label="编辑数据集描述"
                       onClick={() => setEditDescOpen(true)}
                       className="shrink-0 text-[#a7acb3] transition-colors hover:text-[#1890ff]"
                     >
@@ -1054,7 +1068,7 @@ export default function DatasetDetailPage() {
                       <tr className="bg-[#f8f9fc] text-[12px] text-[#4e5969]">
                         <th className="w-[30%] whitespace-nowrap px-4 py-2 font-normal">文件名</th>
                         <th className="w-[18%] whitespace-nowrap px-4 py-2 font-normal">文件大小</th>
-                        <th className="w-[26%] whitespace-nowrap px-4 py-2 font-normal">样本评估</th>
+                        <th className="w-[26%] whitespace-nowrap px-4 py-2 font-normal">文件类型</th>
                         <th className="w-[26%] whitespace-nowrap px-4 py-2 font-normal">操作</th>
                       </tr>
                     </thead>
@@ -1084,8 +1098,8 @@ export default function DatasetDetailPage() {
                                     <td className="whitespace-nowrap px-4 py-2.5 text-[12px] text-[#1d2129]">
                                       {file.sizeText}
                                     </td>
-                                    <td className="whitespace-nowrap px-4 py-2.5 text-[12px] text-[#1d2129]">
-                                      约 250,000条
+                                    <td className="whitespace-nowrap px-4 py-2.5 text-[12px] text-[#4e5969]">
+                                      {fileExtension(file.name)}
                                     </td>
                                     <td className="whitespace-nowrap px-4 py-2.5">
                                       <div className="flex items-center gap-3 text-[12px]">
@@ -1137,11 +1151,27 @@ export default function DatasetDetailPage() {
                   )}
                 </div>
 
-                {/* 深色代码块或空态 */}
+                {/*
+                  深色代码块或空态。
+                  平台不解析文件内容：仅文本类文件给出预览，其余提示下载查看
+                */}
                 {totalFiles > 0 ? (
-                  <pre className="max-h-[340px] overflow-auto rounded-[4px] bg-[#323232] px-4 py-3 font-mono text-[12px] leading-[19px] text-[#e5e6eb]">
-                    {PREVIEW_LINES.join('\n')}
-                  </pre>
+                  isPreviewable(activePreviewName) ? (
+                    <pre className="max-h-[340px] overflow-auto rounded-[4px] bg-[#323232] px-4 py-3 font-mono text-[12px] leading-[19px] text-[#e5e6eb]">
+                      {PREVIEW_LINES.join('\n')}
+                    </pre>
+                  ) : (
+                    <div className="flex h-[180px] flex-col items-center justify-center gap-2 rounded-[4px] border border-[#e5e6eb] bg-[#fafafa] text-[12px] text-[#86909c]">
+                      <span>该文件类型不支持在线预览</span>
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadFile(activePreviewName)}
+                        className="text-[#1890ff] hover:underline"
+                      >
+                        下载后查看
+                      </button>
+                    </div>
+                  )
                 ) : (
                   <div className="flex h-[180px] items-center justify-center rounded-[4px] border border-[#e5e6eb] bg-[#fafafa] text-[12px] text-[#86909c]">
                     暂无数据

@@ -7,9 +7,6 @@ import type { ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Check,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   Loader2,
   Pencil,
   Plus,
@@ -19,17 +16,19 @@ import {
   X,
 } from 'lucide-react'
 import { PlatformHeader, SideNav } from './_shared'
+import { TagChips } from './tags'
+import { TablePagination } from '@/lib/table-pagination'
 import {
   NAME_MAX_LENGTH,
   PAGE_SIZES,
-  SEARCH_FIELDS,
   nextVersion,
   nowStamp,
 } from './mock'
-import type { Dataset, DatasetStatus, SearchField } from './mock'
+import type { Dataset, DatasetStatus } from './mock'
 import { markRemoved, readDatasets, writeDatasets } from './store'
 import { isSpaceReady } from './storage'
 import { SpaceBlockedState } from './space-notice'
+import { DocPanel, DocProvider, FEATURES, NewTag } from './feature-tags'
 
 const BLUE = 'text-[#166eff]'
 
@@ -343,7 +342,7 @@ function buildClientUploadSteps(dataset: Dataset) {
     },
     {
       title: '2. 上传单个文件：',
-      lines: [`mc cp ./my_dataset.jsonl ${bucketPath}`],
+      lines: [`mc cp ./my_file ${bucketPath}`],
     },
     {
       title: '3. 上传整个本地文件夹（数据集文件需要平铺，不支持子目录）',
@@ -447,7 +446,6 @@ function UploadDialog({
                 <input
                   type="file"
                   multiple
-                  accept=".jsonl"
                   className="hidden"
                   onChange={(e) => {
                     pickFiles(e.target.files)
@@ -459,9 +457,9 @@ function UploadDialog({
                   拖拽文件到此处，或 <span className="text-[#377df5]">点击上传</span>
                 </span>
                 <span className="mt-2 text-center text-[12px] leading-5 text-[#a7acb3]">
-                  支持，jsonl 格式，最多上传 20 个文件，单个文件大小
+                  不限文件格式，按原样存入存储目录，最多上传 20 个文件
                   <br />
-                  不超过 2048M
+                  单个文件大小不超过 2048M
                 </span>
               </label>
 
@@ -516,7 +514,8 @@ function UploadDialog({
 
 /* ---------------------------------- 页面主体 -------------------------------- */
 
-export default function DatasetPage({ __forceNoSpace = false }: { __forceNoSpace?: boolean } = {}) {
+export default function DatasetPage({ __forceNoSpace = false, __showFeat = false }: { __forceNoSpace?: boolean; __showFeat?: boolean } = {}) {
+  const [docCode, setDocCode] = useState<string | null>(null)
   const navigate = useNavigate()
   const [params] = useSearchParams()
   /**
@@ -529,10 +528,8 @@ export default function DatasetPage({ __forceNoSpace = false }: { __forceNoSpace
   )
   /** 首次加载读取本地存储，兼容从「创建数据集」表单页返回；未开通数据空间时没有可读数据 */
   const [datasets, setDatasets] = useState<Dataset[]>(() => (spaceReady ? readDatasets() : []))
-  /** 搜索框内的草稿值，点击放大镜或回车后才生效 */
-  const [searchField, setSearchField] = useState<SearchField>('名称')
+  /** 搜索框内的草稿值，点击放大镜或回车后才生效；仅支持按数据集名称检索 */
   const [keyword, setKeyword] = useState('')
-  const [appliedField, setAppliedField] = useState<SearchField>('名称')
   const [appliedKeyword, setAppliedKeyword] = useState('')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState<number>(10)
@@ -545,12 +542,8 @@ export default function DatasetPage({ __forceNoSpace = false }: { __forceNoSpace
   const filtered = useMemo(() => {
     const kw = appliedKeyword.trim().toLowerCase()
     if (!kw) return datasets
-    return datasets.filter((dataset) => {
-      const value =
-        appliedField === '名称' ? dataset.name : appliedField === '创建者' ? dataset.creator : dataset.type
-      return value.toLowerCase().includes(kw)
-    })
-  }, [datasets, appliedKeyword, appliedField])
+    return datasets.filter((dataset) => dataset.name.toLowerCase().includes(kw))
+  }, [datasets, appliedKeyword])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const currentPage = Math.min(page, totalPages)
@@ -613,14 +606,26 @@ export default function DatasetPage({ __forceNoSpace = false }: { __forceNoSpace
   }
 
   /** 数据存储空间未配置时拦截写入类操作，改为弹出提示 */
-  /** 执行搜索：把草稿条件提交为生效条件 */
+  /** 执行搜索：把草稿关键字提交为生效关键字 */
   function handleSearch() {
-    setAppliedField(searchField)
     setAppliedKeyword(keyword)
     setPage(1)
   }
 
+  /**
+   * 清空搜索内容
+   *
+   * 清空输入框的草稿值，同时把生效关键字一并置空并回到第 1 页，
+   * 避免出现「输入框已空、列表仍被旧关键字过滤」的不一致状态。
+   */
+  function handleClearSearch() {
+    setKeyword('')
+    setAppliedKeyword('')
+    setPage(1)
+  }
+
   return (
+    <DocProvider showFeat={__showFeat} features={FEATURES} onOpenDoc={setDocCode}>
     <div className="relative flex h-full w-full flex-col overflow-hidden bg-white [font-family:'PingFang_SC','Microsoft_YaHei',Arial,sans-serif]">
       <PlatformHeader />
       <div className="flex min-h-0 flex-1">
@@ -648,33 +653,32 @@ export default function DatasetPage({ __forceNoSpace = false }: { __forceNoSpace
 
               <div className="flex shrink-0 items-center gap-2">
                 <div className="relative">
-                  <select
-                    value={searchField}
-                    onChange={(e) => setSearchField(e.target.value as SearchField)}
-                    aria-label="搜索字段"
-                    className="h-10 w-[92px] whitespace-nowrap appearance-none rounded-[2px] border border-[#e5e6eb] bg-white pl-3 pr-6 text-[13px] leading-10 text-[#3d3d3d] outline-none focus:border-[#166eff]"
-                  >
-                    {SEARCH_FIELDS.map((field) => (
-                      <option key={field} value={field}>
-                        {field}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown
-                    size={14}
-                    className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#86909c]"
+                  <input
+                    value={keyword}
+                    onChange={(e) => setKeyword(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSearch()
+                      if (e.key === 'Escape') handleClearSearch()
+                    }}
+                    placeholder="请输入数据集名称"
+                    aria-label="搜索数据集名称"
+                    className="h-10 w-[292px] max-w-[46vw] rounded-[2px] border border-[#e5e6eb] bg-white pl-3 pr-9 text-[13px] text-[#1d2129] outline-none placeholder:text-[#a7acb3] focus:border-[#166eff]"
                   />
+                  {__showFeat && <NewTag code="F-SEARCH" compact className="ml-2" />}
+                  {/* 有输入内容时显示清空按钮：清空草稿并立即恢复全量列表 */}
+                  {keyword && (
+                    <button
+                      type="button"
+                      onClick={handleClearSearch}
+                      aria-label="清空搜索内容"
+                      title="清空"
+                      className="absolute right-2 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-[#a7acb3] transition-colors hover:bg-[#f2f3f5] hover:text-[#4e5969]"
+                    >
+                      <X size={13} />
+                    </button>
+                  )}
+                  {__showFeat && <NewTag code="F-CLEAR" compact className="ml-2" />}
                 </div>
-
-                <input
-                  value={keyword}
-                  onChange={(e) => setKeyword(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleSearch()
-                  }}
-                  aria-label="搜索关键字"
-                  className="h-10 w-[200px] max-w-[46vw] rounded-[2px] border border-[#e5e6eb] bg-white px-3 text-[13px] text-[#1d2129] outline-none focus:border-[#166eff]"
-                />
 
                 <button
                   onClick={handleSearch}
@@ -693,11 +697,11 @@ export default function DatasetPage({ __forceNoSpace = false }: { __forceNoSpace
                   <tr className="bg-[#f5f5f7] text-[14px] text-[#5c70b5]">
                     <th className="w-[20%] whitespace-nowrap px-3 py-4 font-bold">数据集名称</th>
                     <th className="w-[8%] whitespace-nowrap px-2 py-4 font-bold">最新版本</th>
-                    <th className="w-[11.5%] whitespace-nowrap px-2 py-4 font-bold">数据集类型</th>
+                    <th className="w-[13%] whitespace-nowrap px-2 py-4 font-bold">数据集标签</th>
                     <th className="w-[12.5%] whitespace-nowrap px-2 py-4 font-bold">状态</th>
                     <th className="w-[9%] whitespace-nowrap px-2 py-4 font-bold">创建者</th>
                     <th className="w-[15.5%] whitespace-nowrap px-2 py-4 font-bold">创建时间</th>
-                    <th className="w-[23.5%] whitespace-nowrap px-2 py-4 font-bold">操作</th>
+                    <th className="w-[22%] whitespace-nowrap px-2 py-4 font-bold">操作</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -727,7 +731,9 @@ export default function DatasetPage({ __forceNoSpace = false }: { __forceNoSpace
                           {dataset.latestVersion}
                         </span>
                       </td>
-                      <td className="whitespace-nowrap px-3 py-4 text-[13px] text-[#3d3d3d]">{dataset.type}</td>
+                      <td className="px-3 py-4">
+                        <TagChips tags={dataset.tags} />
+                      </td>
                       <td className="px-3 py-4 text-[13px]">
                         <StatusCell dataset={dataset} />
                       </td>
@@ -783,54 +789,18 @@ export default function DatasetPage({ __forceNoSpace = false }: { __forceNoSpace
 
             {/* 分页：无数据时隐藏 */}
             {filtered.length > 0 && (
-              <div className="mt-6 flex items-center justify-end gap-3">
-              <div className="flex items-center gap-1">
-                <button
-                  disabled={currentPage <= 1}
-                  onClick={() => setPage(currentPage - 1)}
-                  aria-label="上一页"
-                  className="flex h-8 w-8 items-center justify-center rounded-[2px] border border-[#e5e6eb] text-[#4e5969] disabled:text-[#c9cdd4]"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <button
-                  onClick={() => setPage(currentPage)}
-                  className="flex h-8 min-w-8 items-center justify-center rounded-[2px] border border-[#166eff] bg-[#ebf1ff] px-2 text-[13px] text-[#166eff]"
-                >
-                  {currentPage}
-                </button>
-                <button
-                  disabled={currentPage >= totalPages}
-                  onClick={() => setPage(currentPage + 1)}
-                  aria-label="下一页"
-                  className="flex h-8 w-8 items-center justify-center rounded-[2px] border border-[#e5e6eb] text-[#4e5969] disabled:text-[#c9cdd4]"
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </div>
-
-              <div className="relative">
-                <select
-                  value={pageSize}
-                  onChange={(e) => {
-                    setPageSize(Number(e.target.value))
-                    setPage(1)
-                  }}
-                  aria-label="每页条数"
-                  className="h-8 appearance-none rounded-[2px] border border-[#e5e6eb] bg-white pl-3 pr-8 text-[13px] text-[#4e5969] outline-none"
-                >
-                  {PAGE_SIZES.map((size) => (
-                    <option key={size} value={size}>
-                      {size} 条/页
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown
-                  size={13}
-                  className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#86909c]"
-                />
-              </div>
-            </div>
+              <TablePagination
+                className="mt-6 justify-end"
+                total={filtered.length}
+                page={currentPage}
+                pageSize={pageSize}
+                pageSizeOptions={[...PAGE_SIZES]}
+                onChange={({ page: nextPage, pageSize: nextSize }) => {
+                  setPageSize(nextSize)
+                  setPage(nextPage)
+                }}
+                extra={__showFeat ? <NewTag code="F-PAGINATION" compact /> : undefined}
+              />
             )}
           </section>
           ) : (
@@ -858,5 +828,7 @@ export default function DatasetPage({ __forceNoSpace = false }: { __forceNoSpace
         <UploadDialog dataset={uploadTarget} onClose={() => setUploadTarget(null)} onConfirm={handleUpload} />
       )}
     </div>
+    <DocPanel code={docCode} onClose={() => setDocCode(null)} />
+    </DocProvider>
   )
 }

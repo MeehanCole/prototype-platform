@@ -111,6 +111,29 @@ import { CALSPEED_SHELL } from '@/lib/platform-shell/presets/calspeed'
 </DocProvider>`,
   },
   {
+    id: 'table-pagination',
+    kind: '组件素材',
+    name: '表格分页',
+    summary:
+      '一行式分页：共 N 条 + 每页条数 + ‹ 页码 ›。控件统一 35px 高、2px 圆角，当前页为品牌色实心方块，超过 7 页自动折叠为省略号。',
+    status: 'stable',
+    importPath: '@/lib/table-pagination',
+    usage: ['数据集管理'],
+    tags: ['分页', '页码', '每页条数', '表格'],
+    docs: [{ id: 'doc-table-pagination' }],
+    snippet: `import { TablePagination } from '@/lib/table-pagination'
+
+<TablePagination
+  total={filtered.length}
+  page={page}
+  pageSize={pageSize}
+  onChange={({ page: nextPage, pageSize: nextSize }) => {
+    setPageSize(nextSize)
+    setPage(nextPage)
+  }}
+/>`,
+  },
+  {
     id: 'icons',
     kind: '设计规范',
     name: '图标集',
@@ -188,6 +211,13 @@ export const DOCS: DocEntry[] = [
     file: '/docs/ProductNav/智能中心信息架构.md',
     summary: '智能中心前台 / 后台的导航归类依据',
     tags: ['导航', '信息架构'],
+  },
+  {
+    id: 'doc-table-pagination',
+    name: '表格分页素材',
+    file: '/docs/TablePagination/表格分页.md',
+    summary: '一行式分页的视觉规格表、页码折叠规则、props 清单与换品牌色方法',
+    tags: ['分页', '规格'],
   },
   {
     id: 'doc-assets-rule',

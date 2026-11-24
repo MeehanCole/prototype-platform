@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { PlatformHeader, SideNav } from '../../在线服务/_shared'
 import { DETAILS, DEFAULT_DETAIL, type ServiceDetail } from '../data'
@@ -53,6 +53,123 @@ function buildCurlDoc(modelName: string) {
     '        "max_tokens": 50',
     "    }'",
   ]
+}
+
+/* 后端推理实例列表（只读展示）
+   格宽固定，实例名过长或数量过多都在同一行内收敛，绝不撑高其它字段：
+   - 实例名超长 → 单行省略（title 兜底全名）
+   - 实例 ≤ 2 时全部平铺（灰度场景正好 2 个）；> 2 时只留第一个，其余收进「+N」
+   - 鼠标移入 / 点击「+N」弹浮层，只列出被折叠的那部分（第一个已在行内）
+   - 浮层用 absolute 贴住按钮下方：原型画布带 transform 缩放，fixed 定位会随
+     滚动错位（实测偏移量约 2×scrollY），absolute 与按钮同处一个坐标空间，天然对齐 */
+function InstanceChips({ instances }: { instances: { label: string; running: boolean }[] }) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+  // 移出延时关闭：鼠标从按钮移到浮层中间隔过空隙，立即关闭会导致浮层点不到
+  const closeTimer = useRef<number | null>(null)
+  const cancelClose = () => {
+    if (closeTimer.current !== null) {
+      window.clearTimeout(closeTimer.current)
+      closeTimer.current = null
+    }
+  }
+  const scheduleClose = () => {
+    cancelClose()
+    closeTimer.current = window.setTimeout(() => setOpen(false), 200)
+  }
+  useEffect(() => cancelClose, [])
+
+  useEffect(() => {
+    if (!open) return
+    const onDocDown = (e: MouseEvent) => {
+      if (rootRef.current?.contains(e.target as Node)) return
+      setOpen(false)
+    }
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onDocDown)
+    document.addEventListener('keydown', onEsc)
+    return () => {
+      document.removeEventListener('mousedown', onDocDown)
+      document.removeEventListener('keydown', onEsc)
+    }
+  }, [open])
+
+  // 实例 ≤ 2 时全部平铺（灰度场景正好 2 个，不值得为它多一次交互）；
+  // 更多时行内只留第一个，其余收进「+N」
+  const inlineCount = instances.length <= 2 ? instances.length : 1
+  const inlineItems = instances.slice(0, inlineCount)
+  const rest = instances.slice(inlineCount)
+
+  return (
+    <div ref={rootRef} className="relative flex min-w-0 flex-1 items-center gap-[8px]">
+      {/* 行内实例：超长省略，不换行 */}
+      {inlineItems.map((ins) => (
+        <span key={ins.label} className="inline-flex min-w-0 shrink items-center gap-[6px]">
+          <span
+            className={`inline-block h-[10px] w-[10px] shrink-0 rounded-full ${
+              ins.running ? 'bg-[#67C23A]' : 'bg-[#F56C6C]'
+            }`}
+            aria-hidden
+          />
+          <span className="truncate text-[14px] text-[#1f2329]" title={ins.label}>
+            {ins.label}
+          </span>
+        </span>
+      ))}
+
+      {/* 其余实例折叠为 +N；点击只负责打开，关闭交给移出 / Esc / 点外部
+          （若用 toggle，鼠标悬停已打开时点击会立刻关掉，反而显得点不动）
+          浮层包在与按钮同一层的相对容器里，left-0 即「贴着按钮左边缘」，不跟着图标列跑偏 */}
+      {rest.length > 0 && (
+        <span className="relative shrink-0">
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-label={`展开其余 ${rest.length} 个后端推理实例，共 ${instances.length} 个`}
+            onClick={() => {
+              cancelClose()
+              setOpen(true)
+            }}
+            onMouseEnter={() => {
+              cancelClose()
+              setOpen(true)
+            }}
+            onMouseLeave={scheduleClose}
+            className="inline-flex h-[22px] cursor-pointer items-center rounded-[11px] bg-[#f2f3f5] px-[9px] text-[12px] text-[#5b6478] transition-colors hover:bg-[#eef4ff] hover:text-[#166EFF]"
+          >
+            +{rest.length}
+          </button>
+
+          {open && (
+            <div
+              role="dialog"
+              aria-label="其余后端推理实例"
+              onMouseEnter={cancelClose}
+              onMouseLeave={scheduleClose}
+              className="absolute left-0 top-[calc(100%+4px)] z-50 max-h-[240px] w-[220px] overflow-y-auto rounded-[6px] border border-[#e4e6eb] bg-white py-[4px] shadow-[0_6px_20px_rgba(0,0,0,0.12)]"
+            >
+              {/* 只列折叠起来的那部分（第一个已在行内展示过），不重复状态列 */}
+              {rest.map((ins) => (
+                <div key={ins.label} className="flex items-center gap-[8px] px-[12px] py-[6px] hover:bg-[#fafbfe]">
+                  <span
+                    className={`inline-block h-[8px] w-[8px] shrink-0 rounded-full ${
+                      ins.running ? 'bg-[#67C23A]' : 'bg-[#F56C6C]'
+                    }`}
+                    aria-hidden
+                  />
+                  <span className="min-w-0 flex-1 truncate text-[13px] text-[#1f2329]" title={ins.label}>
+                    {ins.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </span>
+      )}
+    </div>
+  )
 }
 
 export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
@@ -127,8 +244,10 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
                   </div>
                 </div>
 
-                {/* 第二行：基础属性 3 列网格（对齐创建页基本信息字段） */}
-                <div className="pt-[20px] grid grid-cols-3 gap-x-[40px] gap-y-[18px]">
+                {/* 第二行：基础属性网格
+                    列宽 2fr / 1fr / 1fr —— 首列留给「后端推理实例」（最需要宽度），
+                    「创建时间」放在第 2 列，正好落在「发布类型」正下方 */}
+                <div className="pt-[20px] grid grid-cols-[2fr_1fr_1fr] gap-x-[40px] gap-y-[18px]">
                   <div className="flex items-center gap-2">
                     <span className="w-[112px] shrink-0 text-[14px] text-[#8c8c8c]">调用模型名</span>
                     <span className="text-[14px] text-[#1f2329]">{d.model}</span>
@@ -153,26 +272,22 @@ export default function Page({ __showFeat = true }: { __showFeat?: boolean }) {
                     </span>
                     <NewTag code="F-03" />
                   </div>
-                  <div className="flex items-start">
-                    <span className="w-[112px] shrink-0 text-[14px] text-[#8c8c8c] leading-[24px]">后端推理实例</span>
-                    <div className="flex flex-wrap items-center gap-x-[12px] gap-y-[6px]">
-                      {d.instances.map((ins, i) => (
-                        <div key={i} className="inline-flex items-center gap-[6px]">
-                          <span className={`inline-block h-[10px] w-[10px] rounded-full ${ins.running ? 'bg-[#67C23A]' : 'bg-[#F56C6C]'}`} />
-                          <span className="text-[14px] text-[#1f2329]">{ins.label}</span>
-                        </div>
-                      ))}
-                      <NewTag code="F-04" />
-                    </div>
+
+                  {/* 后端推理实例（首列，最宽）+ 创建时间（第 2 列，在发布类型下方） */}
+                  <div className="col-start-1 row-start-2 flex items-center gap-2">
+                    <span className="w-[112px] shrink-0 text-[14px] text-[#8c8c8c]">后端推理实例</span>
+                    <InstanceChips instances={d.instances} />
+                    <NewTag code="F-04" />
                   </div>
-                  <div className="flex items-center">
+                  <div className="col-start-2 row-start-2 flex items-center">
                     <span className="w-[112px] shrink-0 text-[14px] text-[#8c8c8c]">创建时间</span>
                     <span className="text-[14px] text-[#1f2329]">{d.createdAt}</span>
                   </div>
+
                   {d.publishType === '公开发布' && backendTypeV2 === '内部推理实例' && (
-                    <div className="flex items-center">
+                    <div className="col-start-3 row-start-2 flex items-center">
                       <span className="w-[112px] shrink-0 text-[14px] text-[#8c8c8c]">关联模型</span>
-                      <span className="text-[14px] text-[#1f2329]">{d.associatedModel || d.model}</span>
+                      <span className="min-w-0 truncate text-[14px] text-[#1f2329]">{d.associatedModel || d.model}</span>
                     </div>
                   )}
                 </div>

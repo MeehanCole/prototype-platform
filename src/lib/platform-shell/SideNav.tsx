@@ -68,7 +68,9 @@ export function SideNav({
           }
           const iconColor = row.active ? ACCENT : '#1f2329'
           if (row.active) {
-            const activeIndent = row.lvl === 3 ? 'pl-[56px]' : 'pl-[38px]'
+            /** 选中态内缩按层级计算，保证与同级未选中行的文字左沿对齐 */
+            const activeIndent =
+              row.lvl === 3 ? 'pl-[56px]' : row.lvl === 1 ? 'pl-[18px]' : 'pl-[38px]'
             return (
               <div key={row.label} className="h-[40px] flex items-center">
                 <div className={`ml-[8px] h-[35px] rounded-md bg-[#ECF1FD] flex items-center pr-3 w-[214px] ${activeIndent}`}>

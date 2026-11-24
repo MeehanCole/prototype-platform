@@ -13,7 +13,7 @@
 import { MOCK_DATASETS } from './mock'
 import type { Dataset } from './mock'
 
-const STORE_KEY = 'calspeed.datasets.v4'
+const STORE_KEY = 'calspeed.datasets.v5'
 /** 记录用户显式删除过的 Mock 数据集 id，避免合并时又被基线补回来 */
 const REMOVED_KEY = 'calspeed.datasets.removed.v1'
 

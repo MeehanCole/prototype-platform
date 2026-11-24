@@ -22,6 +22,7 @@ import {
   IconsDemo,
   ProductNavDemo,
   ShellDemo,
+  TablePaginationDemo,
 } from './Demos'
 import { DocsView } from './DocsView'
 import { SHELL_ICONS } from '@/lib/platform-shell'
@@ -251,6 +252,8 @@ function AssetDemo({ id }: { id: string }) {
       return <IconsDemo />
     case 'design-systems':
       return <DesignTokensDemo />
+    case 'table-pagination':
+      return <TablePaginationDemo />
     default:
       return null
   }
