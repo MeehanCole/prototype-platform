@@ -20,7 +20,7 @@ export const FEATURES: Record<string, FeatureDoc> = {
     title: '新增数据集名称检索',
     changes: [
       '工具栏提供数据集名称关键字输入与放大镜按钮',
-      '仅按数据集名称进行包含匹配，大小写不敏感',
+      '仅按数据集名称进行模糊匹配，大小写不敏感',
       '点击放大镜或回车后执行搜索，并回到第 1 页',
     ],
     prdRef: 'FR-2 搜索',

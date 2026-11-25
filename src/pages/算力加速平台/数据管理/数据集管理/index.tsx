@@ -634,7 +634,7 @@ export default function DatasetPage({ __forceNoSpace = false, __showFeat = false
         <main className="min-w-0 flex-1 overflow-auto bg-white px-6 pb-8 pt-6">
           <h1 className="text-[28px] font-bold leading-10 text-[#323232]">数据集管理</h1>
           <p className="mt-2 text-[14px] leading-6 text-[#aaaaaa]">
-            集中管理大模型微调训练与评测所需的数据资产，为底层算力任务提供基础挂载能力。
+            集中管理大模型微调训练与评测所需的数据资产，为训练与评测流程提供统一的数据入口。
           </p>
 
           {spaceReady ? (
