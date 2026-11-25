@@ -53,7 +53,7 @@ export function SpaceBlockedState() {
 
         {/* 固定两行断句，避免出现单字换行 */}
         <p className="mt-3 whitespace-nowrap text-[13px] leading-[22px] text-[#86909c]">
-          系统检测到尚未在平台中创建数据存储空间，您
+          系统检测到该项目尚未在平台中分配数据存储空间，
           <br />
           无法直接读取或上传数据集。请联系管理员
         </p>

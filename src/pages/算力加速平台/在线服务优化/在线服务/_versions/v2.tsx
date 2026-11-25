@@ -174,8 +174,8 @@ const SERVICE_ROWS: ServiceRow[] = [
   },
 ]
 
-type FilterField = '服务名称' | '调用模型名' | '发布类型'
-const FILTER_FIELDS: FilterField[] = ['服务名称', '调用模型名', '发布类型']
+type FilterField = '服务名称' | '调用模型名' | '发布状态'
+const FILTER_FIELDS: FilterField[] = ['服务名称', '调用模型名', '发布状态']
 const MODEL_OPTIONS = [
   'qwen-max',
   'qwen-plus',
@@ -184,7 +184,7 @@ const MODEL_OPTIONS = [
   'Qwen3-32B',
   'DeepSeek-R1-Distill-Qwen-32B',
 ]
-const PUBLISH_TYPE_OPTIONS: ServiceRow['publishType'][] = ['私有发布', '公开发布']
+const PUBLISH_STATUS_OPTIONS = ['已发布', '未发布']
 
 function DropdownSelect({
   value,
@@ -304,8 +304,8 @@ function ListToolbar({
   setKeyword,
   modelValue,
   setModelValue,
-  publishTypeValue,
-  setPublishTypeValue,
+  publishStatusValue,
+  setPublishStatusValue,
   onQuery,
   onReset,
 }: {
@@ -315,8 +315,8 @@ function ListToolbar({
   setKeyword: (v: string) => void
   modelValue: string
   setModelValue: (v: string) => void
-  publishTypeValue: string
-  setPublishTypeValue: (v: string) => void
+  publishStatusValue: string
+  setPublishStatusValue: (v: string) => void
   onQuery: () => void
   onReset: () => void
 }) {
@@ -342,14 +342,14 @@ function ListToolbar({
           onChange={setModelValue}
         />
       )}
-      {filterField === '发布类型' && (
+      {filterField === '发布状态' && (
         <DropdownSelect
-          value={publishTypeValue}
-          options={PUBLISH_TYPE_OPTIONS}
-          placeholder="请选择发布类型"
+          value={publishStatusValue}
+          options={PUBLISH_STATUS_OPTIONS}
+          placeholder="请选择发布状态"
           widthClass="w-[280px]"
           joined
-          onChange={setPublishTypeValue}
+          onChange={setPublishStatusValue}
         />
       )}
       <button
@@ -575,11 +575,24 @@ function ServiceCard({ row }: { row: ServiceRow }) {
 function TableCard() {
   const navigate = useNavigate()
 
-  // 真实过滤状态（布局1：组合筛选器直接置于顶栏）
+  // 表单状态（选择后不立即过滤，点击查询才应用）
   const [filterField, setFilterField] = useState<FilterField>('服务名称')
   const [keyword, setKeyword] = useState('')
   const [modelValue, setModelValue] = useState('')
-  const [publishTypeValue, setPublishTypeValue] = useState('')
+  const [publishStatusValue, setPublishStatusValue] = useState('')
+
+  // 已应用的过滤条件
+  const [appliedFilter, setAppliedFilter] = useState<{
+    field: FilterField
+    keyword: string
+    modelValue: string
+    publishStatusValue: string
+  }>({
+    field: '服务名称',
+    keyword: '',
+    modelValue: '',
+    publishStatusValue: '',
+  })
 
   // 分页状态
   const [pageSize, setPageSize] = useState(12)
@@ -587,35 +600,44 @@ function TableCard() {
   const [goto, setGoto] = useState('')
 
   const filteredRows = useMemo(() => {
-    const kw = keyword.trim().toLowerCase()
-    const mv = modelValue.trim()
-    const pt = publishTypeValue.trim()
-    if (!kw && !mv && !pt) return SERVICE_ROWS
+    const kw = appliedFilter.keyword.trim().toLowerCase()
+    const mv = appliedFilter.modelValue.trim()
+    const ps = appliedFilter.publishStatusValue.trim()
+    if (!kw && !mv && !ps) return SERVICE_ROWS
     return SERVICE_ROWS.filter((row) => {
-      if (filterField === '服务名称' && kw) return row.name.toLowerCase().includes(kw)
-      if (filterField === '调用模型名' && mv) return row.model === mv
-      if (filterField === '发布类型' && pt) return row.publishType === pt
+      if (appliedFilter.field === '服务名称' && kw) return row.name.toLowerCase().includes(kw)
+      if (appliedFilter.field === '调用模型名' && mv) return row.model === mv
+      if (appliedFilter.field === '发布状态' && ps) return (row.published ? '已发布' : '未发布') === ps
       return true
     })
-  }, [filterField, keyword, modelValue, publishTypeValue])
-
-  // 过滤条件变化时回到第一页
-  useEffect(() => {
-    setPage(1)
-    setGoto('')
-  }, [filterField, keyword, modelValue, publishTypeValue])
+  }, [appliedFilter])
 
   const total = filteredRows.length
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
   const pageRows = filteredRows.slice((page - 1) * pageSize, page * pageSize)
 
   const handleQuery = () => {
-    // 查询动作：过滤已通过 filteredRows 实时生效，这里保持受控
+    setAppliedFilter({
+      field: filterField,
+      keyword,
+      modelValue,
+      publishStatusValue,
+    })
+    setPage(1)
+    setGoto('')
   }
   const handleReset = () => {
     setKeyword('')
     setModelValue('')
-    setPublishTypeValue('')
+    setPublishStatusValue('')
+    setAppliedFilter({
+      field: filterField,
+      keyword: '',
+      modelValue: '',
+      publishStatusValue: '',
+    })
+    setPage(1)
+    setGoto('')
   }
 
   return (
@@ -640,8 +662,8 @@ function TableCard() {
           setKeyword={setKeyword}
           modelValue={modelValue}
           setModelValue={setModelValue}
-          publishTypeValue={publishTypeValue}
-          setPublishTypeValue={setPublishTypeValue}
+          publishStatusValue={publishStatusValue}
+          setPublishStatusValue={setPublishStatusValue}
           onQuery={handleQuery}
           onReset={handleReset}
         />

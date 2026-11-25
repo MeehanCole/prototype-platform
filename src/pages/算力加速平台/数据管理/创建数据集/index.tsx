@@ -298,8 +298,11 @@ export default function CreateDatasetPage({ __showFeat = false }: { __showFeat?:
           <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-8 pb-12 pt-5">
           {spaceReady ? (
             <>
-            {/* 基本信息 */}
-            <SectionTitle text="基本信息" />
+              <div className="flex items-center">
+                <SectionTitle text="基本信息" />
+                {__showFeat && <NewTag code="F-RETURN" compact className="ml-2" />}
+                {__showFeat && <NewTag code="F-BASIC" compact className="ml-2" />}
+              </div>
 
             <div className="mt-5 space-y-4">
               {/* 数据集名称 */}
@@ -335,7 +338,7 @@ export default function CreateDatasetPage({ __showFeat = false }: { __showFeat?:
               <div className="flex items-start">
                 <FieldLabel text="数据集标签" />
                 <TagPicker value={tags} onChange={setTags} widthClass={FIELD_WIDTH} />
-                {__showFeat && <NewTag code="F-NO-TYPE" compact className="ml-2 mt-[7px]" />}
+                {__showFeat && <NewTag code="F-TAGS" compact className="ml-2 mt-[7px]" />}
               </div>
 
               {/* 数据集描述 */}
@@ -356,8 +359,7 @@ export default function CreateDatasetPage({ __showFeat = false }: { __showFeat?:
               </div>
             </div>
 
-            {/* 数据上传 */}
-            <div className="mt-7">
+            <div className="mt-7 flex items-center">
               <SectionTitle text="数据上传" />
             </div>
 
@@ -390,6 +392,7 @@ export default function CreateDatasetPage({ __showFeat = false }: { __showFeat?:
 
                   {tab === 'server' ? (
                     <div className="mt-4">
+                      {__showFeat && <NewTag code="F-NORMAL-UPLOAD" compact className="ml-2" />}
                       <label
                         onDragOver={(e) => e.preventDefault()}
                         onDrop={(e) => {
@@ -511,20 +514,23 @@ export default function CreateDatasetPage({ __showFeat = false }: { __showFeat?:
             {/* 底部按钮：在上传区（560px 列）内水平居中，并向下留出间距 */}
             <div className="mt-12 ml-[112px] flex w-[560px] shrink-0 items-center justify-center gap-4">
               <ActionButton onClick={() => navigate(LIST_PATH)}>取消</ActionButton>
-              <ActionButton
-                variant="primary"
-                disabled={!canSubmit || !spaceReady}
-                title={spaceReady ? undefined : '未开通数据存储空间，暂不可创建数据集'}
-                onClick={() => {
-                  if (nameInvalid) {
-                    setSubmitError('数据集名称仅支持大小写英文字母、汉字、数字、短划线（-）、下划线（_）')
-                    return
-                  }
-                  handleSubmit()
-                }}
-              >
-                创建
-              </ActionButton>
+              <div className="flex items-center">
+                <ActionButton
+                  variant="primary"
+                  disabled={!canSubmit || !spaceReady}
+                  title={spaceReady ? undefined : '未开通数据存储空间，暂不可创建数据集'}
+                  onClick={() => {
+                    if (nameInvalid) {
+                      setSubmitError('数据集名称仅支持大小写英文字母、汉字、数字、短划线（-）、下划线（_）')
+                      return
+                    }
+                    handleSubmit()
+                  }}
+                >
+                  创建
+                </ActionButton>
+                {__showFeat && <NewTag code="F-SUBMIT" compact className="ml-2" />}
+              </div>
             </div>
             </>
           ) : (

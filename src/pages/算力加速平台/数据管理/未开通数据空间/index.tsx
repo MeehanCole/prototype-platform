@@ -10,8 +10,19 @@
  * 实现上复用「数据集管理」页主体，通过 __forceNoSpace 注入未配置状态，
  * 保证两种状态下的布局、表格、弹窗完全一致，避免维护两套 UI。
  */
+import { useState } from 'react'
 import DatasetPage from '../数据集管理'
+import { DocPanel, DocProvider, FEATURES, NewTag } from './feature-tags'
 
 export default function NoSpacePage({ __showFeat = false }: { __showFeat?: boolean } = {}) {
-  return <DatasetPage __forceNoSpace __showFeat={__showFeat} />
+  const [docCode, setDocCode] = useState<string | null>(null)
+  return (
+    <DocProvider showFeat={__showFeat} features={FEATURES} onOpenDoc={setDocCode}>
+      <div className="fixed left-4 top-20 z-40">
+        {__showFeat && <NewTag code="F-SPACE-CHECK" />}
+      </div>
+      <DatasetPage __forceNoSpace __showFeat={false} />
+      <DocPanel code={docCode} onClose={() => setDocCode(null)} />
+    </DocProvider>
+  )
 }

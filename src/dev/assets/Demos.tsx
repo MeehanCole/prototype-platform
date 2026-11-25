@@ -29,6 +29,12 @@ import {
   type ResourceQuotaCluster,
 } from '@/lib/resource-quota'
 import aiChatAvatar from '@/assets/ai/ai-chat-avatar.png'
+import {
+  ProjectQuotaBoard,
+  type ProjectQuotaContainerGroup,
+  type ProjectQuotaInfo,
+  type ProjectQuotaRow,
+} from '@/lib/project-quota'
 
 const SHELL_ROWS = CALSPEED_SHELL.rows('在线服务')
 
@@ -428,6 +434,82 @@ export function ResourceQuotaDemo() {
         refreshedAt="10:28"
         onRefresh={() => {}}
         onEdit={() => {}}
+      />
+    </div>
+  )
+}
+
+// ─── 项目配额工作台 ──────────────────────────────────────────────────────────
+
+const PROJECT_QUOTA_INFO: ProjectQuotaInfo = {
+  name: 'magic-cs158',
+  tenant: 'magic-cs128',
+  creator: '-',
+  createdAt: '2025-09-23 13:41:38',
+  members: '5',
+  serviceAccounts: '0',
+  description: '-',
+}
+
+const PROJECT_QUOTA_CONTAINER_ROWS: ProjectQuotaRow[] = [
+  { key: 'cpuRequest', label: 'CPU 请求', icon: 'cpu', unit: '核', used: null, quota: 32 },
+  { key: 'cpuLimit', label: 'CPU 限制', icon: 'cpu', unit: '核', used: null, quota: 64 },
+  { key: 'memRequest', label: '内存请求', icon: 'mem', unit: 'GiB', used: null, quota: 128 },
+  { key: 'memLimit', label: '内存限制', icon: 'mem', unit: 'GiB', used: null, quota: 256 },
+]
+
+const PROJECT_QUOTA_ROWS: ProjectQuotaRow[] = [
+  { key: 'cpuLimit', label: 'CPU 限制', icon: 'cpu', unit: '核', used: null, quota: 64 },
+  { key: 'cpuRequest', label: 'CPU 请求', icon: 'cpu', unit: '核', used: null, quota: 32 },
+  { key: 'pods', label: '容器组', icon: 'pod', unit: '', used: 62, quota: 100 },
+  { key: 'services', label: '服务', icon: 'service', unit: '', used: 44, quota: null },
+  { key: 'storage', label: '数据存储', icon: 'storage', unit: 'GB', used: null, quota: 500 },
+]
+
+const PROJECT_QUOTA_GROUPS: ProjectQuotaContainerGroup[] = [
+  { key: 'cpu', label: 'CPU', icon: 'cpu', requestKey: 'cpuRequest', limitKey: 'cpuLimit' },
+  { key: 'mem', label: '内存', icon: 'mem', requestKey: 'memRequest', limitKey: 'memLimit' },
+]
+
+const PROJECT_QUOTA_ICONS = {
+  home: <span className="text-[13px]">⌂</span>,
+  building: <span className="text-[13px]">▣</span>,
+  user: <span className="text-[13px]">◎</span>,
+  clock: <span className="text-[13px]">◷</span>,
+  idcard: <span className="text-[13px]">▤</span>,
+  notebook: <span className="text-[13px]">▥</span>,
+  trash: <span className="text-[13px]">×</span>,
+  resource: (kind: ProjectQuotaRow['icon']) => (
+    <span className="text-[13px] text-[#4e5969]">
+      {kind === 'cpu' ? '▦' : kind === 'mem' ? '▥' : kind === 'storage' ? '▣' : '▤'}
+    </span>
+  ),
+}
+
+export function ProjectQuotaDemo() {
+  const [activeTab, setActiveTab] = useState('配额')
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-border bg-white">
+      <ProjectQuotaBoard
+        info={PROJECT_QUOTA_INFO}
+        containerRows={PROJECT_QUOTA_CONTAINER_ROWS}
+        containerGroups={PROJECT_QUOTA_GROUPS}
+        projectRows={PROJECT_QUOTA_ROWS}
+        tabs={['资源状态', '配额', '用量统计', '元数据']}
+        quotaTab="配额"
+        activeTab={activeTab}
+        sectionTitles={{ containerQuota: '容器配额', projectQuota: '项目配额' }}
+        icons={PROJECT_QUOTA_ICONS}
+        title="项目概览"
+        manageItems={[
+          { key: 'info', label: '编辑项目信息', icon: <span className="text-[12px]">✎</span> },
+          { key: 'projectQuota', label: '编辑项目配额', icon: <span className="text-[12px]">▤</span> },
+          { key: 'containerQuota', label: '编辑容器配额', icon: <span className="text-[12px]">▣</span> },
+        ]}
+        onTabChange={setActiveTab}
+        onManageItem={() => {}}
+        onDelete={() => {}}
       />
     </div>
   )

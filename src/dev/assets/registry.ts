@@ -171,6 +171,41 @@ const clusters: ResourceQuotaCluster[] = [
 />`,
   },
   {
+    id: 'project-quota',
+    kind: '组件素材',
+    name: '项目配额工作台',
+    summary:
+      '项目概览的配额视图：基本信息卡、Tab、容器配额与项目配额长条卡片。业务数据、图标、管理菜单与弹窗全部由 props 注入。',
+    status: 'stable',
+    importPath: '@/lib/project-quota',
+    usage: ['数据管理 · 项目配额'],
+    tags: ['项目配额', '容器配额', '长条卡片', '工作台'],
+    docs: [{ id: 'doc-project-quota' }],
+    snippet: `import {
+  ProjectQuotaBoard,
+  type ProjectQuotaInfo,
+  type ProjectQuotaRow,
+  type ProjectQuotaContainerGroup,
+} from '@/lib/project-quota'
+
+<ProjectQuotaBoard
+  info={info}
+  containerRows={containerRows}
+  containerGroups={containerGroups}
+  projectRows={projectRows}
+  tabs={['资源状态', '配额', '用量统计', '元数据']}
+  quotaTab="配额"
+  activeTab={activeTab}
+  sectionTitles={{ containerQuota: '容器配额', projectQuota: '项目配额' }}
+  icons={icons}
+  title="项目概览"
+  manageItems={manageItems}
+  onTabChange={setActiveTab}
+  onManageItem={openDialog}
+  onDelete={openDeleteDialog}
+/>`,
+  },
+  {
     id: 'icons',
     kind: '设计规范',
     name: '图标集',
@@ -262,6 +297,13 @@ export const DOCS: DocEntry[] = [
     file: '/docs/ResourceQuota/资源配额素材.md',
     summary: '组成、视觉规格、props 清单、最小接入与变更规则',
     tags: ['配额', '规格'],
+  },
+  {
+    id: 'doc-project-quota',
+    name: '项目配额工作台素材',
+    file: '/docs/ProjectQuota/项目配额素材.md',
+    summary: '组成、视觉规格、props 清单、最小接入与变更规则',
+    tags: ['项目配额', '规格'],
   },
   {
     id: 'doc-assets-rule',

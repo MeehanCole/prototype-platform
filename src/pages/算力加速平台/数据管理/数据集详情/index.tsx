@@ -19,6 +19,7 @@ import { NAME_MAX_LENGTH, nextVersion, nowStamp } from '../数据集管理/mock'
 import type { Dataset, DatasetStatus, UploadProbe } from '../数据集管理/mock'
 import { markRemoved, readDatasets, writeDatasets } from '../数据集管理/store'
 import { isSpaceReady } from '../数据集管理/storage'
+import { DocPanel, DocProvider, FEATURES, NewTag } from './feature-tags'
 
 const LIST_PATH = '/算力加速平台/数据管理/数据集管理'
 const DETAIL_DESC_MAX = 500
@@ -692,7 +693,8 @@ function UploadFilesModal({
   )
 }
 
-export default function DatasetDetailPage() {
+export default function DatasetDetailPage({ __showFeat = false }: { __showFeat?: boolean } = {}) {
+  const [docCode, setDocCode] = useState<string | null>(null)
   const navigate = useNavigate()
   const [params] = useSearchParams()
   /** 数据存储空间未配置时，创建版本 / 上传文件等写入操作被阻断 */
@@ -873,6 +875,7 @@ export default function DatasetDetailPage() {
   const activePreviewName = previewFile ?? currentGroup?.files[0]?.name ?? '暂无文件'
 
   return (
+    <DocProvider showFeat={__showFeat} features={FEATURES} onOpenDoc={setDocCode}>
     <div className="relative flex h-full w-full flex-col overflow-hidden bg-white [font-family:'PingFang_SC','Microsoft_YaHei',Arial,sans-serif]">
       <PlatformHeader />
 
@@ -892,10 +895,12 @@ export default function DatasetDetailPage() {
             </button>
             <span className="mx-3 h-[14px] w-[1px] bg-[#e5e6eb]" />
             <span className="text-[14px] font-medium text-[#1d2129]">数据集详情</span>
+            {__showFeat && <NewTag code="F-DETAIL-PAGE" compact className="ml-2" />}
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
             {/* 基础信息区 */}
+            {__showFeat && <NewTag code="F-BASIC-INFO" compact className="ml-8" />}
             <div className="border-b border-[#f0f0f0] px-8 pb-5 pt-6">
               <div className="grid grid-cols-3 gap-x-8 gap-y-5">
                 <InfoItem label="数据集名称：">
@@ -909,6 +914,7 @@ export default function DatasetDetailPage() {
                     >
                       <SquarePen size={12} />
                     </button>
+                    {__showFeat && <NewTag code="F-EDIT-INFO" compact className="ml-1" />}
                   </span>
                 </InfoItem>
                 <InfoItem label="状态：">
@@ -962,6 +968,7 @@ export default function DatasetDetailPage() {
                 >
                   删除
                 </button>
+                {__showFeat && <NewTag code="F-DATASET-ACTIONS" compact className="ml-1" />}
               </div>
             </div>
 
@@ -971,6 +978,7 @@ export default function DatasetDetailPage() {
               <div className="w-[220px] shrink-0 rounded-[4px] border border-[#e5e6eb] bg-white">
                 <div className="px-4 py-3.5 text-[13px] font-medium text-[#1d2129]">
                   共 {groups.length} 版本
+                  {__showFeat && <NewTag code="F-VERSIONS" compact className="ml-2" />}
                 </div>
                 <ul className="pb-3">
                   {groups.map((group, index) => {
@@ -1017,6 +1025,7 @@ export default function DatasetDetailPage() {
                   <div className="mb-3 flex items-center justify-between gap-4">
                     <p className="whitespace-nowrap text-[13px] font-medium text-[#1d2129]">
                       版本文件列表（总文件数：{totalFiles}）
+                      {__showFeat && <NewTag code="F-FILE-TABLE" compact className="ml-2" />}
                     </p>
                     <div className="flex shrink-0 items-center gap-2">
                       <button
@@ -1040,6 +1049,7 @@ export default function DatasetDetailPage() {
                       >
                         上传文件
                       </button>
+                      {__showFeat && <NewTag code="F-FILE-UPLOAD" compact className="ml-1" />}
                       <button
                         type="button"
                         disabled={selectedFiles.length === 0}
@@ -1060,6 +1070,7 @@ export default function DatasetDetailPage() {
                       >
                         批量删除
                       </button>
+                      {__showFeat && <NewTag code="F-FILE-OPS" compact className="ml-1" />}
                     </div>
                   </div>
 
@@ -1138,6 +1149,7 @@ export default function DatasetDetailPage() {
                 <div className="flex items-center justify-between rounded-[4px] border border-[#e5e6eb] bg-white px-4 py-2.5">
                   <p className="text-[12px] text-[#1d2129]">
                     文件内容预览： {activePreviewName}（仅展示前 100KB 内容）
+                    {__showFeat && <NewTag code="F-PREVIEW" compact className="ml-2" />}
                   </p>
                   {totalFiles > 0 && (
                     <button
@@ -1233,5 +1245,7 @@ export default function DatasetDetailPage() {
         />
       )}
     </div>
+    <DocPanel code={docCode} onClose={() => setDocCode(null)} />
+    </DocProvider>
   )
 }

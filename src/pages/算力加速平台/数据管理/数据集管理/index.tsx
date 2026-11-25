@@ -692,6 +692,9 @@ export default function DatasetPage({ __forceNoSpace = false, __showFeat = false
 
             {/* 表格 */}
             <div className="mt-6 flex-1">
+              <div className="mb-2 flex items-center gap-2">
+                {__showFeat && <NewTag code="F-LIST" compact />}
+              </div>
               <table className="w-full table-fixed border-collapse text-left">
                 <thead>
                   <tr className="bg-[#f5f5f7] text-[14px] text-[#5c70b5]">
