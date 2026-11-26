@@ -4,13 +4,12 @@
  * 设计取向：数据集是「可被容器挂载的文件集合」，平台不对内容做类型约束。
  * 1. 顶部返回栏（返回箭头 + 竖线 + 创建数据集）
  * 2. 基本信息：数据集名称（必填）+ 数据集标签（选填，仅用于展示与归类，不参与列表搜索）+ 数据集描述
- * 3. 数据上传：普通上传 / 客户端上传双页签，不限制文件格式
- * 4. 表单底部「取消 / 创建」按钮，在上传区内居中并下移
+ * 3. 表单底部「取消 / 创建」按钮，在表单列内居中
  */
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Check, Copy, Info, Terminal, Trash2 } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { PlatformHeader, SideNav } from '../数据集管理/_shared'
 import { TagPicker } from '../数据集管理/tags'
 import {
@@ -26,57 +25,10 @@ import { DocPanel, DocProvider, FEATURES, NewTag } from './feature-tags'
 
 const LIST_PATH = '/算力加速平台/数据管理/数据集管理'
 
-const MAX_FILE_SIZE = 2048 * 1024 * 1024
-const MAX_FILES = 20
 const NAME_PATTERN = /^[A-Za-z0-9\u4e00-\u9fa5_-]+$/
 
-/** 表单输入控件与上传区统一宽度 */
+/** 表单输入控件统一宽度 */
 const FIELD_WIDTH = 'w-[560px]'
-
-/** 上传说明：不再限定文件格式 */
-const UPLOAD_HINT = `不限文件格式，文件按原样存入存储目录；单个文件不超过 2048M，单次最多 ${MAX_FILES} 个文件`
-
-/**
- * 客户端上传命令（创建前展示）
- *
- * 存储路径与访问凭证在点击【创建】后才由平台分配，创建前不存在真实地址，
- * 因此命令中的 Endpoint 凭证与目标路径统一使用占位符，
- * 由创建成功后的页面/详情页回填真实值。
- */
-const CLIENT_UPLOAD_STEPS = [
-  {
-    title: '1. 配置凭证与 Endpoint',
-    command: 'mc alias set <别名> <Endpoint> <AccessKey> <SecretKey>',
-  },
-  {
-    title: '2. 上传单个文件：',
-    command: 'mc cp ./my_file <别名>/<数据集存储路径>/v1/',
-  },
-  {
-    title: '3. 上传整个本地文件夹（文件需要平铺，不支持子目录）',
-    command: 'mc mirror ./my_dir/ <别名>/<数据集存储路径>/v1/',
-  },
-]
-
-/**
- * 客户端上传的前置说明
- *
- * 关键信息是「现在拿不到真实路径与凭证」，因此不写成整段正文，
- * 改为一条浅蓝提示条 + 三步要点，让用户一眼看清先后顺序。
- */
-const CLIENT_UPLOAD_NOTICE = {
-  title: '创建后才会分配存储路径与访问凭证',
-  steps: [
-    '点击【创建】，系统分配专属存储路径与访问凭证，并生成 V1 版本',
-    '在数据集列表或详情页点击「上传文件」，切到客户端上传即可复制可直接执行的命令',
-    '在本地终端执行命令传输文件，完成后状态自动转为「导入成功」',
-  ],
-}
-
-function formatFileSize(bytes: number) {
-  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(2)}MB`
-  return `${(bytes / 1024).toFixed(2)}KB`
-}
 
 /** 区块标题：左侧 3px 蓝色竖条 + 粗体标题 */
 function SectionTitle({ text }: { text: string }) {
@@ -106,64 +58,6 @@ function FieldLabel({
   )
 }
 
-
-/** 设计稿蓝色上传托盘图标 */
-function UploadTrayIcon() {
-  return (
-    <svg width="28" height="24" viewBox="0 0 28 24" fill="none" aria-hidden>
-      <path d="M14 2L7.5 8.8H11.6V14.8H16.4V8.8H20.5L14 2Z" fill="#1890ff" />
-      <path
-        d="M4 15.5V19.5C4 20.6 4.9 21.5 6 21.5H22C23.1 21.5 24 20.6 24 19.5V15.5H21V18.5H7V15.5H4Z"
-        fill="#1890ff"
-      />
-    </svg>
-  )
-}
-
-/** 文件行左侧类型图标：取扩展名，不再固定 Json */
-function FileExtIcon({ fileName }: { fileName: string }) {
-  const ext = fileName.includes('.') ? fileName.split('.').pop()!.slice(0, 4) : 'FILE'
-  return (
-    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[4px] bg-[#f2f3f5] text-[10px] font-bold uppercase tracking-tight text-[#86909c]">
-      {ext}
-    </div>
-  )
-}
-
-/** 可复制命令行 */
-function CommandBlock({ command }: { command: string }) {
-  const [copied, setCopied] = useState(false)
-
-  async function handleCopy() {
-    try {
-      await navigator.clipboard.writeText(command)
-    } catch {
-      const area = document.createElement('textarea')
-      area.value = command
-      document.body.appendChild(area)
-      area.select()
-      document.execCommand('copy')
-      document.body.removeChild(area)
-    }
-    setCopied(true)
-    window.setTimeout(() => setCopied(false), 1600)
-  }
-
-  return (
-    <div className="group relative mt-1.5 pr-7">
-      <p className="break-all font-mono text-[12px] leading-[19px] text-[#333]">{command}</p>
-      <button
-        type="button"
-        onClick={handleCopy}
-        aria-label={copied ? '已复制' : '复制命令'}
-        title={copied ? '已复制' : '复制命令'}
-        className="absolute right-0 top-1/2 -translate-y-1/2 text-[#a7acb3] transition-colors hover:text-[#1890ff]"
-      >
-        {copied ? <Check size={13} className="text-[#1890ff]" /> : <Copy size={13} />}
-      </button>
-    </div>
-  )
-}
 
 function ActionButton({
   children,
@@ -205,50 +99,22 @@ export default function CreateDatasetPage({ __showFeat = false }: { __showFeat?:
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [tags, setTags] = useState<string[]>([])
-  const [tab, setTab] = useState<'server' | 'client'>('server')
-  const [files, setFiles] = useState<File[]>([])
-  const [fileError, setFileError] = useState('')
   const [submitError, setSubmitError] = useState('')
 
   const nameInvalid = name.length > 0 && !NAME_PATTERN.test(name)
-  const canSubmit = name.trim().length > 0 && !nameInvalid && (tab === 'client' || files.length > 0)
-
-  function pickFiles(list: FileList | null) {
-    if (!list) return
-    const picked = Array.from(list)
-    const accepted: File[] = []
-    let tooLarge = 0
-    for (const file of picked) {
-      if (file.size > MAX_FILE_SIZE) {
-        tooLarge += 1
-        continue
-      }
-      accepted.push(file)
-    }
-
-    setFileError(tooLarge > 0 ? `${tooLarge} 个文件超过 2048M 已忽略` : '')
-
-    setFiles((prev) => {
-      const merged = [...prev, ...accepted]
-      if (merged.length > MAX_FILES) {
-        setFileError((old) => (old ? `${old}，` : '') + `最多上传 ${MAX_FILES} 个文件，超出部分已忽略`)
-      }
-      return merged.slice(0, MAX_FILES)
-    })
-  }
+  const canSubmit = name.trim().length > 0 && !nameInvalid
 
   function handleSubmit() {
     if (!canSubmit) return
     if (!spaceReady) return
     const stamp = nowStamp()
-    const initialStatus = tab === 'client' ? '初始化' : '导入中'
     const dataset: Dataset = {
       id: `ds-${Date.now()}`,
       name: name.trim(),
       description: description.trim() || undefined,
       latestVersion: 'V1',
       tags,
-      status: initialStatus,
+      status: '初始化',
       creator: 'admin',
       createdAt: stamp,
       location: '待上传',
@@ -257,13 +123,9 @@ export default function CreateDatasetPage({ __showFeat = false }: { __showFeat?:
       versions: [
         {
           version: 'V1',
-          note:
-            tab === 'client'
-              ? '客户端上传，等待写入存储'
-              : `上传 ${files.length} 个文件，正在写入存储`,
+          note: '创建完成，等待上传文件',
           createdAt: stamp,
           samples: 0,
-          status: initialStatus,
         },
       ],
     }
@@ -359,159 +221,12 @@ export default function CreateDatasetPage({ __showFeat = false }: { __showFeat?:
               </div>
             </div>
 
-            <div className="mt-7 flex items-center">
-              <SectionTitle text="数据上传" />
-            </div>
-
-            <div className="mt-5 space-y-5">
-              <div className="flex items-start">
-                <FieldLabel text="数据集上传" required />
-                <div className="min-w-0 flex-1">
-                  {/* 分段控件：左蓝右白 / 左白右蓝 */}
-                  <div className="inline-flex h-[34px] overflow-hidden rounded-[4px] border border-[#d9d9d9] bg-white">
-                    {(
-                      [
-                        ['server', '普通上传'],
-                        ['client', '客户端上传'],
-                      ] as const
-                    ).map(([key, label]) => (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => setTab(key)}
-                        className={`h-full w-[100px] text-[13px] transition-colors ${
-                          tab === key
-                            ? 'bg-[#1890ff] font-medium text-white'
-                            : 'bg-white text-[#333] hover:text-[#1890ff]'
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-
-                  {tab === 'server' ? (
-                    <div className="mt-4">
-                      {__showFeat && <NewTag code="F-NORMAL-UPLOAD" compact className="ml-2" />}
-                      <label
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={(e) => {
-                          e.preventDefault()
-                          pickFiles(e.dataTransfer.files)
-                        }}
-                        className={`flex ${FIELD_WIDTH} shrink-0 cursor-pointer flex-col items-center justify-center rounded-[4px] border border-dashed border-[#dcdfe6] bg-[#fafbfd] py-8 transition-colors hover:border-[#1890ff]`}
-                      >
-                        <input
-                          type="file"
-                          multiple
-                          className="hidden"
-                          onChange={(e) => {
-                            pickFiles(e.target.files)
-                            e.target.value = ''
-                          }}
-                        />
-                        <UploadTrayIcon />
-                        <span className="mt-3 text-[13px] text-[#333]">
-                          拖拽文件到此处，或<span className="text-[#1890ff]">点击上传</span>
-                        </span>
-                        <span className="mt-1.5 max-w-[520px] text-center text-[12px] leading-5 text-[#a7acb3]">
-                          {UPLOAD_HINT}
-                        </span>
-                      </label>
-
-                      {fileError && <p className="mt-2 text-[12px] text-[#f53f3f]">{fileError}</p>}
-
-                      {files.length > 0 && (
-                        <ul className={`mt-3 space-y-2 ${FIELD_WIDTH} shrink-0`}>
-                          {files.map((file, index) => (
-                            <li
-                              key={`${file.name}-${index}`}
-                              className="flex items-center gap-3 rounded-[4px] border border-[#e5e6eb] bg-white px-4 py-2.5"
-                            >
-                              <FileExtIcon fileName={file.name} />
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-[13px] leading-5 text-[#1d2129]">
-                                  {file.name}
-                                </p>
-                                <p className="text-[11px] leading-4 text-[#a7acb3]">
-                                  {formatFileSize(file.size)}
-                                </p>
-                              </div>
-                              <span className="shrink-0 text-[11px] text-[#a7acb3]">待上传</span>
-                              <button
-                                type="button"
-                                aria-label={`移除 ${file.name}`}
-                                onClick={() => setFiles((prev) => prev.filter((_, i) => i !== index))}
-                                className="shrink-0 text-[#c9cdd4] transition-colors hover:text-[#f53f3f]"
-                              >
-                                <Trash2 size={15} />
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="mt-4">
-                      {/* 前置说明：浅蓝信息条 + 三步要点 */}
-                      <div className={`mb-4 ${FIELD_WIDTH} shrink-0 rounded-[4px] border border-[#bcd7ff] bg-[#f2f7ff] px-4 py-3`}>
-                        <div className="flex items-start gap-2">
-                          <Info
-                            size={14}
-                            className="mt-[3px] shrink-0 text-[#1890ff]"
-                            aria-hidden
-                          />
-                          <div className="min-w-0">
-                            <p className="text-[13px] font-medium leading-5 text-[#1d2129]">
-                              {CLIENT_UPLOAD_NOTICE.title}
-                              {__showFeat && <NewTag code="F-CLIENT-UPLOAD" compact className="ml-2" />}
-                            </p>
-                            <ol className="mt-1.5 space-y-1">
-                              {CLIENT_UPLOAD_NOTICE.steps.map((step, index) => (
-                                <li key={step} className="flex items-start gap-1.5">
-                                  <span className="mt-[1px] flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-full bg-[#1890ff] text-[10px] font-semibold leading-none text-white">
-                                    {index + 1}
-                                  </span>
-                                  <span className="text-[12px] leading-[19px] text-[#4e5969]">
-                                    {step}
-                                  </span>
-                                </li>
-                              ))}
-                            </ol>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div
-                        className={`${FIELD_WIDTH} shrink-0 rounded-[4px] border border-dashed border-[#e5e6eb] bg-[#f8f9fc] px-5 py-4`}
-                      >
-                        <div className="mb-3 flex items-center gap-1.5 border-b border-dashed border-[#e3e6eb] pb-2.5">
-                          <Terminal size={13} className="shrink-0 text-[#86909c]" aria-hidden />
-                          <span className="text-[12px] font-medium text-[#4e5969]">
-                            创建后执行的命令（模板）
-                          </span>
-                          <span className="ml-auto shrink-0 text-[11px] text-[#a7acb3]">
-                            路径与凭证创建后回填
-                          </span>
-                        </div>
-                        {CLIENT_UPLOAD_STEPS.map((step) => (
-                          <div key={step.title} className="mb-4 last:mb-0">
-                            <p className="text-[13px] leading-5 text-[#333]">{step.title}</p>
-                            <CommandBlock command={step.command} />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
 
             {submitError && (
               <p className="mt-4 text-[12px] text-[#f53f3f]">{submitError}</p>
             )}
 
-            {/* 底部按钮：在上传区（560px 列）内水平居中，并向下留出间距 */}
+            {/* 底部按钮：在表单列（560px）内水平居中，并向下留出间距 */}
             <div className="mt-12 ml-[112px] flex w-[560px] shrink-0 items-center justify-center gap-4">
               <ActionButton onClick={() => navigate(LIST_PATH)}>取消</ActionButton>
               <div className="flex items-center">

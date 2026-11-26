@@ -69,13 +69,17 @@ export function readDatasets(): Dataset[] {
   }
 
   /**
-   * 演示数据（MOCK_DATASETS）始终以 mock.ts 为准：
-   * 存储里可能留有旧结构的同 id 对象（例如缺少后来新增的 upload 字段），
-   * 若沿用存储版本，界面会读不到新字段。用户自己创建的数据（id 不在基线中）保留存储版本。
+   * 演示数据（MOCK_DATASETS）决定「有哪些行、字段结构以 mock.ts 为准」，
+   * 但用户对演示数据的运行期改动（新建版本、上传文件、状态推进）必须保留，
+   * 否则列表页改完进入详情页会读回旧基线。故按 id 合并：mock 提供默认值，存储覆盖。
    */
+  const storedMap = new Map(stored.map((item) => [item.id, item]))
   const mockIds = new Set(MOCK_DATASETS.map((item) => item.id))
   const storedOnly = stored.filter((item) => !mockIds.has(item.id))
-  const baseline = MOCK_DATASETS.filter((item) => !removed.has(item.id))
+  const baseline = MOCK_DATASETS.filter((item) => !removed.has(item.id)).map((item) => {
+    const saved = storedMap.get(item.id)
+    return saved ? { ...item, ...saved } : item
+  })
   return [...baseline, ...storedOnly]
 }
 

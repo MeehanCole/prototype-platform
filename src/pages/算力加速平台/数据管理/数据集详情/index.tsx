@@ -6,25 +6,24 @@
  * 2. 编辑数据集名称弹窗（56 字以内）
  * 3. 编辑数据集描述弹窗（500 字以内，无额外校验约束）
  * 4. 删除数据集文件确认弹窗（支持单文件删除与批量删除）
- * 5. 新建版本确认弹窗 -> 确定后进入「上传文件」弹窗
- * 6. 上传文件弹窗（只读新版本号 + 普通上传/客户端上传双页签）
+ * 5. 新建版本确认弹窗（确定后只创建版本，不进入上传流程）
+ * 6. 上传文件弹窗（只读当前版本号 + 仅客户端上传命令）
+ * 7. 刷新按钮：重新读取存储，展示 MC 客户端上传后的最新文件
  */
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Check, Copy, Download, Loader2, SquarePen, Trash2, X } from 'lucide-react'
+import { ArrowLeft, Check, Copy, Download, RefreshCw, SquarePen, X } from 'lucide-react'
 import { PlatformHeader, SideNav } from '../数据集管理/_shared'
 import { TagChips } from '../数据集管理/tags'
 import { NAME_MAX_LENGTH, nextVersion, nowStamp } from '../数据集管理/mock'
-import type { Dataset, DatasetStatus, UploadProbe } from '../数据集管理/mock'
+import type { Dataset, UploadProbe } from '../数据集管理/mock'
 import { markRemoved, readDatasets, writeDatasets } from '../数据集管理/store'
 import { isSpaceReady } from '../数据集管理/storage'
 import { DocPanel, DocProvider, FEATURES, NewTag } from './feature-tags'
 
 const LIST_PATH = '/算力加速平台/数据管理/数据集管理'
 const DETAIL_DESC_MAX = 500
-const MAX_FILE_SIZE = 2048 * 1024 * 1024
-const MAX_FILES = 20
 
 interface VersionFile {
   name: string
@@ -33,11 +32,9 @@ interface VersionFile {
 
 interface VersionGroup {
   version: string
-  status: DatasetStatus
-  errorMessage?: string
   sizeGB: number
   files: VersionFile[]
-  /** 客户端上传进度（导入中阶段回填） */
+  /** 客户端上传进度（MC 写入存储过程中的进度回填） */
   upload?: UploadProbe
 }
 
@@ -89,12 +86,6 @@ function buildClientUploadSteps(dataset: Dataset, version: string) {
   ]
 }
 
-function formatFileSize(bytes: number) {
-  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024 / 1024).toFixed(0)}GB`
-  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(2)}MB`
-  return `${(bytes / 1024).toFixed(2)}KB`
-}
-
 /** 可在线预览的文本类扩展名（平台不做内容解析，仅文本类文件能预览） */
 const TEXT_EXTS = ['jsonl', 'json', 'txt', 'csv', 'md', 'tsv', 'yaml', 'yml', 'log']
 
@@ -111,69 +102,22 @@ function isPreviewable(name: string) {
 
 function buildInitialGroups(dataset: Dataset | undefined): VersionGroup[] {
   if (!dataset) return []
-  return dataset.versions.map((ver, index) => {
-    const verStatus = ver.status ?? dataset.status
-    const verError = ver.errorMessage ?? (verStatus === '导入失败' ? dataset.errorMessage : undefined)
-    if (verStatus !== '导入成功') {
-      return {
-        version: ver.version,
-        status: verStatus,
-        errorMessage: verError,
-        sizeGB: verStatus === '导入中' ? dataset.sizeGB : 0,
-        files: [],
-        upload: ver.upload,
-      }
-    }
-    return {
-      version: ver.version,
-      status: verStatus,
-      sizeGB: index === 0 ? 120 : 80,
-      upload: ver.upload,
-      files:
-        index === 0
-          ? [
-              { name: 'part_01.jsonl', sizeText: '40GB' },
-              { name: 'images_2026q1.tar', sizeText: '40GB' },
-              { name: 'readme.md', sizeText: '12KB' },
-            ]
-          : [{ name: 'part_01.jsonl', sizeText: '80GB' }],
-    }
-  })
-}
-
-/** 与列表页一致的状态指示：成功绿点 / 初始化淡蓝等待点 / 导入中蓝色加载圈 / 失败红点+原因 */
-function StatusDisplay({
-  status,
-  errorMessage,
-}: {
-  status: DatasetStatus
-  errorMessage?: string
-}) {
-  return (
-    <span className="inline-flex min-w-0 max-w-full items-center">
-      {status === '导入成功' && (
-        <span className="mr-2 inline-block h-[7px] w-[7px] shrink-0 rounded-full bg-[#34c759]" />
-      )}
-      {status === '初始化' && (
-        <span className="mr-2 inline-block h-[7px] w-[7px] shrink-0 rounded-full bg-[#94bfff]" />
-      )}
-      {status === '导入中' && (
-        <Loader2 size={13} className="mr-1.5 shrink-0 animate-spin text-[#1890ff]" />
-      )}
-      {status === '导入失败' && (
-        <span className="mr-2 inline-block h-[7px] w-[7px] shrink-0 rounded-full bg-[#f53f3f]" />
-      )}
-      <span className="shrink-0 whitespace-nowrap">{status}</span>
-      {status === '导入失败' && errorMessage && (
-        <span
-          className="ml-1.5 min-w-0 truncate text-[12px] text-[#f53f3f]"
-          title={`（${errorMessage}）`}
-        >
-          （{errorMessage}）
-        </span>
-      )}
-    </span>
-  )
+  return dataset.versions.map((ver, index) => ({
+    version: ver.version,
+    sizeGB: index === 0 ? 120 : 80,
+    upload: ver.upload,
+    /** 写入过的文件清单优先展示（列表页上传 / MC 刷新后），否则回落到演示数据 */
+    files:
+      ver.files && ver.files.length > 0
+        ? ver.files
+        : index === 0
+        ? [
+            { name: 'part_01.jsonl', sizeText: '40GB' },
+            { name: 'images_2026q1.tar', sizeText: '40GB' },
+            { name: 'readme.md', sizeText: '12KB' },
+          ]
+        : [{ name: 'part_01.jsonl', sizeText: '80GB' }],
+  }))
 }
 
 function InfoItem({ label, children }: { label: string; children: ReactNode }) {
@@ -191,28 +135,6 @@ function WarnCircleIcon() {
     <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-[#f2b86d] text-[12px] font-bold leading-none text-white">
       !
     </span>
-  )
-}
-
-/** 蓝色上传托盘图标 */
-function UploadTrayIcon() {
-  return (
-    <svg width="26" height="22" viewBox="0 0 28 24" fill="none" aria-hidden>
-      <path d="M14 2L7.5 8.8H11.6V14.8H16.4V8.8H20.5L14 2Z" fill="#1890ff" />
-      <path
-        d="M4 15.5V19.5C4 20.6 4.9 21.5 6 21.5H22C23.1 21.5 24 20.6 24 19.5V15.5H21V18.5H7V15.5H4Z"
-        fill="#1890ff"
-      />
-    </svg>
-  )
-}
-
-/** 文件行左侧扩展名图标：不再固定 Json */
-function FileExtIcon({ fileName }: { fileName: string }) {
-  return (
-    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[4px] bg-[#f2f3f5] text-[10px] font-bold uppercase tracking-tight text-[#86909c]">
-      {fileExtension(fileName).slice(0, 4)}
-    </div>
   )
 }
 
@@ -532,7 +454,7 @@ function NewVersionModal({
   )
 }
 
-/** 6. 上传文件弹窗 */
+/** 6. 上传文件弹窗（仅客户端上传，版本号只读） */
 function UploadFilesModal({
   dataset,
   version,
@@ -542,27 +464,9 @@ function UploadFilesModal({
   dataset: Dataset
   version: string
   onClose: () => void
-  onConfirm: (tab: 'server' | 'client', files: File[]) => void
+  onConfirm: () => void
 }) {
   const clientSteps = buildClientUploadSteps(dataset, version)
-  const [tab, setTab] = useState<'server' | 'client'>('server')
-  const [files, setFiles] = useState<File[]>([])
-  const [error, setError] = useState('')
-
-  function pickFiles(list: FileList | null) {
-    if (!list) return
-    const accepted: File[] = []
-    let ignored = 0
-    for (const file of Array.from(list)) {
-      if (file.size > MAX_FILE_SIZE) {
-        ignored += 1
-        continue
-      }
-      accepted.push(file)
-    }
-    setError(ignored > 0 ? `单个文件不能超过 2048M，已忽略 ${ignored} 个文件` : '')
-    setFiles((prev) => [...prev, ...accepted].slice(0, MAX_FILES))
-  }
 
   return (
     <Modal
@@ -573,120 +477,32 @@ function UploadFilesModal({
       footer={
         <>
           <ModalButton onClick={onClose}>取 消</ModalButton>
-          <ModalButton
-            variant="primary"
-            disabled={tab === 'server' && files.length === 0}
-            onClick={() => onConfirm(tab, files)}
-          >
+          <ModalButton variant="primary" onClick={onConfirm}>
             确 定
           </ModalButton>
         </>
       }
     >
       <div className="space-y-5">
-        {/* 新版本号（只读灰底） */}
+        {/* 版本号（只读灰底，写入当前选中版本） */}
         <div className="flex items-center gap-4">
-          <span className="w-[78px] shrink-0 text-[13px] text-[#1d2129]">新版本号</span>
+          <span className="w-[78px] shrink-0 text-[13px] text-[#1d2129]">版本号</span>
           <div className="flex h-[32px] flex-1 items-center rounded-[4px] bg-[#f5f6f8] px-3 text-[13px] text-[#1d2129]">
             {version}
           </div>
         </div>
 
-        {/* 上传数据文件 */}
+        {/* 客户端上传命令 */}
         <div>
-          <p className="mb-3 text-[13px] text-[#1d2129]">
-            上传数据文件 <span className="text-[#f53f3f]">*</span>
-          </p>
-
-          <div className="inline-flex h-[34px] overflow-hidden rounded-[4px] border border-[#d9d9d9] bg-white">
-            {(
-              [
-                ['server', '普通上传'],
-                ['client', '客户端上传'],
-              ] as const
-            ).map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setTab(key)}
-                className={`h-full w-[104px] text-[13px] transition-colors ${
-                  tab === key
-                    ? 'bg-[#1890ff] font-medium text-white'
-                    : 'bg-white text-[#333] hover:text-[#1890ff]'
-                }`}
-              >
-                {label}
-              </button>
+          <p className="mb-3 text-[13px] text-[#1d2129]">客户端上传</p>
+          <div className="rounded-[4px] border border-dashed border-[#e5e6eb] bg-[#f8f9fc] px-5 py-4">
+            {clientSteps.map((step) => (
+              <div key={step.title} className="mb-4 last:mb-0">
+                <p className="text-[13px] leading-5 text-[#333]">{step.title}</p>
+                <CommandBlock command={step.command} />
+              </div>
             ))}
           </div>
-
-          {tab === 'server' ? (
-            <div className="mt-4 space-y-3">
-              <label
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  pickFiles(e.dataTransfer.files)
-                }}
-                className="flex cursor-pointer flex-col items-center justify-center rounded-[4px] border border-dashed border-[#dcdfe6] bg-[#fafbfd] px-6 py-7 transition-colors hover:border-[#1890ff]"
-              >
-                <input
-                  type="file"
-                  multiple
-                  className="hidden"
-                  onChange={(e) => {
-                    pickFiles(e.target.files)
-                    e.target.value = ''
-                  }}
-                />
-                <UploadTrayIcon />
-                <span className="mt-3 text-[13px] text-[#333]">
-                  拖拽文件到此处，或<span className="text-[#1890ff]">点击上传</span>
-                </span>
-                <span className="mt-1.5 text-center text-[12px] leading-5 text-[#a7acb3]">
-                  不限文件格式，按原样存入存储目录；最多 20 个文件，单个文件不超过 2048M
-                </span>
-              </label>
-
-              {error && <p className="text-[12px] text-[#f53f3f]">{error}</p>}
-
-              {files.length > 0 && (
-                <ul className="space-y-2">
-                  {files.map((file, index) => (
-                    <li
-                      key={`${file.name}-${index}`}
-                      className="flex items-center gap-3 rounded-[4px] border border-[#e5e6eb] bg-white px-4 py-2.5"
-                    >
-                      <FileExtIcon fileName={file.name} />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-[13px] leading-5 text-[#1d2129]">{file.name}</p>
-                        <p className="text-[11px] leading-4 text-[#a7acb3]">
-                          {formatFileSize(file.size)}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        aria-label={`移除 ${file.name}`}
-                        onClick={() => setFiles((prev) => prev.filter((_, i) => i !== index))}
-                        className="shrink-0 text-[#c9cdd4] transition-colors hover:text-[#f53f3f]"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          ) : (
-            <div className="mt-4 rounded-[4px] border border-dashed border-[#e5e6eb] bg-[#f8f9fc] px-5 py-4">
-              {clientSteps.map((step) => (
-                <div key={step.title} className="mb-4 last:mb-0">
-                  <p className="text-[13px] leading-5 text-[#333]">{step.title}</p>
-                  <CommandBlock command={step.command} />
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       </div>
     </Modal>
@@ -725,7 +541,6 @@ export default function DatasetDetailPage({ __showFeat = false }: { __showFeat?:
   const [newVersionOpen, setNewVersionOpen] = useState(false)
   const [uploadModalVersion, setUploadModalVersion] = useState<{
     version: string
-    isNewVersion: boolean
   } | null>(null)
 
   const currentGroup = groups[Math.min(activeVersion, Math.max(groups.length - 1, 0))]
@@ -771,69 +586,57 @@ export default function DatasetDetailPage({ __showFeat = false }: { __showFeat?:
     setDeleteFileTarget(null)
   }
 
+  /** 刷新：重新读取存储 + 清空本地覆盖，展示 MC 客户端上传后的最新文件 */
+  function handleRefresh() {
+    if (!dataset) return
+    setDatasets(readDatasets())
+    setGroupsOverride({})
+    setPreviewFile(null)
+    setSelectedFiles([])
+  }
+
+  /** 新建版本只创建版本，不进入上传流程；上传文件为版本内的独立操作 */
   function handleNewVersionConfirm() {
     if (!dataset) return
     const nextVer = nextVersion(dataset.latestVersion)
+    const stamp = nowStamp()
     setNewVersionOpen(false)
-    setUploadModalVersion({ version: nextVer, isNewVersion: true })
+    updateDataset({
+      latestVersion: nextVer,
+      status: '初始化',
+      errorMessage: undefined,
+      createdAt: stamp,
+      versions: [
+        {
+          version: nextVer,
+          note: '新建版本，等待上传文件',
+          createdAt: stamp,
+          samples: 0,
+          status: '初始化',
+        },
+        ...dataset.versions,
+      ],
+    })
+    const nextGroups: VersionGroup[] = [{ version: nextVer, sizeGB: 0, files: [] }, ...groups]
+    setGroupsOverride((prev) => ({ ...prev, [dataset.id]: nextGroups }))
+    setActiveVersion(0)
+    setPreviewFile(null)
+    setSelectedFiles([])
   }
 
-  function handleUploadConfirm(tab: 'server' | 'client', picked: File[]) {
+  function handleUploadConfirm() {
     if (!dataset || !uploadModalVersion) return
     const stamp = nowStamp()
     const targetVersion = uploadModalVersion.version
-    const nextStatus: DatasetStatus = tab === 'client' ? '初始化' : '导入中'
-    const newFiles: VersionFile[] =
-      picked.length > 0
-        ? picked.map((f) => ({ name: f.name, sizeText: formatFileSize(f.size) }))
-        : []
 
-    const note =
-      tab === 'client'
-        ? '客户端上传，等待写入存储'
-        : `上传 ${picked.length} 个文件，正在解析导入`
+    const nextVersions = dataset.versions.map((ver) =>
+      ver.version === targetVersion
+        ? { ...ver, note: '客户端上传，等待写入存储', createdAt: stamp }
+        : ver,
+    )
+    updateDataset({ versions: nextVersions })
 
-    if (uploadModalVersion.isNewVersion) {
-      updateDataset({
-        latestVersion: targetVersion,
-        status: nextStatus,
-        errorMessage: undefined,
-        createdAt: stamp,
-        versions: [
-          { version: targetVersion, note, createdAt: stamp, samples: 0, status: nextStatus },
-          ...dataset.versions,
-        ],
-      })
-      const nextGroups: VersionGroup[] = [
-        { version: targetVersion, status: nextStatus, sizeGB: 0, files: newFiles },
-        ...groups,
-      ]
-      setGroupsOverride((prev) => ({ ...prev, [dataset.id]: nextGroups }))
-      setActiveVersion(0)
-    } else {
-      const nextVersions = dataset.versions.map((ver) =>
-        ver.version === targetVersion
-          ? { ...ver, status: nextStatus, errorMessage: undefined, note }
-          : ver,
-      )
-      updateDataset({
-        status: targetVersion === dataset.latestVersion ? nextStatus : dataset.status,
-        errorMessage: targetVersion === dataset.latestVersion ? undefined : dataset.errorMessage,
-        versions: nextVersions,
-      })
-      const nextGroups = groups.map((group) =>
-        group.version === targetVersion
-          ? {
-              ...group,
-              status: nextStatus,
-              errorMessage: undefined,
-              files: [...group.files, ...newFiles],
-            }
-          : group,
-      )
-      setGroupsOverride((prev) => ({ ...prev, [dataset.id]: nextGroups }))
-    }
-
+    setGroupsOverride({})
     setUploadModalVersion(null)
   }
 
@@ -868,10 +671,6 @@ export default function DatasetDetailPage({ __showFeat = false }: { __showFeat?:
   }
 
   const totalFiles = currentGroup?.files.length ?? 0
-  const activeStatus: DatasetStatus = currentGroup?.status ?? dataset.status
-  const activeError = currentGroup?.errorMessage ?? (activeStatus === '导入失败' ? dataset.errorMessage : undefined)
-  /** 只有导入成功版本才允许文件操作；初始化/导入中/导入失败统一按暂无数据展示 */
-  const canManageData = activeStatus === '导入成功'
   const activePreviewName = previewFile ?? currentGroup?.files[0]?.name ?? '暂无文件'
 
   return (
@@ -917,9 +716,6 @@ export default function DatasetDetailPage({ __showFeat = false }: { __showFeat?:
                     {__showFeat && <NewTag code="F-EDIT-INFO" compact className="ml-1" />}
                   </span>
                 </InfoItem>
-                <InfoItem label="状态：">
-                  <StatusDisplay status={activeStatus} errorMessage={activeError} />
-                </InfoItem>
                 <InfoItem label="数据集标签：">
                   <TagChips tags={dataset.tags} />
                 </InfoItem>
@@ -949,13 +745,9 @@ export default function DatasetDetailPage({ __showFeat = false }: { __showFeat?:
                 <button
                   type="button"
                   onClick={() => setNewVersionOpen(true)}
-                  disabled={!spaceReady || !canManageData}
+                  disabled={!spaceReady}
                   title={
-                    !canManageData
-                      ? '仅导入成功的数据集可新建版本'
-                      : !spaceReady
-                        ? '未开通数据存储空间，暂不可新建版本'
-                        : undefined
+                    !spaceReady ? '未开通数据存储空间，暂不可新建版本' : undefined
                   }
                   className="h-[28px] rounded-[4px] border border-[#d9d9d9] bg-white px-3 text-[12px] text-[#1d2129] transition-colors hover:border-[#1890ff] hover:text-[#1890ff] disabled:cursor-not-allowed disabled:border-[#e5e6eb] disabled:text-[#c9cdd4] disabled:hover:border-[#e5e6eb] disabled:hover:text-[#c9cdd4]"
                 >
@@ -964,9 +756,18 @@ export default function DatasetDetailPage({ __showFeat = false }: { __showFeat?:
                 <button
                   type="button"
                   onClick={() => setDeleteDatasetOpen(true)}
-                  className="h-[28px] rounded-[4px] border border-[#d9d9d9] bg-white px-3 text-[12px] text-[#1d2129] transition-colors hover:border-[#f53f3f] hover:text-[#f53f3f]"
+                  className="h-[28px] rounded-[4px] border border-[#f53f3f] bg-white px-3 text-[12px] text-[#f53f3f] transition-colors hover:bg-[#fff1f0]"
                 >
                   删除
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRefresh}
+                  title="重新读取存储，展示最新写入的文件"
+                  className="flex h-[28px] items-center gap-1 rounded-[4px] border border-[#d9d9d9] bg-white px-3 text-[12px] text-[#1d2129] transition-colors hover:border-[#1890ff] hover:text-[#1890ff]"
+                >
+                  <RefreshCw size={12} />
+                  刷新
                 </button>
                 {__showFeat && <NewTag code="F-DATASET-ACTIONS" compact className="ml-1" />}
               </div>
@@ -1032,19 +833,10 @@ export default function DatasetDetailPage({ __showFeat = false }: { __showFeat?:
                         type="button"
                         onClick={() =>
                           currentGroup &&
-                          setUploadModalVersion({
-                            version: currentGroup.version,
-                            isNewVersion: false,
-                          })
+                          setUploadModalVersion({ version: currentGroup.version })
                         }
-                        disabled={!spaceReady || !canManageData}
-                        title={
-                          !canManageData
-                            ? '仅导入成功的数据集可上传文件'
-                            : !spaceReady
-                              ? '未开通数据存储空间，暂不可上传文件'
-                              : undefined
-                        }
+                        disabled={!spaceReady}
+                        title={!spaceReady ? '未开通数据存储空间，暂不可上传文件' : undefined}
                         className="h-[26px] rounded-[4px] bg-[#1890ff] px-3 text-[12px] text-white transition-colors hover:bg-[#0d7be8] disabled:cursor-not-allowed disabled:bg-[#a3c4ff] disabled:hover:bg-[#a3c4ff]"
                       >
                         上传文件
@@ -1084,7 +876,7 @@ export default function DatasetDetailPage({ __showFeat = false }: { __showFeat?:
                       </tr>
                     </thead>
                     <tbody>
-                            {!canManageData || totalFiles === 0 ? (
+                            {totalFiles === 0 ? (
                               <tr>
                                 <td colSpan={4} className="px-4 py-8 text-center text-[12px] text-[#86909c]">
                                   暂无数据

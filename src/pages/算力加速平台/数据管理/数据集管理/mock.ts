@@ -58,6 +58,8 @@ export interface DatasetVersion {
   errorMessage?: string
   /** 客户端上传进度，在「导入中」阶段回填，用于展示 3/8 这类传输进度 */
   upload?: UploadProbe
+  /** 该版本已提交的文件清单；用于列表页上传后详情页能直接看到文件行 */
+  files?: { name: string; sizeText: string }[]
 }
 
 export interface Dataset {
