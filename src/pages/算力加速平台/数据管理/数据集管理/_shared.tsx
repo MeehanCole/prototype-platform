@@ -1,9 +1,10 @@
 /**
- * 「数据集管理」页面的产品外壳（薄适配层）
+ * 「数据集管理」相关页面的产品外壳（薄适配层）
  *
  * 外壳本体复用 src/lib/platform-shell，本文件只负责：
- *   1. 在「算力加速平台」预设基础上，往菜单里补一条「数据集管理」；
- *   2. 把 react-router 的 navigate 注入给 SideNav。
+ *   1. 在「基础资源」分组内插入数据集管理条目；
+ *   2. 为「算力评测」分组下的性能评估条目补上跳转与选中态；
+ *   3. 把 react-router 的 navigate 注入给 SideNav。
  *
  * 不修改共享预设 CALSPEED_SHELL，避免其它页面菜单被连带改动。
  */
@@ -15,28 +16,38 @@ import {
 import { CALSPEED_SHELL } from '@/lib/platform-shell/presets/calspeed'
 import type { ShellNavRow } from '@/lib/platform-shell'
 
-const PAGE_PATH = '/算力加速平台/数据管理/数据集管理'
+const DATASET_PATH = '/算力加速平台/数据管理/数据集管理'
+const PERF_PATH = '/算力加速平台/数据管理/性能评估'
 
-/** 在「基础资源」分组末尾插入「数据集管理」菜单项 */
+/** 在「基础资源」分组末尾插入数据集管理，并给「算力评测」下的性能评估补跳转 */
 function buildRows(activeKey?: string): ShellNavRow[] {
-  const rows = CALSPEED_SHELL.rows(activeKey)
-  const entry: ShellNavRow = {
-    kind: 'item',
-    label: '数据集管理',
-    icon: 'repo',
-    lvl: 2,
-    active: activeKey === '数据集管理',
-    path: PAGE_PATH,
-  }
+  const baseRows = CALSPEED_SHELL.rows(activeKey)
+
+  const rows = baseRows.map((row) =>
+    row.kind === 'item' && row.label === '性能评估'
+      ? { ...row, path: PERF_PATH, active: activeKey === '性能评估' }
+      : row,
+  )
+
+  const entries: ShellNavRow[] = [
+    {
+      kind: 'item',
+      label: '数据集管理',
+      icon: 'repo',
+      lvl: 2,
+      active: activeKey === '数据集管理',
+      path: DATASET_PATH,
+    },
+  ]
   const sectionIndex = rows.findIndex(
     (row) => row.kind === 'section' && row.label === '基础资源',
   )
-  if (sectionIndex < 0) return [...rows, entry]
+  if (sectionIndex < 0) return [...rows, ...entries]
   const nextSectionIndex = rows.findIndex(
     (row, i) => i > sectionIndex && row.kind === 'section',
   )
   const insertAt = nextSectionIndex < 0 ? rows.length : nextSectionIndex
-  return [...rows.slice(0, insertAt), entry, ...rows.slice(insertAt)]
+  return [...rows.slice(0, insertAt), ...entries, ...rows.slice(insertAt)]
 }
 
 export function PlatformHeader() {

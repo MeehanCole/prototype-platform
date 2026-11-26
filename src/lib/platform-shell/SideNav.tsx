@@ -58,10 +58,10 @@ export function SideNav({
 
       {/* 菜单行（行高 40px） */}
       <nav className="flex-1">
-        {rows.map((row) => {
+        {rows.map((row, rowIndex) => {
           if (row.kind === 'section') {
             return (
-              <div key={row.label} className="h-[40px] flex items-start pt-[12px] pl-[28px] text-[15px] text-[#8c8c8c]">
+              <div key={`${row.label}-${rowIndex}`} className="h-[40px] flex items-start pt-[12px] pl-[28px] text-[15px] text-[#8c8c8c]">
                 {row.label}
               </div>
             )
@@ -72,7 +72,7 @@ export function SideNav({
             const activeIndent =
               row.lvl === 3 ? 'pl-[56px]' : row.lvl === 1 ? 'pl-[18px]' : 'pl-[38px]'
             return (
-              <div key={row.label} className="h-[40px] flex items-center">
+              <div key={`${row.label}-${rowIndex}`} className="h-[40px] flex items-center">
                 <div className={`ml-[8px] h-[35px] rounded-md bg-[#ECF1FD] flex items-center pr-3 w-[214px] ${activeIndent}`}>
                   {row.icon && <ShellIcon name={row.icon} size={20} color={iconColor} />}
                   <span className="ml-[8px] text-[18px] text-[var(--shell-accent)] font-medium">{row.label}</span>
@@ -84,7 +84,7 @@ export function SideNav({
           const clickable = Boolean(row.path || row.onClick)
           return (
             <div
-              key={row.label}
+              key={`${row.label}-${rowIndex}`}
               onClick={() => {
                 if (row.onClick) row.onClick()
                 else if (row.path && onNavigate) onNavigate(row.path)
