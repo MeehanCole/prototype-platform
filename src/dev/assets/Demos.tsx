@@ -24,6 +24,7 @@ import {
 import { cn } from '@/lib/utils'
 import { copyText } from './clipboard'
 import { TablePagination } from '@/lib/table-pagination'
+import { SearchBar } from '@/lib/search-bar'
 import {
   ResourceQuotaBoard,
   type ResourceQuotaCluster,
@@ -566,6 +567,58 @@ export function TablePaginationDemo() {
       <p className="text-[11px] leading-5 text-muted-foreground">
         当前页与条数选择器聚焦描边取 <code className="font-mono text-foreground">var(--shell-accent)</code>，
         改一个 CSS 变量即可与顶栏/侧栏一起换品牌色。
+      </p>
+    </div>
+  )
+}
+// ─── 检索条 ──────────────────────────────────────────────────────────────────
+
+export function SearchBarDemo() {
+  const [plain, setPlain] = useState('')
+  const [filterKeyword, setFilterKeyword] = useState('')
+  const [field, setField] = useState('name')
+
+  const card = 'rounded-[4px] bg-white p-3 shadow-[0_2px_8px_rgba(0,0,0,0.08)]'
+
+  return (
+    <div className="space-y-4 rounded-lg border border-border bg-card p-4">
+      <div>
+        <p className="mb-3 text-[11px] text-muted-foreground">单输入形态 · 不传 fields</p>
+        <div className={card}>
+          <SearchBar
+            value={plain}
+            onChange={setPlain}
+            onSearch={() => {}}
+            onRefresh={() => {}}
+          />
+        </div>
+      </div>
+
+      <div className="border-t border-border pt-4">
+        <p className="mb-3 text-[11px] text-muted-foreground">
+          带过滤项形态 · 传 fields（当前字段：{field}）
+        </p>
+        <div className={card}>
+          <SearchBar
+            value={filterKeyword}
+            onChange={setFilterKeyword}
+            onSearch={() => {}}
+            fields={[
+              { label: '名称', value: 'name' },
+              { label: '状态', value: 'status' },
+              { label: '创建人', value: 'creator' },
+            ]}
+            fieldValue={field}
+            onFieldChange={setField}
+            placeholder="请输入"
+            onRefresh={() => {}}
+          />
+        </div>
+      </div>
+
+      <p className="text-[11px] leading-5 text-muted-foreground">
+        卡片外壳（白底 + 阴影 + 内边距）由使用方包裹，组件只负责一行控件；聚焦描边取{' '}
+        <code className="font-mono text-foreground">var(--shell-accent)</code>。
       </p>
     </div>
   )

@@ -23,6 +23,7 @@ import {
   ProductNavDemo,
   ProjectQuotaDemo,
   ResourceQuotaDemo,
+  SearchBarDemo,
   ShellDemo,
   TablePaginationDemo,
 } from './Demos'
@@ -256,6 +257,8 @@ function AssetDemo({ id }: { id: string }) {
       return <DesignTokensDemo />
     case 'table-pagination':
       return <TablePaginationDemo />
+    case 'search-bar':
+      return <SearchBarDemo />
     case 'project-quota':
       return <ProjectQuotaDemo />
     case 'resource-quota':

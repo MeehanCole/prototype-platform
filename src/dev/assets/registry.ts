@@ -134,6 +134,37 @@ import { CALSPEED_SHELL } from '@/lib/platform-shell/presets/calspeed'
 />`,
   },
   {
+    id: 'search-bar',
+    kind: '组件素材',
+    name: '检索条',
+    summary:
+      '组合式检索条：输入框 + 后置放大镜 + 刷新按钮；传 fields 即带前置字段下拉（名称/状态…），不传为单输入。高 32px、4px 圆角、灰底 addon。',
+    status: 'beta',
+    importPath: '@/lib/search-bar',
+    usage: ['素材库预览（待接入列表页工具栏）'],
+    tags: ['检索', '搜索', '筛选', '字段下拉', '刷新'],
+    docs: [{ id: 'doc-search-bar' }],
+    snippet: `import { SearchBar } from '@/lib/search-bar'
+
+<SearchBar
+  value={keyword}
+  onChange={setKeyword}
+  onSearch={() => setPage(1)}
+  onRefresh={reload}
+/>
+
+// 带过滤项
+<SearchBar
+  value={keyword}
+  onChange={setKeyword}
+  onSearch={() => setPage(1)}
+  fields={[{ label: '名称', value: 'name' }, { label: '状态', value: 'status' }]}
+  fieldValue={field}
+  onFieldChange={setField}
+  placeholder="请输入"
+/>`,
+  },
+  {
     id: 'resource-quota',
     kind: '组件素材',
     name: '资源配额卡片',
@@ -290,6 +321,13 @@ export const DOCS: DocEntry[] = [
     file: '/docs/TablePagination/表格分页.md',
     summary: '一行式分页的视觉规格表、页码折叠规则、props 清单与换品牌色方法',
     tags: ['分页', '规格'],
+  },
+  {
+    id: 'doc-search-bar',
+    name: '检索条素材',
+    file: '/docs/SearchBar/检索条.md',
+    summary: '两种形态、视觉规格表、props 清单与最小接入',
+    tags: ['检索', '规格'],
   },
   {
     id: 'doc-resource-quota',

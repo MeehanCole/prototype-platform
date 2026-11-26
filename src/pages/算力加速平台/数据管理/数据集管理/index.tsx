@@ -5,10 +5,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Pencil, Plus, Search, X } from 'lucide-react'
+import { Pencil, Plus, X } from 'lucide-react'
 import { PlatformHeader, SideNav } from './_shared'
 import { TagChips } from './tags'
 import { TablePagination } from '@/lib/table-pagination'
+import { SearchBar } from '@/lib/search-bar'
 import {
   NAME_MAX_LENGTH,
   PAGE_SIZES,
@@ -517,41 +518,19 @@ export default function DatasetPage({ __forceNoSpace = false, __showFeat = false
               </button>
 
               <div className="flex shrink-0 items-center gap-2">
-                <div className="relative">
-                  <input
-                    value={keyword}
-                    onChange={(e) => setKeyword(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleSearch()
-                      if (e.key === 'Escape') handleClearSearch()
-                    }}
-                    placeholder="请输入数据集名称"
-                    aria-label="搜索数据集名称"
-                    className="h-10 w-[292px] max-w-[46vw] rounded-[2px] border border-[#e5e6eb] bg-white pl-3 pr-9 text-[13px] text-[#1d2129] outline-none placeholder:text-[#a7acb3] focus:border-[#166eff]"
-                  />
-                  {__showFeat && <NewTag code="F-SEARCH" compact className="ml-2" />}
-                  {/* 有输入内容时显示清空按钮：清空草稿并立即恢复全量列表 */}
-                  {keyword && (
-                    <button
-                      type="button"
-                      onClick={handleClearSearch}
-                      aria-label="清空搜索内容"
-                      title="清空"
-                      className="absolute right-2 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-[#a7acb3] transition-colors hover:bg-[#f2f3f5] hover:text-[#4e5969]"
-                    >
-                      <X size={13} />
-                    </button>
-                  )}
-                  {__showFeat && <NewTag code="F-CLEAR" compact className="ml-2" />}
-                </div>
-
-                <button
-                  onClick={handleSearch}
-                  aria-label="搜索"
-                  className="flex h-10 w-10 items-center justify-center rounded-[2px] border border-[#e5e6eb] bg-[#f6f8fa] text-[#4e5969] transition-colors hover:border-[#166eff] hover:text-[#166eff]"
-                >
-                  <Search size={16} />
-                </button>
+                <SearchBar
+                  value={keyword}
+                  onChange={setKeyword}
+                  onSearch={handleSearch}
+                  showClear
+                  onClear={handleClearSearch}
+                  inputWidth={292}
+                  placeholder="请输入数据集名称"
+                  aria-label="搜索数据集名称"
+                  showRefresh={false}
+                />
+                {__showFeat && <NewTag code="F-SEARCH" compact className="ml-2" />}
+                {__showFeat && <NewTag code="F-CLEAR" compact className="ml-2" />}
               </div>
             </div>
 

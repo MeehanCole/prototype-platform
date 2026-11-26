@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { DocPanel, DocProvider, FEATURES, NewTag } from '../feature-tags'
 import { PlatformHeader, SideNav } from '../_shared'
+import { SearchBar } from '@/lib/search-bar'
 
 type Instance = {
   label: string
@@ -193,6 +194,7 @@ function DropdownSelect({
   widthClass,
   textClass = 'text-[14.5px]',
   joined,
+  bare,
   onChange,
 }: {
   value: string
@@ -201,6 +203,8 @@ function DropdownSelect({
   widthClass: string
   textClass?: string
   joined?: boolean
+  /** 作为检索条内部控件使用：铺满容器、无自身边框 */
+  bare?: boolean
   onChange: (v: string) => void
 }) {
   const [open, setOpen] = useState(false)
@@ -215,20 +219,38 @@ function DropdownSelect({
   }, [open])
   const selected = options.includes(value)
   return (
-    <div ref={ref} className={`relative inline-block ${widthClass}`}>
+    <div ref={ref} className={bare ? 'relative h-full w-full' : `relative inline-block ${widthClass}`}>
       <span
         onClick={() => setOpen((o) => !o)}
-        className={`${joined ? 'w-full rounded-r border-l-0' : `${widthClass} rounded`} h-[36px] inline-flex items-center justify-between border border-[#d9d9d9] bg-white px-3 ${textClass} ${
-          selected ? 'text-[#333]' : 'text-[#bfbfbf]'
-        } cursor-pointer`}
+        className={
+          bare
+            ? `flex h-full w-full cursor-pointer items-center justify-between bg-transparent px-3 text-[14px] ${
+                selected ? 'text-[#1f2329]' : 'text-[#86909c]'
+              }`
+            : `${joined ? 'w-full rounded-r border-l-0' : `${widthClass} rounded`} h-[36px] inline-flex items-center justify-between border border-[#d9d9d9] bg-white px-3 ${textClass} ${
+                selected ? 'text-[#333]' : 'text-[#bfbfbf]'
+              } cursor-pointer`
+        }
       >
-        {selected ? value : placeholder}
-        <svg width={12} height={12} viewBox="0 0 10 10" fill="none" aria-hidden>
-          <path d="m2 3.5 3 3 3-3" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+        <span className="truncate">{selected ? value : placeholder}</span>
+        <svg width={12} height={12} viewBox="0 0 10 10" fill="none" aria-hidden className="shrink-0">
+          <path
+            d="m2 3.5 3 3 3-3"
+            stroke={bare ? '#86909c' : '#999'}
+            strokeWidth="1.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
         </svg>
       </span>
       {open && (
-        <div className="absolute left-0 top-[41px] z-30 w-full rounded-[4px] border border-[#e4e6eb] bg-white shadow-[0_4px_16px_rgba(0,0,0,0.08)]">
+        <div
+          className={
+            bare
+              ? 'absolute left-0 top-full z-30 mt-[2px] w-full rounded-[4px] border border-[#e4e6eb] bg-white shadow-[0_4px_16px_rgba(0,0,0,0.08)]'
+              : 'absolute left-0 top-[41px] z-30 w-full rounded-[4px] border border-[#e4e6eb] bg-white shadow-[0_4px_16px_rgba(0,0,0,0.08)]'
+          }
+        >
           <div className="block py-[4px]">
             {options.map((opt) => (
               <div
@@ -242,52 +264,6 @@ function DropdownSelect({
                 }`}
               >
                 {opt}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function FilterSelect({ value, onChange }: { value: FilterField; onChange: (f: FilterField) => void }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!open) return
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', onDoc)
-    return () => document.removeEventListener('mousedown', onDoc)
-  }, [open])
-  return (
-    <div ref={ref} className="relative inline-block shrink-0">
-      <span
-        onClick={() => setOpen((o) => !o)}
-        className="h-[36px] inline-flex items-center justify-between gap-[10px] rounded-l border border-r-0 border-[#d9d9d9] bg-white pl-3 pr-2 text-[14.5px] text-[#333] cursor-pointer"
-      >
-        {value}
-        <svg width={10} height={10} viewBox="0 0 10 10" fill="none" aria-hidden>
-          <path d="m2 3.5 3 3 3-3" stroke="#999" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </span>
-      {open && (
-        <div className="absolute left-0 top-[41px] z-30 w-[132px] rounded-[4px] border border-[#e4e6eb] bg-white shadow-[0_4px_16px_rgba(0,0,0,0.08)]">
-          <div className="block py-[4px]">
-            {FILTER_FIELDS.map((f) => (
-              <div
-                key={f}
-                onClick={() => {
-                  onChange(f)
-                  setOpen(false)
-                }}
-                className={`flex h-[36px] items-center cursor-pointer px-[14px] text-[14px] ${
-                  f === value ? 'bg-[#f5f7fa] text-[#166EFF]' : 'text-[#333] hover:bg-[#f5f7fa]'
-                }`}
-              >
-                {f}
               </div>
             ))}
           </div>
@@ -321,49 +297,41 @@ function ListToolbar({
   onReset: () => void
 }) {
   return (
-    <div className="ml-auto flex items-center">
-      <FilterSelect value={filterField} onChange={setFilterField} />
-      {filterField === '服务名称' && (
-        <input
-          value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && onQuery()}
-          placeholder="请输入服务名称"
-          className="h-[36px] w-[280px] rounded-r border border-l-0 border-[#d9d9d9] px-3 text-[14.5px] text-[#333] placeholder:text-[#bfbfbf] outline-none focus:border-[#166EFF]"
-        />
-      )}
-      {filterField === '调用模型名' && (
-        <DropdownSelect
-          value={modelValue}
-          options={MODEL_OPTIONS}
-          placeholder="请选择调用模型名"
-          widthClass="w-[280px]"
-          joined
-          onChange={setModelValue}
-        />
-      )}
-      {filterField === '发布状态' && (
-        <DropdownSelect
-          value={publishStatusValue}
-          options={PUBLISH_STATUS_OPTIONS}
-          placeholder="请选择发布状态"
-          widthClass="w-[280px]"
-          joined
-          onChange={setPublishStatusValue}
-        />
-      )}
-      <button
-        onClick={onQuery}
-        className="ml-[14px] h-[36px] w-[68px] rounded bg-[#166EFF] text-[14.5px] text-white cursor-pointer"
-      >
-        查询
-      </button>
-      <button
-        onClick={onReset}
-        className="ml-[14px] h-[36px] w-[68px] rounded border border-[#d9d9d9] bg-white text-[14.5px] text-[#333] cursor-pointer"
-      >
-        重置
-      </button>
+    <div className="ml-auto flex items-center gap-[10px]">
+      <SearchBar
+        value={keyword}
+        onChange={setKeyword}
+        onSearch={onQuery}
+        fields={FILTER_FIELDS.map((f) => ({ label: f, value: f }))}
+        fieldValue={filterField}
+        onFieldChange={(v) => setFilterField(v as FilterField)}
+        fieldWidth={132}
+        inputWidth={280}
+        placeholder={filterField === '服务名称' ? '请输入服务名称' : filterField === '调用模型名' ? '请选择调用模型名' : '请选择发布状态'}
+        onRefresh={onReset}
+        refreshTitle="重置"
+        control={
+          filterField === '调用模型名' ? (
+            <DropdownSelect
+              value={modelValue}
+              options={MODEL_OPTIONS}
+              placeholder="请选择调用模型名"
+              widthClass="w-full"
+              bare
+              onChange={setModelValue}
+            />
+          ) : filterField === '发布状态' ? (
+            <DropdownSelect
+              value={publishStatusValue}
+              options={PUBLISH_STATUS_OPTIONS}
+              placeholder="请选择发布状态"
+              widthClass="w-full"
+              bare
+              onChange={setPublishStatusValue}
+            />
+          ) : undefined
+        }
+      />
     </div>
   )
 }

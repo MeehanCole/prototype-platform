@@ -20,7 +20,7 @@ export const FEATURES: Record<string, FeatureDoc> = {
     type: '新增',
     title: '新增数据集名称检索',
     changes: [
-      '工具栏提供数据集名称关键字输入与放大镜按钮',
+      '工具栏检索条改用通用素材 SearchBar（32px 高、4px 圆角、灰底 addon），提供数据集名称关键字输入与放大镜按钮',
       '仅按数据集名称进行模糊匹配，大小写不敏感',
       '点击放大镜或回车后执行搜索，并回到第 1 页',
     ],
